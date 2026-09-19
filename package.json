@@ -1,0 +1,17 @@
+{
+  "name": "pxg-hunts",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/backend",
+    "apps/frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev -w apps/backend\" \"npm run dev -w apps/frontend\"",
+    "build": "npm run build -w apps/frontend && npm run build -w apps/backend",
+    "start": "npm run start -w apps/backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
