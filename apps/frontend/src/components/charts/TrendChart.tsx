@@ -96,13 +96,17 @@ export function TrendChart({
                     </div>
                   )}
                   {bucket === 'hunt' && (row.jadeTotemCount ?? 0) > 0 && (
-                    <div style={{ color: row.jadeSevere ? 'var(--jade)' : 'var(--jade-soft)' }}>
+                    // --jade/--jade-soft are tuned as chart-marker fills, not
+                    // text-on-surface colors (the soft variant fails WCAG
+                    // contrast as text - ~1.7:1 in light theme). Severity is
+                    // shown by weight instead, using the badge-safe token.
+                    <div style={{ color: 'var(--jade-badge-text)', fontWeight: row.jadeSevere ? 700 : 400 }}>
                       🟢 Jade Totem{row.jadeSevere ? ' (severo)' : ''} × {row.jadeTotemCount}
                     </div>
                   )}
                   {bucket === 'hunt' &&
                     getRareDrops(row.topDrops ?? [], rareDropThreshold).map((drop) => (
-                      <div key={drop.item} style={{ color: 'var(--rare-drop)' }}>
+                      <div key={drop.item} style={{ color: 'var(--rare-drop-badge-text)' }}>
                         💎 {drop.item} ({formatCompact(drop.unitPrice)}/un.)
                       </div>
                     ))}

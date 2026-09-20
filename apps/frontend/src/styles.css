@@ -362,7 +362,10 @@ button:disabled {
 
 .badge-jade-severe {
   background: var(--jade);
-  color: #042e1f;
+  /* Near-black rather than pure white: WCAG contrast against --jade is
+     ~6.8:1 (light theme) / ~10:1 (dark theme) with dark text, vs ~2:1 with
+     white text in dark theme - white was unreadable there. */
+  color: #04140d;
   font-weight: 800;
 }
 

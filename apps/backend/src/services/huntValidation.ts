@@ -42,7 +42,7 @@ const sessionSchema = z.object({
   'Damage dealt per second': z.number(),
   'Damage taken per second': z.number(),
   'Kills per hour': z.number(),
-  'Time to next level': z.string().optional(),
+  'Time to next level': z.string().nullable().optional(),
   'Paused seconds': z.number().optional().default(0),
   'Raw gains': z.number(),
   Experience: z.number(),
@@ -53,7 +53,7 @@ const sessionSchema = z.object({
   'Session type': z.enum(['player', 'party']),
   Supplies: z.number(),
   'Session ID': z.number().optional(),
-  'Time to next level seconds': z.number().optional(),
+  'Time to next level seconds': z.number().nullable().optional(),
   Profit: z.number(),
   Start: z.string(),
 });

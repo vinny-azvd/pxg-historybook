@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
@@ -34,6 +34,7 @@ export function DashboardPage() {
   const [dayTrend, setDayTrend] = useState<TrendPoint[]>([]);
   const [dayHunts, setDayHunts] = useState<HuntListItem[]>([]);
   const [dayHuntsLoading, setDayHuntsLoading] = useState(false);
+  const drillDownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setPointFilter(null);
@@ -78,6 +79,14 @@ export function DashboardPage() {
       })
       .finally(() => setDayHuntsLoading(false));
   }, [player, sessionType, pointFilter?.from, pointFilter?.to]);
+
+  // The drill-down section appears below the fold, so without this a click
+  // silently adds content the user has no reason to notice or scroll for.
+  useEffect(() => {
+    if (pointFilter) {
+      drillDownRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [pointFilter?.from, pointFilter?.to]);
 
   function handlePointClick(bucketStart: string) {
     if (bucket === 'hunt') return;
@@ -223,7 +232,7 @@ export function DashboardPage() {
       </div>
 
       {pointFilter && (
-        <div className="section">
+        <div className="section" ref={drillDownRef} style={{ scrollMarginTop: 16 }}>
           <h2 className="section-title">
             Hunts em {selectedBucketStart ? formatBucketLabel(selectedBucketStart, bucket) : ''}
             {!dayHuntsLoading && <> ({dayHunts.length})</>}
