@@ -39,7 +39,10 @@ function shortDate(date: Date): string {
 
 /** Formats a trend bucket's start date for display, according to its granularity:
  * a single day as "dd/mm", a week as its "dd/mm–dd/mm" range, a month as "mmm/aaaa". */
-export function formatBucketLabel(bucketStart: string, bucket: 'day' | 'week' | 'month'): string {
+export function formatBucketLabel(bucketStart: string, bucket: 'day' | 'week' | 'month' | 'hunt'): string {
+  if (bucket === 'hunt') {
+    return formatDateTime(bucketStart);
+  }
   if (bucket === 'month') {
     const [year, month] = bucketStart.split('-').map(Number);
     const label = new Date(year, month - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });

@@ -28,6 +28,10 @@ huntsRouter.post('/', (req, res) => {
   const huntPayload = isWrapped ? (body as { hunt: unknown }).hunt : body;
   const huntNameOverrideRaw = isWrapped ? (body as { huntName?: unknown }).huntName : undefined;
   const huntNameOverride = typeof huntNameOverrideRaw === 'string' ? huntNameOverrideRaw : undefined;
+  const crystalSelectionsRaw = isWrapped ? (body as { nightmareCrystalSelections?: unknown }).nightmareCrystalSelections : undefined;
+  const nightmareCrystalSelections = Array.isArray(crystalSelectionsRaw)
+    ? crystalSelectionsRaw.filter((v): v is string => typeof v === 'string')
+    : undefined;
 
   const parsed = validateHuntExport(huntPayload);
   if (!parsed.success) {
@@ -36,7 +40,7 @@ huntsRouter.post('/', (req, res) => {
 
   const rawJson = JSON.stringify(huntPayload);
   try {
-    const result = ingestHunt(rawJson, parsed.data, huntNameOverride);
+    const result = ingestHunt(rawJson, parsed.data, huntNameOverride, nightmareCrystalSelections);
     const summary = db.prepare('SELECT * FROM hunts WHERE id = ?').get(result.id);
     res.status(201).json({ ...result, summary });
   } catch (err) {
@@ -67,8 +71,13 @@ huntsRouter.get('/', (req, res) => {
     .prepare(
       `SELECT h.id, h.hunt_name, h.session_type, h.status, h.start_time, h.duration_seconds, h.kills, h.kills_per_hour,
               h.rare_kills, h.rare_kills_per_hour, h.experience_per_hour, h.supplies_cost, h.supplies_per_hour,
-              h.profit, h.profit_per_hour,
-              (SELECT GROUP_CONCAT(p.name, '||') FROM hunt_players hp JOIN players p ON p.id = hp.player_id WHERE hp.hunt_id = h.id) AS players
+              h.profit, h.profit_per_hour, h.jade_totem_count,
+              h.damage_dealt_per_second, h.damage_taken_per_second,
+              CASE WHEN h.jade_totem_count > 0 AND (h.jade_totem_count * 3600) < h.duration_seconds THEN 1 ELSE 0 END AS jade_severe,
+              (SELECT GROUP_CONCAT(p.name, '||') FROM hunt_players hp JOIN players p ON p.id = hp.player_id WHERE hp.hunt_id = h.id) AS players,
+              (SELECT GROUP_CONCAT(td.item || '::' || td.unit_price, '||')
+                 FROM (SELECT item, unit_price FROM hunt_drops WHERE hunt_id = h.id AND (ignored IS NULL OR ignored = 0)
+                       ORDER BY unit_price DESC LIMIT 5) td) AS top_drops
        FROM hunts h
        ${whereClause}
        ORDER BY ${sortColumn} ${sortOrder}
@@ -78,7 +87,14 @@ huntsRouter.get('/', (req, res) => {
 
   const items = rows.map((row: any) => ({
     ...row,
+    jade_severe: !!row.jade_severe,
     players: row.players ? row.players.split('||') : [],
+    top_drops: row.top_drops
+      ? row.top_drops.split('||').map((entry: string) => {
+          const [item, unitPrice] = entry.split('::');
+          return { item, unitPrice: Number(unitPrice) };
+        })
+      : [],
   }));
 
   res.json({ items, total: total.count, page: pageNum, pageSize: pageSizeNum });

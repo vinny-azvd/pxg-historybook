@@ -19,6 +19,7 @@ export interface OverviewStats {
   avgDamageDealtPerSecond: number | null;
   avgDamageTakenPerSecond: number | null;
   mostProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
+  leastProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
   mostFrequentHunt: { huntName: string; count: number } | null;
 }
 
@@ -61,6 +62,18 @@ export function computeOverview(filter: HuntFilterQuery): OverviewStats {
     | { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string }
     | undefined;
 
+  const leastProfitable = db
+    .prepare(
+      `SELECT h.id, h.hunt_name AS huntName, h.profit, h.profit_per_hour AS profitPerHour, h.start_time AS startTime
+       FROM hunts h
+       ${whereClause}
+       ORDER BY h.profit ASC
+       LIMIT 1`
+    )
+    .get(params) as
+    | { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string }
+    | undefined;
+
   const nameWhereClause = whereClause
     ? `${whereClause} AND h.hunt_name IS NOT NULL`
     : 'WHERE h.hunt_name IS NOT NULL';
@@ -79,6 +92,7 @@ export function computeOverview(filter: HuntFilterQuery): OverviewStats {
   return {
     ...aggregates,
     mostProfitableHunt: mostProfitable ?? null,
+    leastProfitableHunt: leastProfitable ?? null,
     mostFrequentHunt: mostFrequent ?? null,
   };
 }
@@ -104,6 +118,38 @@ export function computeAvailableMonths(filter: Pick<HuntFilterQuery, 'player' | 
 
 export function computeTrends(filter: HuntFilterQuery, bucket: string) {
   const { whereClause, params } = buildHuntFilter(filter);
+
+  if (bucket === 'hunt') {
+    const rows = db
+      .prepare(
+        `SELECT h.id AS huntId, h.hunt_name AS huntName, h.start_time AS bucketStart,
+                1 AS huntCount, h.profit AS totalProfit, h.profit_per_hour AS avgProfitPerHour,
+                h.kills_per_hour AS avgKillsPerHour, h.rare_kills_per_hour AS avgRareKillsPerHour,
+                h.experience_per_hour AS avgExperiencePerHour, h.supplies_per_hour AS avgSuppliesPerHour,
+                h.jade_totem_count AS jadeTotemCount,
+                CASE WHEN h.jade_totem_count > 0 AND (h.jade_totem_count * 3600) < h.duration_seconds THEN 1 ELSE 0 END AS jadeSevere,
+                (SELECT GROUP_CONCAT(td.item || '::' || td.unit_price, '||')
+                   FROM (SELECT item, unit_price FROM hunt_drops WHERE hunt_id = h.id AND (ignored IS NULL OR ignored = 0)
+                         ORDER BY unit_price DESC LIMIT 5) td) AS topDropsRaw
+         FROM hunts h
+         ${whereClause}
+         ORDER BY h.start_time ASC`
+      )
+      .all(params) as any[];
+
+    return rows.map((row) => ({
+      ...row,
+      jadeSevere: !!row.jadeSevere,
+      topDrops: row.topDropsRaw
+        ? row.topDropsRaw.split('||').map((entry: string) => {
+            const [item, unitPrice] = entry.split('::');
+            return { item, unitPrice: Number(unitPrice) };
+          })
+        : [],
+      topDropsRaw: undefined,
+    }));
+  }
+
   const bucketExpr = BUCKET_EXPRESSIONS[bucket] ?? BUCKET_EXPRESSIONS.week;
 
   return db

@@ -2,23 +2,28 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
+import { usePreferences } from '../PreferencesContext';
 import type { OverviewStats, TrendPoint } from '../api/types';
 import { StatTile } from '../components/StatTile';
 import { TrendChart } from '../components/charts/TrendChart';
 import { formatBucketLabel, formatCompact, formatDateTime, formatInt } from '../format';
 import { bucketRange } from '../dates';
 
-const BUCKET_OPTIONS: { value: 'day' | 'week' | 'month'; label: string }[] = [
+type Bucket = 'day' | 'week' | 'month' | 'hunt';
+
+const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
   { value: 'day', label: 'Dia' },
   { value: 'week', label: 'Semana' },
   { value: 'month', label: 'Mês' },
+  { value: 'hunt', label: 'Por hunt' },
 ];
 
 export function DashboardPage() {
   const { player, sessionType, from, to, setDateRange } = useFilters();
+  const { rareDropThreshold } = usePreferences();
   const [overview, setOverview] = useState<OverviewStats | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
-  const [bucket, setBucket] = useState<'day' | 'week' | 'month'>('week');
+  const [bucket, setBucket] = useState<Bucket>('week');
   // A click on the chart drills the stat cards into that single point without
   // touching the chart's own (wider) range - otherwise the chart would be
   // left with just the one point it was just narrowed to, with nothing else
@@ -41,11 +46,12 @@ export function DashboardPage() {
   }, [player, sessionType, from, to, bucket]);
 
   function handlePointClick(bucketStart: string) {
+    if (bucket === 'hunt') return;
     const range = bucketRange(bucketStart, bucket);
     setPointFilter((prev) => (prev && prev.from === range.from && prev.to === range.to ? null : range));
   }
 
-  const selectedBucketStart = pointFilter
+  const selectedBucketStart = pointFilter && bucket !== 'hunt'
     ? trend.find((p) => {
         const range = bucketRange(p.bucketStart, bucket);
         return range.from === pointFilter.from && range.to === pointFilter.to;
@@ -109,8 +115,8 @@ export function DashboardPage() {
         <StatTile label="Suprimentos/h médio" value={formatCompact(overview.avgSuppliesPerHour)} />
       </div>
 
-      {(overview.mostProfitableHunt || overview.mostFrequentHunt) && (
-        <div className="two-col section" style={{ marginBottom: 24 }}>
+      {(overview.mostProfitableHunt || overview.leastProfitableHunt || overview.mostFrequentHunt) && (
+        <div className="highlight-grid section" style={{ marginBottom: 24 }}>
           {overview.mostProfitableHunt && (
             <div className="card">
               <h2 className="section-title">Hunt mais lucrativa</h2>
@@ -121,6 +127,19 @@ export function DashboardPage() {
                 em {formatDateTime(overview.mostProfitableHunt.startTime)} — profit de{' '}
                 {formatCompact(overview.mostProfitableHunt.profit)} (
                 {formatCompact(overview.mostProfitableHunt.profitPerHour)}/h)
+              </p>
+            </div>
+          )}
+          {overview.leastProfitableHunt && (
+            <div className="card">
+              <h2 className="section-title">Hunt menos lucrativa</h2>
+              <p style={{ margin: 0, fontSize: 14 }}>
+                <Link to={`/hunts/${overview.leastProfitableHunt.id}`}>
+                  {overview.leastProfitableHunt.huntName ?? 'Hunt'}
+                </Link>{' '}
+                em {formatDateTime(overview.leastProfitableHunt.startTime)} — profit de{' '}
+                {formatCompact(overview.leastProfitableHunt.profit)} (
+                {formatCompact(overview.leastProfitableHunt.profitPerHour)}/h)
               </p>
             </div>
           )}
@@ -140,7 +159,8 @@ export function DashboardPage() {
       <div className="section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h2 className="section-title" style={{ margin: 0 }}>
-            Profit/h por {bucket === 'day' ? 'dia' : bucket === 'week' ? 'semana' : 'mês'}
+            Profit/h por{' '}
+            {bucket === 'day' ? 'dia' : bucket === 'week' ? 'semana' : bucket === 'month' ? 'mês' : 'hunt'}
           </h2>
           <div className="bucket-toggle">
             {BUCKET_OPTIONS.map((opt) => (
@@ -158,11 +178,12 @@ export function DashboardPage() {
           <TrendChart
             data={trend}
             metricKey="avgProfitPerHour"
-            seriesLabel="Profit/h médio"
+            seriesLabel={bucket === 'hunt' ? 'Profit/h' : 'Profit/h médio'}
             seriesColor="var(--series-1)"
             bucket={bucket}
-            onPointClick={handlePointClick}
+            onPointClick={bucket === 'hunt' ? undefined : handlePointClick}
             selectedBucketStart={selectedBucketStart}
+            rareDropThreshold={rareDropThreshold}
           />
         </div>
       </div>

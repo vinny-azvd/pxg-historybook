@@ -22,6 +22,15 @@
 
   --party-badge-bg: #fdf1e4;
   --party-badge-text: #a65a1c;
+
+  --jade: #00a86b;
+  --jade-soft: #7dd8b3;
+  --jade-badge-bg: #e3f7ee;
+  --jade-badge-text: #0a7a52;
+
+  --rare-drop: #b8860b;
+  --rare-drop-badge-bg: #fff6df;
+  --rare-drop-badge-text: #8a6100;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -49,6 +58,15 @@
 
     --party-badge-bg: #332417;
     --party-badge-text: #e8a869;
+
+    --jade: #2ecc94;
+    --jade-soft: #3f8f6c;
+    --jade-badge-bg: #123527;
+    --jade-badge-text: #6fe3b3;
+
+    --rare-drop: #e0b400;
+    --rare-drop-badge-bg: #3a2e05;
+    --rare-drop-badge-text: #ffcf4d;
   }
 }
 
@@ -76,6 +94,15 @@
 
   --party-badge-bg: #332417;
   --party-badge-text: #e8a869;
+
+  --jade: #2ecc94;
+  --jade-soft: #3f8f6c;
+  --jade-badge-bg: #123527;
+  --jade-badge-text: #6fe3b3;
+
+  --rare-drop: #e0b400;
+  --rare-drop-badge-bg: #3a2e05;
+  --rare-drop-badge-text: #ffcf4d;
 }
 
 * {
@@ -326,6 +353,88 @@ button:disabled {
   font-weight: 700;
   background: var(--party-badge-bg);
   color: var(--party-badge-text);
+}
+
+.badge-jade {
+  background: var(--jade-badge-bg);
+  color: var(--jade-badge-text);
+}
+
+.badge-jade-severe {
+  background: var(--jade);
+  color: #ffffff;
+}
+
+.badge-rare-drop {
+  background: var(--rare-drop-badge-bg);
+  color: var(--rare-drop-badge-text);
+}
+
+.highlight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.hunt-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.hunt-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+
+.hunt-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.hunt-card-header a {
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.hunt-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.hunt-card-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+
+.hunt-card-stats dt {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.hunt-card-stats dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.hunt-card-expanded {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gridline);
+  cursor: default;
 }
 
 .upload-drop {

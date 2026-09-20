@@ -14,6 +14,25 @@ function hashPayload(rawJson: string): string {
   return crypto.createHash('sha256').update(rawJson).digest('hex');
 }
 
+// Matched by keyword rather than an exact name: the in-game item is "Jade
+// Fortune Totem", not just "Jade Totem", and other jade-totem variants may
+// exist. Any consumed item whose name contains both words is counted.
+function isJadeTotemItem(itemName: string): boolean {
+  const normalized = normalizeItemName(itemName);
+  return normalized.includes('jade') && normalized.includes('totem');
+}
+
+function countJadeTotems(hunt: HuntExport): number {
+  let count = 0;
+  for (const row of hunt.Supplies) {
+    if (isJadeTotemItem(row.Item)) count += row.Count;
+  }
+  for (const row of hunt.Drops) {
+    if (isJadeTotemItem(row.Item)) count += row.Count;
+  }
+  return count;
+}
+
 function upsertPlayer(name: string): number {
   const trimmed = name.trim();
   const existing = db.prepare('SELECT id FROM players WHERE name = ?').get(trimmed) as { id: number } | undefined;
@@ -25,7 +44,8 @@ function upsertPlayer(name: string): number {
 export function ingestHunt(
   rawJson: string,
   hunt: HuntExport,
-  huntNameOverride?: string | null
+  huntNameOverride?: string | null,
+  nightmareCrystalSelections?: string[]
 ): { id: number; sessionType: string; players: string[]; huntName: string | null } {
   const contentHash = hashPayload(rawJson);
 
@@ -58,6 +78,7 @@ export function ingestHunt(
       : deriveHuntName(hunt['Enemies Defeated'].map((row) => ({ enemy: row.Enemy, count: row.Count })));
 
     const session = hunt.Session;
+    const jadeTotemCount = countJadeTotems(hunt);
     const huntResult = db
       .prepare(
         `INSERT INTO hunts (
@@ -65,13 +86,13 @@ export function ingestHunt(
           kills, kills_per_hour, rare_kills, rare_kills_per_hour, experience, experience_per_hour,
           damage_dealt, damage_dealt_per_second, damage_taken, damage_taken_per_second,
           supplies_cost, supplies_per_hour, raw_gains, raw_gains_per_hour, profit, profit_per_hour,
-          time_to_next_level_seconds, primary_player_id, raw_json
+          time_to_next_level_seconds, jade_totem_count, primary_player_id, raw_json
         ) VALUES (
           @session_id, @hunt_name, @content_hash, @session_type, @status, @start_time, @duration_seconds, @paused_seconds,
           @kills, @kills_per_hour, @rare_kills, @rare_kills_per_hour, @experience, @experience_per_hour,
           @damage_dealt, @damage_dealt_per_second, @damage_taken, @damage_taken_per_second,
           @supplies_cost, @supplies_per_hour, @raw_gains, @raw_gains_per_hour, @profit, @profit_per_hour,
-          @time_to_next_level_seconds, @primary_player_id, @raw_json
+          @time_to_next_level_seconds, @jade_totem_count, @primary_player_id, @raw_json
         )`
       )
       .run({
@@ -100,6 +121,7 @@ export function ingestHunt(
         profit: session.Profit,
         profit_per_hour: session['Profit per hour'],
         time_to_next_level_seconds: session['Time to next level seconds'] ?? null,
+        jade_totem_count: jadeTotemCount,
         primary_player_id: primaryPlayerId,
         raw_json: rawJson,
       });
@@ -162,9 +184,10 @@ export function ingestHunt(
       insertExperience.run(huntId, playerIds.get(row.Player.trim()) ?? null, row.Experience);
     }
 
+    const crystalSelections = new Set(nightmareCrystalSelections ?? []);
     const insertEnemies = db.prepare(
-      `INSERT INTO hunt_enemies_defeated (hunt_id, player_id, enemy, count, rare, ignored)
-       VALUES (?, ?, ?, ?, ?, ?)`
+      `INSERT INTO hunt_enemies_defeated (hunt_id, player_id, enemy, count, rare, ignored, from_nightmare_crystal)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
     );
     for (const row of hunt['Enemies Defeated']) {
       insertEnemies.run(
@@ -173,7 +196,8 @@ export function ingestHunt(
         row.Enemy,
         row.Count,
         row.Rare ? 1 : 0,
-        row.Ignored === null || row.Ignored === undefined ? null : row.Ignored ? 1 : 0
+        row.Ignored === null || row.Ignored === undefined ? null : row.Ignored ? 1 : 0,
+        crystalSelections.has(row.Enemy) ? 1 : 0
       );
     }
 

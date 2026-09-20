@@ -15,14 +15,14 @@ interface HuntExportPreview {
   Experience?: { Player: string; Experience: number }[];
   Supplies?: { Player: string }[];
   Drops?: { Player: string }[];
-  'Enemies Defeated'?: { Enemy: string; Count: number; Player: string }[];
+  'Enemies Defeated'?: { Enemy: string; Count: number; Player: string; Rare?: boolean }[];
 }
 
 interface ConfirmHuntModalProps {
   hunt: HuntExportPreview;
   submitting: boolean;
   errorMessage?: string | null;
-  onConfirm: (huntName: string) => void;
+  onConfirm: (huntName: string, nightmareCrystalSelections: string[]) => void;
   onCancel: () => void;
 }
 
@@ -39,9 +39,22 @@ export function ConfirmHuntModal({ hunt, submitting, errorMessage, onConfirm, on
   const enemies = hunt['Enemies Defeated'] ?? [];
   const suggested = deriveHuntName(enemies.map((e) => ({ enemy: e.Enemy, count: e.Count }))) ?? '';
   const [name, setName] = useState(suggested);
+  const [crystalSelections, setCrystalSelections] = useState<Set<string>>(new Set());
 
   const players = derivePlayers(hunt);
   const session = hunt.Session ?? {};
+
+  const hasNightmareCrystal = enemies.some((e) => e.Enemy.toLowerCase().includes('nightmare crystal'));
+  const rareEntries = enemies.filter((e) => e.Rare && !e.Enemy.toLowerCase().includes('nightmare crystal'));
+
+  function toggleCrystalSelection(enemy: string) {
+    setCrystalSelections((prev) => {
+      const next = new Set(prev);
+      if (next.has(enemy)) next.delete(enemy);
+      else next.add(enemy);
+      return next;
+    });
+  }
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true">
@@ -95,13 +108,32 @@ export function ConfirmHuntModal({ hunt, submitting, errorMessage, onConfirm, on
           </div>
         </dl>
 
+        {hasNightmareCrystal && rareEntries.length > 0 && (
+          <div className="field-group">
+            <p style={{ fontSize: 13, margin: '0 0 6px' }}>
+              Essa hunt usou <strong>Nightmare Crystal</strong>, que gera 2 shinies aleatórios. Marque abaixo quais
+              raros vieram do cristal (e não do bicho normal da hunt):
+            </p>
+            {rareEntries.map((e, i) => (
+              <label key={`${e.Enemy}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, marginBottom: 4 }}>
+                <input
+                  type="checkbox"
+                  checked={crystalSelections.has(e.Enemy)}
+                  onChange={() => toggleCrystalSelection(e.Enemy)}
+                />
+                {e.Enemy} (× {e.Count})
+              </label>
+            ))}
+          </div>
+        )}
+
         {errorMessage && <div className="error-box">{errorMessage}</div>}
 
         <div className="modal-actions">
           <button className="secondary" onClick={onCancel} disabled={submitting}>
             Cancelar
           </button>
-          <button onClick={() => onConfirm(name)} disabled={submitting || !name.trim()}>
+          <button onClick={() => onConfirm(name, [...crystalSelections])} disabled={submitting || !name.trim()}>
             {submitting ? 'Importando...' : 'Confirmar e importar'}
           </button>
         </div>

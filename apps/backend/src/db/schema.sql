@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS hunts (
   profit INTEGER NOT NULL DEFAULT 0,
   profit_per_hour INTEGER NOT NULL DEFAULT 0,
   time_to_next_level_seconds INTEGER,
+  jade_totem_count INTEGER NOT NULL DEFAULT 0,
   primary_player_id INTEGER REFERENCES players(id),
   raw_json TEXT NOT NULL,
   imported_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -105,7 +106,8 @@ CREATE TABLE IF NOT EXISTS hunt_enemies_defeated (
   enemy TEXT NOT NULL,
   count INTEGER NOT NULL DEFAULT 0,
   rare INTEGER NOT NULL DEFAULT 0,
-  ignored INTEGER
+  ignored INTEGER,
+  from_nightmare_crystal INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_hunt_enemies_hunt ON hunt_enemies_defeated(hunt_id);

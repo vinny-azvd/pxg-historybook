@@ -3,17 +3,17 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
 import type { HuntListItem } from '../api/types';
-import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
+import { HuntCard } from '../components/HuntCard';
+import { CardSettingsPanel } from '../components/CardSettingsPanel';
 
-const COLUMNS: { key: string; label: string; sortable?: boolean }[] = [
-  { key: 'hunt_name', label: 'Hunt', sortable: true },
-  { key: 'start_time', label: 'Data', sortable: true },
-  { key: 'duration_seconds', label: 'Duração', sortable: true },
-  { key: 'players', label: 'Personagem(s)' },
-  { key: 'profit', label: 'Profit', sortable: true },
-  { key: 'profit_per_hour', label: 'Profit/h', sortable: true },
-  { key: 'kills_per_hour', label: 'Kills/h', sortable: true },
-  { key: 'rare_kills_per_hour', label: 'Raros/h', sortable: true },
+const SORT_OPTIONS: { key: string; label: string }[] = [
+  { key: 'start_time', label: 'Data' },
+  { key: 'hunt_name', label: 'Hunt' },
+  { key: 'duration_seconds', label: 'Duração' },
+  { key: 'profit', label: 'Profit' },
+  { key: 'profit_per_hour', label: 'Profit/h' },
+  { key: 'kills_per_hour', label: 'Kills/h' },
+  { key: 'rare_kills_per_hour', label: 'Raros/h' },
 ];
 
 export function HuntsHistoryPage() {
@@ -39,74 +39,53 @@ export function HuntsHistoryPage() {
 
   useEffect(() => setPage(1), [player, sessionType, from, to]);
 
-  function toggleSort(key: string) {
-    if (sort === key) {
-      setOrder(order === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSort(key);
-      setOrder('desc');
-    }
-  }
-
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div>
-      <h1 className="page-title">Histórico de hunts</h1>
-      <p className="page-subtitle">
-        {total} hunt{total === 1 ? '' : 's'} registrada{total === 1 ? '' : 's'}. Ordene por Profit/h para ver a hunt
-        mais lucrativa.
-      </p>
-
-      <div className="card">
-        {loading ? (
-          <div className="empty-state">Carregando...</div>
-        ) : items.length === 0 ? (
-          <div className="empty-state">
-            Nenhuma hunt encontrada. <Link to="/upload">Importe sua primeira hunt</Link>.
-          </div>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                {COLUMNS.map((col) => (
-                  <th key={col.key} onClick={() => col.sortable && toggleSort(col.key)}>
-                    {col.label}
-                    {col.sortable && sort === col.key ? (order === 'asc' ? ' ▲' : ' ▼') : ''}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((hunt) => (
-                <tr key={hunt.id}>
-                  <td>
-                    <Link to={`/hunts/${hunt.id}`}>{hunt.hunt_name ?? 'Hunt'}</Link>
-                  </td>
-                  <td>{formatDateTime(hunt.start_time)}</td>
-                  <td>{formatDuration(hunt.duration_seconds)}</td>
-                  <td>
-                    {hunt.players.join(', ')}
-                    {hunt.session_type === 'party' && (
-                      <>
-                        {' '}
-                        <span className="badge">party</span>
-                      </>
-                    )}
-                  </td>
-                  <td>{formatCompact(hunt.profit)}</td>
-                  <td>{formatCompact(hunt.profit_per_hour)}</td>
-                  <td>{formatInt(hunt.kills_per_hour)}</td>
-                  <td>{formatInt(hunt.rare_kills_per_hour)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+        <div>
+          <h1 className="page-title">Histórico de hunts</h1>
+          <p className="page-subtitle">
+            {total} hunt{total === 1 ? '' : 's'} registrada{total === 1 ? '' : 's'}. Clique num card para ver os
+            raros e drops raros dessa hunt.
+          </p>
+        </div>
+        <CardSettingsPanel />
       </div>
 
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+        <label htmlFor="sort-select" style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
+          Ordenar por
+        </label>
+        <select id="sort-select" value={sort} onChange={(e) => setSort(e.target.value)}>
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.key} value={opt.key}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <button className="secondary" onClick={() => setOrder((o) => (o === 'asc' ? 'desc' : 'asc'))}>
+          {order === 'asc' ? '▲ Asc' : '▼ Desc'}
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="empty-state">Carregando...</div>
+      ) : items.length === 0 ? (
+        <div className="empty-state">
+          Nenhuma hunt encontrada. <Link to="/upload">Importe sua primeira hunt</Link>.
+        </div>
+      ) : (
+        <div className="hunt-card-grid">
+          {items.map((hunt) => (
+            <HuntCard key={hunt.id} hunt={hunt} />
+          ))}
+        </div>
+      )}
+
       {totalPages > 1 && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 16, alignItems: 'center' }}>
           <button className="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
             Anterior
           </button>

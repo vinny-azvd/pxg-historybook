@@ -4,6 +4,8 @@ import { api } from '../api/client';
 import type { HuntDetail } from '../api/types';
 import { ItemIcon } from '../components/ItemIcon';
 import { StatTile } from '../components/StatTile';
+import { JadeBadge, RareDropBadge } from '../components/HuntBadges';
+import { usePreferences } from '../PreferencesContext';
 import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
 
 export function HuntDetailPage() {
@@ -14,6 +16,7 @@ export function HuntDetailPage() {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [renaming, setRenaming] = useState(false);
+  const { rareDropThreshold } = usePreferences();
 
   useEffect(() => {
     if (!id) return;
@@ -23,6 +26,8 @@ export function HuntDetailPage() {
   if (!detail) return <div className="empty-state">Carregando...</div>;
 
   const { hunt, players, damage, supplies, drops, enemiesDefeated } = detail;
+  const jadeSevere = hunt.jade_totem_count > 0 && hunt.jade_totem_count * 3600 < hunt.duration_seconds;
+  const topDrops = drops.map((d) => ({ item: d.item, unitPrice: d.unit_price }));
 
   async function handleDelete() {
     if (!confirm('Remover esta hunt do histórico? Essa ação não pode ser desfeita.')) return;
@@ -81,6 +86,8 @@ export function HuntDetailPage() {
                   <span className="badge">party</span>
                 </>
               )}{' '}
+              <JadeBadge count={hunt.jade_totem_count} severe={jadeSevere} />{' '}
+              <RareDropBadge items={topDrops} threshold={rareDropThreshold} />{' '}
               <button
                 className="secondary"
                 onClick={startEditingName}
@@ -149,7 +156,17 @@ export function HuntDetailPage() {
                   <tr key={e.id}>
                     <td>{e.enemy}</td>
                     <td>{formatInt(e.count)}</td>
-                    <td>{e.rare ? 'Sim' : '—'}</td>
+                    <td>
+                      {e.rare ? 'Sim' : '—'}
+                      {!!e.from_nightmare_crystal && (
+                        <>
+                          {' '}
+                          <span className="badge badge-jade" title="Spawn aleatório do Nightmare Crystal">
+                            via Nightmare Crystal
+                          </span>
+                        </>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

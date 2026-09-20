@@ -4,6 +4,11 @@ export interface Player {
   huntCount: number;
 }
 
+export interface TopDrop {
+  item: string;
+  unitPrice: number;
+}
+
 export interface HuntListItem {
   id: number;
   hunt_name: string | null;
@@ -20,6 +25,11 @@ export interface HuntListItem {
   supplies_per_hour: number;
   profit: number;
   profit_per_hour: number;
+  damage_dealt_per_second: number;
+  damage_taken_per_second: number;
+  jade_totem_count: number;
+  jade_severe: boolean;
+  top_drops: TopDrop[];
   players: string[];
 }
 
@@ -56,6 +66,7 @@ export interface HuntRecord {
   profit: number;
   profit_per_hour: number;
   time_to_next_level_seconds: number | null;
+  jade_totem_count: number;
 }
 
 export interface ItemLine {
@@ -83,6 +94,7 @@ export interface EnemyDefeatedLine {
   enemy: string;
   count: number;
   rare: number;
+  from_nightmare_crystal: number;
 }
 
 export interface HuntDetail {
@@ -113,6 +125,7 @@ export interface OverviewStats {
   avgDamageDealtPerSecond: number | null;
   avgDamageTakenPerSecond: number | null;
   mostProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
+  leastProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
   mostFrequentHunt: { huntName: string; count: number } | null;
 }
 
@@ -130,6 +143,11 @@ export interface TrendPoint {
   avgRareKillsPerHour: number | null;
   avgExperiencePerHour: number | null;
   avgSuppliesPerHour: number | null;
+  huntId?: number;
+  huntName?: string | null;
+  jadeTotemCount?: number;
+  jadeSevere?: boolean;
+  topDrops?: TopDrop[];
 }
 
 export interface CompareDelta {

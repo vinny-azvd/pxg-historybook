@@ -31,11 +31,11 @@ export function UploadPage() {
     setPendingHunt(parsed.data);
   }
 
-  async function confirmUpload(huntName: string) {
+  async function confirmUpload(huntName: string, nightmareCrystalSelections: string[]) {
     setSubmitting(true);
     setModalError(null);
     try {
-      const res = await api.uploadHunt({ hunt: pendingHunt, huntName });
+      const res = await api.uploadHunt({ hunt: pendingHunt, huntName, nightmareCrystalSelections });
       if (res.status === 409) {
         setPendingHunt(null);
         setStatus({ kind: 'duplicate', huntId: res.body.existingHuntId });
