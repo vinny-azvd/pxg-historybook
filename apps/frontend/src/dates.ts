@@ -28,6 +28,22 @@ export function monthLabel(yearMonth: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+/** Converts one trend bucket's start value into a { from, to } range for that
+ * single bucket, so clicking a point on the chart can filter down to exactly
+ * the day/week/month it represents. */
+export function bucketRange(bucketStart: string, bucket: 'day' | 'week' | 'month'): { from: string; to: string } {
+  if (bucket === 'month') {
+    return monthRange(bucketStart.slice(0, 7));
+  }
+  if (bucket === 'week') {
+    const start = new Date(`${bucketStart}T00:00:00`);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    return { from: toISODate(start), to: toISODate(end) };
+  }
+  return { from: bucketStart, to: bucketStart };
+}
+
 function startOfWeek(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();

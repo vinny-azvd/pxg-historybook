@@ -5,7 +5,8 @@ import { useFilters } from '../FiltersContext';
 import type { OverviewStats, TrendPoint } from '../api/types';
 import { StatTile } from '../components/StatTile';
 import { TrendChart } from '../components/charts/TrendChart';
-import { formatCompact, formatDateTime, formatInt } from '../format';
+import { formatBucketLabel, formatCompact, formatDateTime, formatInt } from '../format';
+import { bucketRange } from '../dates';
 
 const BUCKET_OPTIONS: { value: 'day' | 'week' | 'month'; label: string }[] = [
   { value: 'day', label: 'Dia' },
@@ -14,18 +15,42 @@ const BUCKET_OPTIONS: { value: 'day' | 'week' | 'month'; label: string }[] = [
 ];
 
 export function DashboardPage() {
-  const { player, sessionType, from, to } = useFilters();
+  const { player, sessionType, from, to, setDateRange } = useFilters();
   const [overview, setOverview] = useState<OverviewStats | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [bucket, setBucket] = useState<'day' | 'week' | 'month'>('week');
+  // A click on the chart drills the stat cards into that single point without
+  // touching the chart's own (wider) range - otherwise the chart would be
+  // left with just the one point it was just narrowed to, with nothing else
+  // left to click. Resets whenever the broader filter/granularity changes,
+  // since a specific day/week/month only makes sense relative to those.
+  const [pointFilter, setPointFilter] = useState<{ from: string; to: string } | null>(null);
 
   useEffect(() => {
-    api.getOverview({ player, sessionType, from, to }).then(setOverview);
-  }, [player, sessionType, from, to]);
+    setPointFilter(null);
+  }, [player, sessionType, from, to, bucket]);
+
+  const overviewRange = pointFilter ?? { from, to };
+
+  useEffect(() => {
+    api.getOverview({ player, sessionType, from: overviewRange.from, to: overviewRange.to }).then(setOverview);
+  }, [player, sessionType, overviewRange.from, overviewRange.to]);
 
   useEffect(() => {
     api.getTrends({ player, sessionType, from, to, bucket }).then(setTrend);
   }, [player, sessionType, from, to, bucket]);
+
+  function handlePointClick(bucketStart: string) {
+    const range = bucketRange(bucketStart, bucket);
+    setPointFilter((prev) => (prev && prev.from === range.from && prev.to === range.to ? null : range));
+  }
+
+  const selectedBucketStart = pointFilter
+    ? trend.find((p) => {
+        const range = bucketRange(p.bucketStart, bucket);
+        return range.from === pointFilter.from && range.to === pointFilter.to;
+      })?.bucketStart
+    : undefined;
 
   if (!overview) return <div className="empty-state">Carregando...</div>;
 
@@ -46,6 +71,19 @@ export function DashboardPage() {
       <h1 className="page-title">Dashboard</h1>
       <p className="page-subtitle">
         {overview.huntCount} hunt{overview.huntCount === 1 ? '' : 's'} no período selecionado.
+        {pointFilter && selectedBucketStart && <> · {formatBucketLabel(selectedBucketStart, bucket)}</>}
+        {(pointFilter || from || to) && (
+          <>
+            {' '}
+            <button
+              className="secondary"
+              style={{ fontSize: 11.5, padding: '2px 8px', marginLeft: 4 }}
+              onClick={() => (pointFilter ? setPointFilter(null) : setDateRange({ from: '', to: '' }))}
+            >
+              {pointFilter ? 'Voltar ao período completo' : 'Limpar filtro de período'}
+            </button>
+          </>
+        )}
       </p>
 
       <div className="stat-grid">
@@ -123,6 +161,8 @@ export function DashboardPage() {
             seriesLabel="Profit/h médio"
             seriesColor="var(--series-1)"
             bucket={bucket}
+            onPointClick={handlePointClick}
+            selectedBucketStart={selectedBucketStart}
           />
         </div>
       </div>

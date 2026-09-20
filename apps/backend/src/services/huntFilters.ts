@@ -14,11 +14,15 @@ export function buildHuntFilter(query: HuntFilterQuery) {
     params.player = Number(query.player);
   }
   if (query.from) {
-    conditions.push('h.start_time >= @from');
+    // Compare by calendar date, not raw string, so a "from"/"to" of just a
+    // date (no time) still includes hunts that happened later that same day
+    // - a plain string comparison would otherwise exclude them, since
+    // "2026-09-19 18:30:00" sorts after "2026-09-19".
+    conditions.push('date(h.start_time) >= date(@from)');
     params.from = query.from;
   }
   if (query.to) {
-    conditions.push('h.start_time <= @to');
+    conditions.push('date(h.start_time) <= date(@to)');
     params.to = query.to;
   }
   if (query.sessionType) {

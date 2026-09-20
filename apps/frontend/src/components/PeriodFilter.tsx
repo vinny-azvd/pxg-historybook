@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useFilters } from '../FiltersContext';
 import { currentMonthKey, monthLabel, monthRange, previousMonthKey } from '../dates';
 
@@ -9,15 +9,23 @@ export function PeriodFilter() {
   const { from, to, months, setDateRange } = useFilters();
   const [customOpen, setCustomOpen] = useState(false);
 
-  const selectValue = (() => {
-    if (customOpen) return 'custom';
-    if (!from && !to) return '';
-    const match = [CURRENT_MONTH, PREVIOUS_MONTH, ...months.map((m) => m.month)].find((key) => {
-      const range = monthRange(key);
-      return range.from === from && range.to === to;
-    });
-    return match ? `month:${match}` : 'custom';
-  })();
+  // A range can also arrive from outside this component (e.g. clicking a
+  // point on a trend chart), so drop back to "no filter" display whenever
+  // the shared range is cleared elsewhere instead of trusting local state.
+  useEffect(() => {
+    if (!from && !to) setCustomOpen(false);
+  }, [from, to]);
+
+  const matchedMonth =
+    !from && !to
+      ? null
+      : [CURRENT_MONTH, PREVIOUS_MONTH, ...months.map((m) => m.month)].find((key) => {
+          const range = monthRange(key);
+          return range.from === from && range.to === to;
+        }) ?? null;
+
+  const showCustomInputs = customOpen || (!matchedMonth && Boolean(from || to));
+  const selectValue = showCustomInputs ? 'custom' : matchedMonth ? `month:${matchedMonth}` : '';
 
   function handleSelect(value: string) {
     if (value === '') {
@@ -54,7 +62,7 @@ export function PeriodFilter() {
         )}
         <option value="custom">Período personalizado…</option>
       </select>
-      {customOpen && (
+      {showCustomInputs && (
         <>
           <input
             type="date"
