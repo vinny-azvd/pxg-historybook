@@ -3,6 +3,7 @@ import type {
   Filters,
   HuntDetail,
   HuntListResponse,
+  MonthBucket,
   OverviewStats,
   Player,
   TrendPoint,
@@ -34,6 +35,16 @@ export const api = {
 
   getHunt: (id: number) => request<HuntDetail>(`/api/hunts/${id}`),
 
+  renameHunt: async (id: number, huntName: string) => {
+    const res = await fetch(`/api/hunts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ huntName }),
+    });
+    if (!res.ok) throw new Error('Falha ao renomear a hunt');
+    return res.json();
+  },
+
   deleteHunt: async (id: number) => {
     const res = await fetch(`/api/hunts/${id}`, { method: 'DELETE' });
     if (!res.ok && res.status !== 204) throw new Error('Falha ao remover hunt');
@@ -50,6 +61,9 @@ export const api = {
   },
 
   getOverview: (filters: Filters) => request<OverviewStats>(`/api/stats/overview${toQuery(filters)}`),
+
+  getMonths: (filters: { player?: string; sessionType?: string }) =>
+    request<MonthBucket[]>(`/api/stats/months${toQuery(filters)}`),
 
   getTrends: (filters: Filters & { bucket: string }) =>
     request<TrendPoint[]>(`/api/stats/trends${toQuery(filters)}`),

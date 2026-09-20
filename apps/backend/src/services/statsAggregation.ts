@@ -18,7 +18,8 @@ export interface OverviewStats {
   avgSuppliesPerHour: number | null;
   avgDamageDealtPerSecond: number | null;
   avgDamageTakenPerSecond: number | null;
-  mostProfitableHunt: { id: number; profit: number; profitPerHour: number; startTime: string } | null;
+  mostProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
+  mostFrequentHunt: { huntName: string; count: number } | null;
 }
 
 export function computeOverview(filter: HuntFilterQuery): OverviewStats {
@@ -50,17 +51,35 @@ export function computeOverview(filter: HuntFilterQuery): OverviewStats {
 
   const mostProfitable = db
     .prepare(
-      `SELECT h.id, h.profit, h.profit_per_hour AS profitPerHour, h.start_time AS startTime
+      `SELECT h.id, h.hunt_name AS huntName, h.profit, h.profit_per_hour AS profitPerHour, h.start_time AS startTime
        FROM hunts h
        ${whereClause}
        ORDER BY h.profit DESC
        LIMIT 1`
     )
-    .get(params) as { id: number; profit: number; profitPerHour: number; startTime: string } | undefined;
+    .get(params) as
+    | { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string }
+    | undefined;
+
+  const nameWhereClause = whereClause
+    ? `${whereClause} AND h.hunt_name IS NOT NULL`
+    : 'WHERE h.hunt_name IS NOT NULL';
+
+  const mostFrequent = db
+    .prepare(
+      `SELECT h.hunt_name AS huntName, COUNT(*) AS count
+       FROM hunts h
+       ${nameWhereClause}
+       GROUP BY h.hunt_name
+       ORDER BY count DESC, MAX(h.start_time) DESC
+       LIMIT 1`
+    )
+    .get(params) as { huntName: string; count: number } | undefined;
 
   return {
     ...aggregates,
     mostProfitableHunt: mostProfitable ?? null,
+    mostFrequentHunt: mostFrequent ?? null,
   };
 }
 
@@ -69,6 +88,19 @@ const BUCKET_EXPRESSIONS: Record<string, string> = {
   week: "date(h.start_time, 'weekday 0', '-6 days')",
   month: "strftime('%Y-%m-01', h.start_time)",
 };
+
+export function computeAvailableMonths(filter: Pick<HuntFilterQuery, 'player' | 'sessionType'>) {
+  const { whereClause, params } = buildHuntFilter(filter);
+  return db
+    .prepare(
+      `SELECT strftime('%Y-%m', h.start_time) AS month, COUNT(*) AS huntCount
+       FROM hunts h
+       ${whereClause}
+       GROUP BY month
+       ORDER BY month DESC`
+    )
+    .all(params) as { month: string; huntCount: number }[];
+}
 
 export function computeTrends(filter: HuntFilterQuery, bucket: string) {
   const { whereClause, params } = buildHuntFilter(filter);

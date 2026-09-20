@@ -6,6 +6,7 @@ export interface Player {
 
 export interface HuntListItem {
   id: number;
+  hunt_name: string | null;
   session_type: 'player' | 'party';
   status: string | null;
   start_time: string;
@@ -32,6 +33,7 @@ export interface HuntListResponse {
 export interface HuntRecord {
   id: number;
   session_id: number | null;
+  hunt_name: string | null;
   session_type: 'player' | 'party';
   status: string | null;
   start_time: string;
@@ -110,7 +112,13 @@ export interface OverviewStats {
   avgSuppliesPerHour: number | null;
   avgDamageDealtPerSecond: number | null;
   avgDamageTakenPerSecond: number | null;
-  mostProfitableHunt: { id: number; profit: number; profitPerHour: number; startTime: string } | null;
+  mostProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
+  mostFrequentHunt: { huntName: string; count: number } | null;
+}
+
+export interface MonthBucket {
+  month: string;
+  huntCount: number;
 }
 
 export interface TrendPoint {

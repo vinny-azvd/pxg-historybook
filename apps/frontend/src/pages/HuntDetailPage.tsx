@@ -11,6 +11,9 @@ export function HuntDetailPage() {
   const navigate = useNavigate();
   const [detail, setDetail] = useState<HuntDetail | null>(null);
   const [showRaw, setShowRaw] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [renaming, setRenaming] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -27,21 +30,69 @@ export function HuntDetailPage() {
     navigate('/hunts');
   }
 
+  function startEditingName() {
+    setNameDraft(hunt.hunt_name ?? '');
+    setEditingName(true);
+  }
+
+  async function saveName() {
+    const trimmed = nameDraft.trim();
+    if (!trimmed) return;
+    setRenaming(true);
+    try {
+      await api.renameHunt(hunt.id, trimmed);
+      setDetail((prev) => (prev ? { ...prev, hunt: { ...prev.hunt, hunt_name: trimmed } } : prev));
+      setEditingName(false);
+    } finally {
+      setRenaming(false);
+    }
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
         <div>
-          <h1 className="page-title">
-            {formatDateTime(hunt.start_time)}
-            {hunt.session_type === 'party' && (
-              <>
-                {' '}
-                <span className="badge">party</span>
-              </>
-            )}
-          </h1>
+          {editingName ? (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+              <input
+                type="text"
+                autoFocus
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveName();
+                  if (e.key === 'Escape') setEditingName(false);
+                }}
+                style={{ fontSize: 20, fontWeight: 700, padding: '4px 8px' }}
+              />
+              <button onClick={saveName} disabled={renaming || !nameDraft.trim()}>
+                Salvar
+              </button>
+              <button className="secondary" onClick={() => setEditingName(false)} disabled={renaming}>
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <h1 className="page-title">
+              {hunt.hunt_name ?? 'Hunt'}
+              {hunt.session_type === 'party' && (
+                <>
+                  {' '}
+                  <span className="badge">party</span>
+                </>
+              )}{' '}
+              <button
+                className="secondary"
+                onClick={startEditingName}
+                style={{ fontSize: 12, padding: '3px 8px', verticalAlign: 'middle' }}
+              >
+                Renomear
+              </button>
+            </h1>
+          )}
           <p className="page-subtitle">
-            {players.map((p) => p.name).join(', ')} · Duração {formatDuration(hunt.duration_seconds)}
+            {formatDateTime(hunt.start_time)} · {players.map((p) => p.name).join(', ')} · Duração{' '}
+            {formatDuration(hunt.duration_seconds)}
           </p>
         </div>
         <button className="secondary" onClick={handleDelete}>

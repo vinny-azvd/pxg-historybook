@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS players (
 CREATE TABLE IF NOT EXISTS hunts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   session_id INTEGER,
+  hunt_name TEXT,
   content_hash TEXT NOT NULL UNIQUE,
   session_type TEXT NOT NULL CHECK (session_type IN ('player', 'party')),
   status TEXT,

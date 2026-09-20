@@ -1,5 +1,6 @@
 import { NavLink, Route, Routes } from 'react-router-dom';
 import { PlayerFilter } from './components/PlayerFilter';
+import { PeriodFilter } from './components/PeriodFilter';
 import { DashboardPage } from './pages/DashboardPage';
 import { HuntsHistoryPage } from './pages/HuntsHistoryPage';
 import { HuntDetailPage } from './pages/HuntDetailPage';
@@ -26,6 +27,7 @@ export default function App() {
           </NavLink>
         </nav>
         <PlayerFilter />
+        <PeriodFilter />
       </header>
       <main className="main">
         <Routes>

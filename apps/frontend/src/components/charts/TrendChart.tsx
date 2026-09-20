@@ -1,16 +1,24 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { TrendPoint } from '../../api/types';
-import { formatCompact, formatDate } from '../../format';
+import { formatBucketLabel, formatCompact } from '../../format';
 
 interface TrendChartProps {
   data: TrendPoint[];
   metricKey: keyof TrendPoint;
   seriesLabel: string;
   seriesColor: string;
+  bucket?: 'day' | 'week' | 'month';
   formatValue?: (value: number) => string;
 }
 
-export function TrendChart({ data, metricKey, seriesLabel, seriesColor, formatValue = formatCompact }: TrendChartProps) {
+export function TrendChart({
+  data,
+  metricKey,
+  seriesLabel,
+  seriesColor,
+  bucket = 'week',
+  formatValue = formatCompact,
+}: TrendChartProps) {
   if (data.length === 0) {
     return <div className="empty-state">Sem dados suficientes para o gráfico.</div>;
   }
@@ -21,7 +29,7 @@ export function TrendChart({ data, metricKey, seriesLabel, seriesColor, formatVa
         <CartesianGrid stroke="var(--gridline)" vertical={false} />
         <XAxis
           dataKey="bucketStart"
-          tickFormatter={(v) => formatDate(v)}
+          tickFormatter={(v) => formatBucketLabel(v, bucket)}
           stroke="var(--baseline)"
           tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
           tickLine={false}
@@ -35,14 +43,33 @@ export function TrendChart({ data, metricKey, seriesLabel, seriesColor, formatVa
           width={56}
         />
         <Tooltip
-          contentStyle={{
-            background: 'var(--surface-1)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            fontSize: 12.5,
+          content={({ active, payload, label }) => {
+            if (!active || !payload || payload.length === 0) return null;
+            const row = payload[0].payload as TrendPoint;
+            const value = row[metricKey] as number | null;
+            return (
+              <div
+                style={{
+                  background: 'var(--surface-1)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  padding: '8px 10px',
+                  fontSize: 12.5,
+                }}
+              >
+                <div style={{ color: 'var(--text-secondary)', marginBottom: 4 }}>
+                  {bucket === 'week' ? 'Semana de ' : ''}
+                  {formatBucketLabel(String(label), bucket)}
+                </div>
+                <div>
+                  {seriesLabel}: <strong>{value === null || value === undefined ? '—' : formatValue(value)}</strong>
+                </div>
+                <div style={{ color: 'var(--text-muted)' }}>
+                  {row.huntCount} hunt{row.huntCount === 1 ? '' : 's'}
+                </div>
+              </div>
+            );
           }}
-          labelFormatter={(v) => formatDate(String(v))}
-          formatter={(value: number) => [formatValue(value), seriesLabel]}
         />
         <Line
           type="monotone"

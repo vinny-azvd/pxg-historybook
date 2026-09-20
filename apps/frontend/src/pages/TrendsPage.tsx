@@ -17,7 +17,7 @@ const METRICS: { key: keyof TrendPoint; label: string; format: (v: number) => st
 ];
 
 export function TrendsPage() {
-  const { player, sessionType } = useFilters();
+  const { player, sessionType, from, to } = useFilters();
   const [bucket, setBucket] = useState<'day' | 'week' | 'month'>('week');
   const [metricKey, setMetricKey] = useState<keyof TrendPoint>('avgProfitPerHour');
   const [trend, setTrend] = useState<TrendPoint[]>([]);
@@ -29,8 +29,8 @@ export function TrendsPage() {
   const [comparing, setComparing] = useState(false);
 
   useEffect(() => {
-    api.getTrends({ player, sessionType, bucket }).then(setTrend);
-  }, [player, sessionType, bucket]);
+    api.getTrends({ player, sessionType, from, to, bucket }).then(setTrend);
+  }, [player, sessionType, from, to, bucket]);
 
   const metric = METRICS.find((m) => m.key === metricKey)!;
 
@@ -65,7 +65,14 @@ export function TrendsPage() {
           </select>
         </div>
         <div className="card">
-          <TrendChart data={trend} metricKey={metricKey} seriesLabel={metric.label} seriesColor="var(--series-1)" formatValue={metric.format} />
+          <TrendChart
+            data={trend}
+            metricKey={metricKey}
+            seriesLabel={metric.label}
+            seriesColor="var(--series-1)"
+            formatValue={metric.format}
+            bucket={bucket}
+          />
         </div>
       </div>
 
@@ -86,7 +93,7 @@ export function TrendsPage() {
             <div className="two-col">
               <div>
                 <div className="section-title" style={{ fontSize: 13 }}>
-                  Período A ({compare.periodA.stats.huntCount} hunts)
+                  Período A ({compare.periodA.stats.huntCount} hunt{compare.periodA.stats.huntCount === 1 ? '' : 's'})
                 </div>
                 <div className="stat-grid" style={{ marginBottom: 0 }}>
                   <StatTile label="Profit/h médio" value={formatCompact(compare.periodA.stats.avgProfitPerHour)} />
@@ -97,7 +104,7 @@ export function TrendsPage() {
               </div>
               <div>
                 <div className="section-title" style={{ fontSize: 13 }}>
-                  Período B ({compare.periodB.stats.huntCount} hunts) — variação vs A
+                  Período B ({compare.periodB.stats.huntCount} hunt{compare.periodB.stats.huntCount === 1 ? '' : 's'}) — variação vs A
                 </div>
                 <div className="stat-grid" style={{ marginBottom: 0 }}>
                   <StatTile

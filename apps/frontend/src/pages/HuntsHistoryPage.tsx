@@ -6,6 +6,7 @@ import type { HuntListItem } from '../api/types';
 import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
 
 const COLUMNS: { key: string; label: string; sortable?: boolean }[] = [
+  { key: 'hunt_name', label: 'Hunt', sortable: true },
   { key: 'start_time', label: 'Data', sortable: true },
   { key: 'duration_seconds', label: 'Duração', sortable: true },
   { key: 'players', label: 'Personagem(s)' },
@@ -16,7 +17,7 @@ const COLUMNS: { key: string; label: string; sortable?: boolean }[] = [
 ];
 
 export function HuntsHistoryPage() {
-  const { player, sessionType } = useFilters();
+  const { player, sessionType, from, to } = useFilters();
   const [items, setItems] = useState<HuntListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -28,15 +29,15 @@ export function HuntsHistoryPage() {
   useEffect(() => {
     setLoading(true);
     api
-      .getHunts({ player, sessionType, sort, order, page, pageSize })
+      .getHunts({ player, sessionType, from, to, sort, order, page, pageSize })
       .then((res) => {
         setItems(res.items);
         setTotal(res.total);
       })
       .finally(() => setLoading(false));
-  }, [player, sessionType, sort, order, page]);
+  }, [player, sessionType, from, to, sort, order, page]);
 
-  useEffect(() => setPage(1), [player, sessionType]);
+  useEffect(() => setPage(1), [player, sessionType, from, to]);
 
   function toggleSort(key: string) {
     if (sort === key) {
@@ -80,8 +81,9 @@ export function HuntsHistoryPage() {
               {items.map((hunt) => (
                 <tr key={hunt.id}>
                   <td>
-                    <Link to={`/hunts/${hunt.id}`}>{formatDateTime(hunt.start_time)}</Link>
+                    <Link to={`/hunts/${hunt.id}`}>{hunt.hunt_name ?? 'Hunt'}</Link>
                   </td>
+                  <td>{formatDateTime(hunt.start_time)}</td>
                   <td>{formatDuration(hunt.duration_seconds)}</td>
                   <td>
                     {hunt.players.join(', ')}

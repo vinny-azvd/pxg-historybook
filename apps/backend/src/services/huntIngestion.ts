@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { db, withTransaction } from '../db/connection.js';
 import { normalizeItemName } from './itemIconMatcher.js';
+import { deriveHuntName } from './huntNaming.js';
 import type { HuntExport } from './huntValidation.js';
 
 export class DuplicateHuntError extends Error {
@@ -21,7 +22,11 @@ function upsertPlayer(name: string): number {
   return Number(result.lastInsertRowid);
 }
 
-export function ingestHunt(rawJson: string, hunt: HuntExport): { id: number; sessionType: string; players: string[] } {
+export function ingestHunt(
+  rawJson: string,
+  hunt: HuntExport,
+  huntNameOverride?: string | null
+): { id: number; sessionType: string; players: string[]; huntName: string | null } {
   const contentHash = hashPayload(rawJson);
 
   const existing = db.prepare('SELECT id FROM hunts WHERE content_hash = ?').get(contentHash) as
@@ -47,17 +52,22 @@ export function ingestHunt(rawJson: string, hunt: HuntExport): { id: number; ses
     const primaryPlayerName = [...hunt.Experience].sort((a, b) => b.Experience - a.Experience)[0]?.Player.trim();
     const primaryPlayerId = primaryPlayerName ? playerIds.get(primaryPlayerName) ?? null : null;
 
+    const trimmedOverride = huntNameOverride?.trim();
+    const huntName = trimmedOverride
+      ? trimmedOverride
+      : deriveHuntName(hunt['Enemies Defeated'].map((row) => ({ enemy: row.Enemy, count: row.Count })));
+
     const session = hunt.Session;
     const huntResult = db
       .prepare(
         `INSERT INTO hunts (
-          session_id, content_hash, session_type, status, start_time, duration_seconds, paused_seconds,
+          session_id, hunt_name, content_hash, session_type, status, start_time, duration_seconds, paused_seconds,
           kills, kills_per_hour, rare_kills, rare_kills_per_hour, experience, experience_per_hour,
           damage_dealt, damage_dealt_per_second, damage_taken, damage_taken_per_second,
           supplies_cost, supplies_per_hour, raw_gains, raw_gains_per_hour, profit, profit_per_hour,
           time_to_next_level_seconds, primary_player_id, raw_json
         ) VALUES (
-          @session_id, @content_hash, @session_type, @status, @start_time, @duration_seconds, @paused_seconds,
+          @session_id, @hunt_name, @content_hash, @session_type, @status, @start_time, @duration_seconds, @paused_seconds,
           @kills, @kills_per_hour, @rare_kills, @rare_kills_per_hour, @experience, @experience_per_hour,
           @damage_dealt, @damage_dealt_per_second, @damage_taken, @damage_taken_per_second,
           @supplies_cost, @supplies_per_hour, @raw_gains, @raw_gains_per_hour, @profit, @profit_per_hour,
@@ -66,6 +76,7 @@ export function ingestHunt(rawJson: string, hunt: HuntExport): { id: number; ses
       )
       .run({
         session_id: session['Session ID'] ?? null,
+        hunt_name: huntName,
         content_hash: contentHash,
         session_type: session['Session type'],
         status: session.Status ?? null,
@@ -166,7 +177,7 @@ export function ingestHunt(rawJson: string, hunt: HuntExport): { id: number; ses
       );
     }
 
-    return { id: huntId, sessionType: session['Session type'], players: [...playerNames] };
+    return { id: huntId, sessionType: session['Session type'], players: [...playerNames], huntName };
   });
 
   return insertHunt();

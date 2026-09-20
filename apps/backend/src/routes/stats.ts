@@ -1,11 +1,16 @@
 import { Router } from 'express';
-import { computeOverview, computeTrends } from '../services/statsAggregation.js';
+import { computeAvailableMonths, computeOverview, computeTrends } from '../services/statsAggregation.js';
 
 export const statsRouter = Router();
 
 statsRouter.get('/overview', (req, res) => {
   const { player, from, to, sessionType } = req.query as Record<string, string>;
   res.json(computeOverview({ player, from, to, sessionType }));
+});
+
+statsRouter.get('/months', (req, res) => {
+  const { player, sessionType } = req.query as Record<string, string>;
+  res.json(computeAvailableMonths({ player, sessionType }));
 });
 
 statsRouter.get('/trends', (req, res) => {

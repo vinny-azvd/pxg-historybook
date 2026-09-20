@@ -33,6 +33,28 @@ export function formatDate(value: string): string {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+function shortDate(date: Date): string {
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+/** Formats a trend bucket's start date for display, according to its granularity:
+ * a single day as "dd/mm", a week as its "dd/mm–dd/mm" range, a month as "mmm/aaaa". */
+export function formatBucketLabel(bucketStart: string, bucket: 'day' | 'week' | 'month'): string {
+  if (bucket === 'month') {
+    const [year, month] = bucketStart.split('-').map(Number);
+    const label = new Date(year, month - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }
+  if (bucket === 'week') {
+    const start = new Date(`${bucketStart}T00:00:00`);
+    if (Number.isNaN(start.getTime())) return bucketStart;
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    return `${shortDate(start)}–${shortDate(end)}`;
+  }
+  return formatDate(bucketStart);
+}
+
 export function formatPercent(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return '—';
   const sign = value > 0 ? '+' : '';

@@ -8,6 +8,7 @@ export const huntsRouter = Router();
 
 const SORTABLE_COLUMNS: Record<string, string> = {
   start_time: 'h.start_time',
+  hunt_name: 'h.hunt_name',
   profit: 'h.profit',
   profit_per_hour: 'h.profit_per_hour',
   kills: 'h.kills',
@@ -17,14 +18,25 @@ const SORTABLE_COLUMNS: Record<string, string> = {
 };
 
 huntsRouter.post('/', (req, res) => {
-  const parsed = validateHuntExport(req.body);
+  // Accepts either the raw hunt export as the body (simple/API-friendly), or
+  // a { hunt, huntName } wrapper so the upload UI can let the user confirm
+  // (and override) the auto-detected hunt name before it's saved.
+  const body = req.body as unknown;
+  const isWrapped =
+    body !== null && typeof body === 'object' && 'hunt' in (body as Record<string, unknown>) &&
+    typeof (body as Record<string, unknown>).hunt === 'object';
+  const huntPayload = isWrapped ? (body as { hunt: unknown }).hunt : body;
+  const huntNameOverrideRaw = isWrapped ? (body as { huntName?: unknown }).huntName : undefined;
+  const huntNameOverride = typeof huntNameOverrideRaw === 'string' ? huntNameOverrideRaw : undefined;
+
+  const parsed = validateHuntExport(huntPayload);
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid_hunt_export', issues: parsed.error.issues });
   }
 
-  const rawJson = JSON.stringify(req.body);
+  const rawJson = JSON.stringify(huntPayload);
   try {
-    const result = ingestHunt(rawJson, parsed.data);
+    const result = ingestHunt(rawJson, parsed.data, huntNameOverride);
     const summary = db.prepare('SELECT * FROM hunts WHERE id = ?').get(result.id);
     res.status(201).json({ ...result, summary });
   } catch (err) {
@@ -53,7 +65,7 @@ huntsRouter.get('/', (req, res) => {
 
   const rows = db
     .prepare(
-      `SELECT h.id, h.session_type, h.status, h.start_time, h.duration_seconds, h.kills, h.kills_per_hour,
+      `SELECT h.id, h.hunt_name, h.session_type, h.status, h.start_time, h.duration_seconds, h.kills, h.kills_per_hour,
               h.rare_kills, h.rare_kills_per_hour, h.experience_per_hour, h.supplies_cost, h.supplies_per_hour,
               h.profit, h.profit_per_hour,
               (SELECT GROUP_CONCAT(p.name, '||') FROM hunt_players hp JOIN players p ON p.id = hp.player_id WHERE hp.hunt_id = h.id) AS players
@@ -124,6 +136,18 @@ huntsRouter.get('/:id', (req, res) => {
     .all(id);
 
   res.json({ hunt, players, damage, supplies, drops, experience, enemiesDefeated });
+});
+
+huntsRouter.patch('/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const huntName = typeof req.body?.huntName === 'string' ? req.body.huntName.trim() : '';
+  if (!huntName) {
+    return res.status(400).json({ error: 'hunt_name_required' });
+  }
+  const result = db.prepare('UPDATE hunts SET hunt_name = ? WHERE id = ?').run(huntName, id);
+  if (result.changes === 0) return res.status(404).json({ error: 'not_found' });
+  const hunt = db.prepare('SELECT * FROM hunts WHERE id = ?').get(id);
+  res.json({ hunt });
 });
 
 huntsRouter.delete('/:id', (req, res) => {

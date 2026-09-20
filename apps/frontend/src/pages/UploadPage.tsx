@@ -2,40 +2,54 @@ import { useState, type DragEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
+import { parseHuntJson } from '../jsonParse';
+import { ConfirmHuntModal } from '../components/ConfirmHuntModal';
 
 type Status =
   | { kind: 'idle' }
   | { kind: 'error'; message: string }
   | { kind: 'duplicate'; huntId: number }
-  | { kind: 'success'; huntId: number; players: string[] };
+  | { kind: 'success'; huntId: number; players: string[]; huntName: string | null };
 
 export function UploadPage() {
   const [text, setText] = useState('');
   const [dragging, setDragging] = useState(false);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
+  const [pendingHunt, setPendingHunt] = useState<any | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
   const { refreshPlayers } = useFilters();
 
-  async function submit(raw: string) {
-    setSubmitting(true);
+  function parseAndPreview(raw: string) {
     setStatus({ kind: 'idle' });
+    const parsed = parseHuntJson(raw);
+    if (!parsed.ok) {
+      setStatus({ kind: 'error', message: parsed.message! });
+      return;
+    }
+    setModalError(null);
+    setPendingHunt(parsed.data);
+  }
+
+  async function confirmUpload(huntName: string) {
+    setSubmitting(true);
+    setModalError(null);
     try {
-      const payload = JSON.parse(raw.replace(/^﻿/, '').trim());
-      const res = await api.uploadHunt(payload);
+      const res = await api.uploadHunt({ hunt: pendingHunt, huntName });
       if (res.status === 409) {
+        setPendingHunt(null);
         setStatus({ kind: 'duplicate', huntId: res.body.existingHuntId });
       } else if (!res.ok) {
-        const issues = res.body.issues
-          ?.map((i: any) => `${i.path.join('.')}: ${i.message}`)
-          .join('\n');
-        setStatus({ kind: 'error', message: issues || res.body.error || 'Falha ao importar a hunt.' });
+        const issues = res.body.issues?.map((i: any) => `${i.path.join('.')}: ${i.message}`).join('\n');
+        setModalError(issues || res.body.error || 'Falha ao importar a hunt.');
       } else {
-        setStatus({ kind: 'success', huntId: res.body.id, players: res.body.players });
+        setPendingHunt(null);
+        setStatus({ kind: 'success', huntId: res.body.id, players: res.body.players, huntName: res.body.huntName });
         setText('');
         refreshPlayers();
       }
-    } catch {
-      setStatus({ kind: 'error', message: 'JSON inválido — verifique se colou o arquivo exportado corretamente.' });
+    } catch (err) {
+      setModalError(`Falha ao enviar a hunt para o servidor: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSubmitting(false);
     }
@@ -48,7 +62,7 @@ export function UploadPage() {
     if (!file) return;
     file.text().then((content) => {
       setText(content);
-      submit(content);
+      parseAndPreview(content);
     });
   }
 
@@ -65,7 +79,7 @@ export function UploadPage() {
       )}
       {status.kind === 'success' && (
         <div className="success-box">
-          Hunt importada com sucesso ({status.players.join(', ')}).{' '}
+          Hunt {status.huntName ? `de ${status.huntName} ` : ''}importada com sucesso ({status.players.join(', ')}).{' '}
           <Link to={`/hunts/${status.huntId}`}>Ver detalhes</Link>
         </div>
       )}
@@ -91,10 +105,23 @@ export function UploadPage() {
       />
 
       <div style={{ marginTop: 12 }}>
-        <button disabled={!text.trim() || submitting} onClick={() => submit(text)}>
-          {submitting ? 'Importando...' : 'Importar hunt'}
+        <button disabled={!text.trim()} onClick={() => parseAndPreview(text)}>
+          Importar hunt
         </button>
       </div>
+
+      {pendingHunt && (
+        <ConfirmHuntModal
+          hunt={pendingHunt}
+          submitting={submitting}
+          errorMessage={modalError}
+          onConfirm={confirmUpload}
+          onCancel={() => {
+            setPendingHunt(null);
+            setModalError(null);
+          }}
+        />
+      )}
     </div>
   );
 }
