@@ -134,6 +134,19 @@ export interface MonthBucket {
   huntCount: number;
 }
 
+export interface PlayerTrendPoint {
+  playerId: number;
+  playerName: string;
+  bucketStart: string;
+  huntCount: number;
+  totalProfit: number;
+  avgProfitPerHour: number | null;
+  avgKillsPerHour: number | null;
+  avgRareKillsPerHour: number | null;
+  avgExperiencePerHour: number | null;
+  avgSuppliesPerHour: number | null;
+}
+
 export interface TrendPoint {
   bucketStart: string;
   huntCount: number;

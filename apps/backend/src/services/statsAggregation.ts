@@ -170,3 +170,45 @@ export function computeTrends(filter: HuntFilterQuery, bucket: string) {
     )
     .all(params);
 }
+
+// Same shape as computeTrends' day/week/month rows, but broken out one series
+// per character instead of averaged across all of them - lets the dashboard
+// color-code who did what, instead of hiding per-player swings in a single
+// blended line. A party hunt counts toward every player in it.
+export function computeTrendsByPlayer(filter: HuntFilterQuery, bucket: string) {
+  const { whereClause, params } = buildHuntFilter(filter);
+  const bucketExpr = BUCKET_EXPRESSIONS[bucket] ?? BUCKET_EXPRESSIONS.week;
+
+  return db
+    .prepare(
+      `SELECT
+         p.id AS playerId,
+         p.name AS playerName,
+         ${bucketExpr} AS bucketStart,
+         COUNT(*) AS huntCount,
+         COALESCE(SUM(h.profit), 0) AS totalProfit,
+         AVG(h.profit_per_hour) AS avgProfitPerHour,
+         AVG(h.kills_per_hour) AS avgKillsPerHour,
+         AVG(h.rare_kills_per_hour) AS avgRareKillsPerHour,
+         AVG(h.experience_per_hour) AS avgExperiencePerHour,
+         AVG(h.supplies_per_hour) AS avgSuppliesPerHour
+       FROM hunts h
+       JOIN hunt_players hp ON hp.hunt_id = h.id
+       JOIN players p ON p.id = hp.player_id
+       ${whereClause}
+       GROUP BY p.id, bucketStart
+       ORDER BY p.id, bucketStart ASC`
+    )
+    .all(params) as {
+    playerId: number;
+    playerName: string;
+    bucketStart: string;
+    huntCount: number;
+    totalProfit: number;
+    avgProfitPerHour: number | null;
+    avgKillsPerHour: number | null;
+    avgRareKillsPerHour: number | null;
+    avgExperiencePerHour: number | null;
+    avgSuppliesPerHour: number | null;
+  }[];
+}

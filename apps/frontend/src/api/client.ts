@@ -7,6 +7,7 @@ import type {
   MonthBucket,
   OverviewStats,
   Player,
+  PlayerTrendPoint,
   TrendPoint,
 } from './types';
 
@@ -78,6 +79,9 @@ export const api = {
 
   getTrends: (filters: Filters & { bucket: string }) =>
     request<TrendPoint[]>(`/api/stats/trends${toQuery(filters)}`),
+
+  getTrendsByPlayer: (filters: Filters & { bucket: string }) =>
+    request<PlayerTrendPoint[]>(`/api/stats/trends-by-player${toQuery(filters)}`),
 
   getCompare: (params: {
     player?: string;

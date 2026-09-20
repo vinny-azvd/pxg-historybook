@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
 import { usePreferences } from '../PreferencesContext';
-import type { HuntListItem, OverviewStats, TrendPoint } from '../api/types';
+import type { HuntListItem, OverviewStats, PlayerTrendPoint, TrendPoint } from '../api/types';
 import { StatTile } from '../components/StatTile';
 import { TrendChart } from '../components/charts/TrendChart';
+import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChart';
+import { PlayerLegend } from '../components/PlayerLegend';
 import { HuntCard } from '../components/HuntCard';
 import { formatBucketLabel, formatCompact, formatDateTime, formatInt } from '../format';
 import { bucketRange } from '../dates';
@@ -21,9 +23,10 @@ const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
 
 export function DashboardPage() {
   const { player, sessionType, from, to, setDateRange } = useFilters();
-  const { rareDropThreshold } = usePreferences();
+  const { rareDropThreshold, getPlayerColor } = usePreferences();
   const [overview, setOverview] = useState<OverviewStats | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
+  const [playerTrend, setPlayerTrend] = useState<PlayerTrendPoint[]>([]);
   const [bucket, setBucket] = useState<Bucket>('week');
   // A click on the chart drills the stat cards into that single point without
   // touching the chart's own (wider) range - otherwise the chart would be
@@ -36,19 +39,59 @@ export function DashboardPage() {
   const [dayHuntsLoading, setDayHuntsLoading] = useState(false);
   const drillDownRef = useRef<HTMLDivElement>(null);
 
+  // No single character selected - color-code the main chart per player
+  // instead of blending everyone into one averaged line. The per-hunt
+  // granularity already colors its points by jade/rare-drop, so it keeps its
+  // own single line rather than layering both signals into one chart.
+  const showPlayerBreakdown = !player && bucket !== 'hunt';
+
   useEffect(() => {
     setPointFilter(null);
   }, [player, sessionType, from, to, bucket]);
 
   const overviewRange = pointFilter ?? { from, to };
 
+  // Requests can resolve out of order (e.g. picking "Este mês" then quickly
+  // "Mês passado" - the first response can land after the second one and
+  // silently overwrite it with stale data). `ignore` discards a response
+  // that arrives after its own effect run has been superseded.
   useEffect(() => {
-    api.getOverview({ player, sessionType, from: overviewRange.from, to: overviewRange.to }).then(setOverview);
+    let ignore = false;
+    api.getOverview({ player, sessionType, from: overviewRange.from, to: overviewRange.to }).then((res) => {
+      if (!ignore) setOverview(res);
+    });
+    return () => {
+      ignore = true;
+    };
   }, [player, sessionType, overviewRange.from, overviewRange.to]);
 
   useEffect(() => {
-    api.getTrends({ player, sessionType, from, to, bucket }).then(setTrend);
-  }, [player, sessionType, from, to, bucket]);
+    let ignore = false;
+    if (showPlayerBreakdown) {
+      api.getTrendsByPlayer({ player, sessionType, from, to, bucket }).then((res) => {
+        if (!ignore) setPlayerTrend(res);
+      });
+    } else {
+      api.getTrends({ player, sessionType, from, to, bucket }).then((res) => {
+        if (!ignore) setTrend(res);
+      });
+    }
+    return () => {
+      ignore = true;
+    };
+  }, [player, sessionType, from, to, bucket, showPlayerBreakdown]);
+
+  const playerSeries = useMemo(() => {
+    const byPlayer = new Map<number, { playerId: number; playerName: string; points: PlayerTrendPoint[] }>();
+    for (const row of playerTrend) {
+      const existing = byPlayer.get(row.playerId);
+      if (existing) existing.points.push(row);
+      else byPlayer.set(row.playerId, { playerId: row.playerId, playerName: row.playerName, points: [row] });
+    }
+    return [...byPlayer.values()]
+      .sort((a, b) => a.playerId - b.playerId)
+      .map((entry, index) => ({ ...entry, color: getPlayerColor(String(entry.playerId), index) }));
+  }, [playerTrend, getPlayerColor]);
 
   // Drilling into a clicked point also breaks it down hunt-by-hunt: how many
   // hunts happened that day/week/month, each with its own jade/rare-drop
@@ -59,6 +102,7 @@ export function DashboardPage() {
       setDayHunts([]);
       return;
     }
+    let ignore = false;
     setDayHuntsLoading(true);
     Promise.all([
       api.getTrends({ player, sessionType, from: pointFilter.from, to: pointFilter.to, bucket: 'hunt' }),
@@ -74,19 +118,26 @@ export function DashboardPage() {
       }),
     ])
       .then(([trendRes, huntsRes]) => {
+        if (ignore) return;
         setDayTrend(trendRes);
         setDayHunts(huntsRes.items);
+        // Scroll only once the drilled-down content (chart + hunt cards) has
+        // actually rendered at full height - scrolling right when the click
+        // happens targets the still-collapsed "Carregando..." placeholder
+        // and stops short of where the real content ends up.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            drillDownRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        });
       })
-      .finally(() => setDayHuntsLoading(false));
+      .finally(() => {
+        if (!ignore) setDayHuntsLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
   }, [player, sessionType, pointFilter?.from, pointFilter?.to]);
-
-  // The drill-down section appears below the fold, so without this a click
-  // silently adds content the user has no reason to notice or scroll for.
-  useEffect(() => {
-    if (pointFilter) {
-      drillDownRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, [pointFilter?.from, pointFilter?.to]);
 
   function handlePointClick(bucketStart: string) {
     if (bucket === 'hunt') return;
@@ -94,11 +145,12 @@ export function DashboardPage() {
     setPointFilter((prev) => (prev && prev.from === range.from && prev.to === range.to ? null : range));
   }
 
+  const knownBucketStarts = showPlayerBreakdown ? playerTrend.map((p) => p.bucketStart) : trend.map((p) => p.bucketStart);
   const selectedBucketStart = pointFilter && bucket !== 'hunt'
-    ? trend.find((p) => {
-        const range = bucketRange(p.bucketStart, bucket);
+    ? knownBucketStarts.find((bucketStart) => {
+        const range = bucketRange(bucketStart, bucket);
         return range.from === pointFilter.from && range.to === pointFilter.to;
-      })?.bucketStart
+      })
     : undefined;
 
   if (!overview) return <div className="empty-state">Carregando...</div>;
@@ -218,21 +270,33 @@ export function DashboardPage() {
           </div>
         </div>
         <div className="card">
-          <TrendChart
-            data={trend}
-            metricKey="avgProfitPerHour"
-            seriesLabel={bucket === 'hunt' ? 'Profit/h' : 'Profit/h médio'}
-            seriesColor="var(--series-1)"
-            bucket={bucket}
-            onPointClick={bucket === 'hunt' ? undefined : handlePointClick}
-            selectedBucketStart={selectedBucketStart}
-            rareDropThreshold={rareDropThreshold}
-          />
+          {showPlayerBreakdown ? (
+            <>
+              <PlayerLegend entries={playerSeries.map((s) => ({ id: s.playerId, name: s.playerName, color: s.color }))} />
+              <MultiSeriesTrendChart
+                series={playerSeries}
+                bucket={bucket as 'day' | 'week' | 'month'}
+                onPointClick={handlePointClick}
+                selectedBucketStart={selectedBucketStart}
+              />
+            </>
+          ) : (
+            <TrendChart
+              data={trend}
+              metricKey="avgProfitPerHour"
+              seriesLabel={bucket === 'hunt' ? 'Profit/h' : 'Profit/h médio'}
+              seriesColor="var(--series-1)"
+              bucket={bucket}
+              onPointClick={bucket === 'hunt' ? undefined : handlePointClick}
+              selectedBucketStart={selectedBucketStart}
+              rareDropThreshold={rareDropThreshold}
+            />
+          )}
         </div>
       </div>
 
       {pointFilter && (
-        <div className="section" ref={drillDownRef} style={{ scrollMarginTop: 16 }}>
+        <div className="section" ref={drillDownRef} style={{ scrollMarginTop: 96 }}>
           <h2 className="section-title">
             Hunts em {selectedBucketStart ? formatBucketLabel(selectedBucketStart, bucket) : ''}
             {!dayHuntsLoading && <> ({dayHunts.length})</>}
