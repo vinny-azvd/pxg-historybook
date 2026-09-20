@@ -1,5 +1,6 @@
 import type {
   CompareResponse,
+  EnemyDefeatedLine,
   Filters,
   HuntDetail,
   HuntListResponse,
@@ -43,6 +44,16 @@ export const api = {
     });
     if (!res.ok) throw new Error('Falha ao renomear a hunt');
     return res.json();
+  },
+
+  setNightmareCrystalSelections: async (id: number, fromNightmareCrystalIds: number[]) => {
+    const res = await fetch(`/api/hunts/${id}/nightmare-crystal`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fromNightmareCrystalIds }),
+    });
+    if (!res.ok) throw new Error('Falha ao salvar a seleção do Nightmare Crystal');
+    return res.json() as Promise<{ enemiesDefeated: EnemyDefeatedLine[] }>;
   },
 
   deleteHunt: async (id: number) => {

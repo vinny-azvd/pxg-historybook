@@ -362,7 +362,8 @@ button:disabled {
 
 .badge-jade-severe {
   background: var(--jade);
-  color: #ffffff;
+  color: #042e1f;
+  font-weight: 800;
 }
 
 .badge-rare-drop {

@@ -16,6 +16,9 @@ export function HuntDetailPage() {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [renaming, setRenaming] = useState(false);
+  const [editingCrystal, setEditingCrystal] = useState(false);
+  const [crystalDraft, setCrystalDraft] = useState<Set<number>>(new Set());
+  const [savingCrystal, setSavingCrystal] = useState(false);
   const { rareDropThreshold } = usePreferences();
 
   useEffect(() => {
@@ -28,6 +31,33 @@ export function HuntDetailPage() {
   const { hunt, players, damage, supplies, drops, enemiesDefeated } = detail;
   const jadeSevere = hunt.jade_totem_count > 0 && hunt.jade_totem_count * 3600 < hunt.duration_seconds;
   const topDrops = drops.map((d) => ({ item: d.item, unitPrice: d.unit_price }));
+  const hasNightmareCrystal = enemiesDefeated.some((e) => e.enemy.toLowerCase().includes('nightmare crystal'));
+  const rareEnemies = enemiesDefeated.filter((e) => e.rare);
+
+  function startEditingCrystal() {
+    setCrystalDraft(new Set(rareEnemies.filter((e) => e.from_nightmare_crystal).map((e) => e.id)));
+    setEditingCrystal(true);
+  }
+
+  function toggleCrystalDraft(enemyId: number) {
+    setCrystalDraft((prev) => {
+      const next = new Set(prev);
+      if (next.has(enemyId)) next.delete(enemyId);
+      else next.add(enemyId);
+      return next;
+    });
+  }
+
+  async function saveCrystalSelection() {
+    setSavingCrystal(true);
+    try {
+      const res = await api.setNightmareCrystalSelections(hunt.id, [...crystalDraft]);
+      setDetail((prev) => (prev ? { ...prev, enemiesDefeated: res.enemiesDefeated } : prev));
+      setEditingCrystal(false);
+    } finally {
+      setSavingCrystal(false);
+    }
+  }
 
   async function handleDelete() {
     if (!confirm('Remover esta hunt do histórico? Essa ação não pode ser desfeita.')) return;
@@ -138,7 +168,42 @@ export function HuntDetailPage() {
       </div>
 
       <div className="section">
-        <h2 className="section-title">Inimigos derrotados</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h2 className="section-title" style={{ margin: 0 }}>
+            Inimigos derrotados
+          </h2>
+          {hasNightmareCrystal && rareEnemies.length > 0 && !editingCrystal && (
+            <button className="secondary" onClick={startEditingCrystal} style={{ fontSize: 12, padding: '3px 8px' }}>
+              Marcar raros do Nightmare Crystal
+            </button>
+          )}
+        </div>
+        {editingCrystal && (
+          <div className="card" style={{ marginBottom: 12 }}>
+            <p style={{ fontSize: 13, margin: '0 0 8px' }}>
+              Essa hunt teve <strong>Nightmare Crystal</strong>, que gera 2 shinies aleatórios. Marque quais raros
+              abaixo vieram do cristal:
+            </p>
+            {rareEnemies.map((e) => (
+              <label key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, marginBottom: 4 }}>
+                <input
+                  type="checkbox"
+                  checked={crystalDraft.has(e.id)}
+                  onChange={() => toggleCrystalDraft(e.id)}
+                />
+                {e.enemy} (× {e.count})
+              </label>
+            ))}
+            <div className="modal-actions" style={{ marginTop: 10 }}>
+              <button className="secondary" onClick={() => setEditingCrystal(false)} disabled={savingCrystal}>
+                Cancelar
+              </button>
+              <button onClick={saveCrystalSelection} disabled={savingCrystal}>
+                {savingCrystal ? 'Salvando...' : 'Salvar seleção'}
+              </button>
+            </div>
+          </div>
+        )}
         <div className="card">
           {enemiesDefeated.length === 0 ? (
             <div className="empty-state">Sem dados.</div>

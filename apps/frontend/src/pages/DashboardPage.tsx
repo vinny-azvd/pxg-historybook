@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
 import { usePreferences } from '../PreferencesContext';
-import type { OverviewStats, TrendPoint } from '../api/types';
+import type { HuntListItem, OverviewStats, TrendPoint } from '../api/types';
 import { StatTile } from '../components/StatTile';
 import { TrendChart } from '../components/charts/TrendChart';
+import { HuntCard } from '../components/HuntCard';
 import { formatBucketLabel, formatCompact, formatDateTime, formatInt } from '../format';
 import { bucketRange } from '../dates';
 
@@ -30,6 +31,9 @@ export function DashboardPage() {
   // left to click. Resets whenever the broader filter/granularity changes,
   // since a specific day/week/month only makes sense relative to those.
   const [pointFilter, setPointFilter] = useState<{ from: string; to: string } | null>(null);
+  const [dayTrend, setDayTrend] = useState<TrendPoint[]>([]);
+  const [dayHunts, setDayHunts] = useState<HuntListItem[]>([]);
+  const [dayHuntsLoading, setDayHuntsLoading] = useState(false);
 
   useEffect(() => {
     setPointFilter(null);
@@ -44,6 +48,36 @@ export function DashboardPage() {
   useEffect(() => {
     api.getTrends({ player, sessionType, from, to, bucket }).then(setTrend);
   }, [player, sessionType, from, to, bucket]);
+
+  // Drilling into a clicked point also breaks it down hunt-by-hunt: how many
+  // hunts happened that day/week/month, each with its own jade/rare-drop
+  // indicator, instead of just the narrowed averages in the stat tiles above.
+  useEffect(() => {
+    if (!pointFilter) {
+      setDayTrend([]);
+      setDayHunts([]);
+      return;
+    }
+    setDayHuntsLoading(true);
+    Promise.all([
+      api.getTrends({ player, sessionType, from: pointFilter.from, to: pointFilter.to, bucket: 'hunt' }),
+      api.getHunts({
+        player,
+        sessionType,
+        from: pointFilter.from,
+        to: pointFilter.to,
+        sort: 'start_time',
+        order: 'asc',
+        page: 1,
+        pageSize: 100,
+      }),
+    ])
+      .then(([trendRes, huntsRes]) => {
+        setDayTrend(trendRes);
+        setDayHunts(huntsRes.items);
+      })
+      .finally(() => setDayHuntsLoading(false));
+  }, [player, sessionType, pointFilter?.from, pointFilter?.to]);
 
   function handlePointClick(bucketStart: string) {
     if (bucket === 'hunt') return;
@@ -187,6 +221,38 @@ export function DashboardPage() {
           />
         </div>
       </div>
+
+      {pointFilter && (
+        <div className="section">
+          <h2 className="section-title">
+            Hunts em {selectedBucketStart ? formatBucketLabel(selectedBucketStart, bucket) : ''}
+            {!dayHuntsLoading && <> ({dayHunts.length})</>}
+          </h2>
+          {dayHuntsLoading ? (
+            <div className="empty-state">Carregando...</div>
+          ) : dayHunts.length === 0 ? (
+            <div className="empty-state">Nenhuma hunt nesse período.</div>
+          ) : (
+            <>
+              <div className="card" style={{ marginBottom: 14 }}>
+                <TrendChart
+                  data={dayTrend}
+                  metricKey="avgProfitPerHour"
+                  seriesLabel="Profit/h"
+                  seriesColor="var(--series-1)"
+                  bucket="hunt"
+                  rareDropThreshold={rareDropThreshold}
+                />
+              </div>
+              <div className="hunt-card-grid">
+                {dayHunts.map((hunt) => (
+                  <HuntCard key={hunt.id} hunt={hunt} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

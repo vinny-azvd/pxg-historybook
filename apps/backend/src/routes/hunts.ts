@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../db/connection.js';
+import { db, withTransaction } from '../db/connection.js';
 import { validateHuntExport } from '../services/huntValidation.js';
 import { DuplicateHuntError, ingestHunt } from '../services/huntIngestion.js';
 import { buildHuntFilter } from '../services/huntFilters.js';
@@ -164,6 +164,40 @@ huntsRouter.patch('/:id', (req, res) => {
   if (result.changes === 0) return res.status(404).json({ error: 'not_found' });
   const hunt = db.prepare('SELECT * FROM hunts WHERE id = ?').get(id);
   res.json({ hunt });
+});
+
+// Lets a rare/shiny kill be tagged (or untagged) as a Nightmare Crystal spawn
+// after the hunt was already imported - the crystal's random shinies are
+// only obvious to the player after the fact, or a hunt may predate this
+// feature entirely, so the choice can't always be made at upload time.
+huntsRouter.patch('/:id/nightmare-crystal', (req, res) => {
+  const id = Number(req.params.id);
+  const idsRaw = req.body?.fromNightmareCrystalIds;
+  if (!Array.isArray(idsRaw) || !idsRaw.every((v) => typeof v === 'number')) {
+    return res.status(400).json({ error: 'invalid_body' });
+  }
+  const selectedIds = new Set<number>(idsRaw);
+
+  const rareRows = db
+    .prepare('SELECT id FROM hunt_enemies_defeated WHERE hunt_id = ? AND rare = 1')
+    .all(id) as { id: number }[];
+  if (rareRows.length === 0) return res.status(404).json({ error: 'not_found' });
+
+  const updateFlag = db.prepare(
+    'UPDATE hunt_enemies_defeated SET from_nightmare_crystal = ? WHERE id = ? AND hunt_id = ?'
+  );
+  withTransaction(() => {
+    for (const row of rareRows) {
+      updateFlag.run(selectedIds.has(row.id) ? 1 : 0, row.id, id);
+    }
+  });
+
+  const enemiesDefeated = db
+    .prepare(
+      `SELECT ed.*, p.name AS player_name FROM hunt_enemies_defeated ed LEFT JOIN players p ON p.id = ed.player_id WHERE ed.hunt_id = ?`
+    )
+    .all(id);
+  res.json({ enemiesDefeated });
 });
 
 huntsRouter.delete('/:id', (req, res) => {
