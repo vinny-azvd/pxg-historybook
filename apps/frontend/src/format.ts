@@ -19,6 +19,10 @@ export function formatDuration(seconds: number): string {
   return [h, m, s].map((v) => String(v).padStart(2, '0')).join(':');
 }
 
+export function formatHours(seconds: number): string {
+  return `${(seconds / 3600).toFixed(1)}h`;
+}
+
 export function formatDateTime(value: string): string {
   const iso = value.includes('T') ? value : value.replace(' ', 'T');
   const date = new Date(iso);

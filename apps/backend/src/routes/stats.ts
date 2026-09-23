@@ -1,11 +1,22 @@
 import { Router } from 'express';
-import { computeAvailableMonths, computeOverview, computeTrends, computeTrendsByPlayer } from '../services/statsAggregation.js';
+import {
+  computeAvailableMonths,
+  computeOverview,
+  computeRareKills,
+  computeTrends,
+  computeTrendsByPlayer,
+} from '../services/statsAggregation.js';
 
 export const statsRouter = Router();
 
 statsRouter.get('/overview', (req, res) => {
   const { player, from, to, sessionType } = req.query as Record<string, string>;
   res.json(computeOverview({ player, from, to, sessionType }));
+});
+
+statsRouter.get('/rare-kills', (req, res) => {
+  const { player, from, to, sessionType } = req.query as Record<string, string>;
+  res.json(computeRareKills({ player, from, to, sessionType }));
 });
 
 statsRouter.get('/months', (req, res) => {

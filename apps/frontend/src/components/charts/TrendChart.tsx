@@ -101,7 +101,7 @@ export function TrendChart({
                     // contrast as text - ~1.7:1 in light theme). Severity is
                     // shown by weight instead, using the badge-safe token.
                     <div style={{ color: 'var(--jade-badge-text)', fontWeight: row.jadeSevere ? 700 : 400 }}>
-                      🟢 Jade Totem{row.jadeSevere ? ' (severo)' : ''} × {row.jadeTotemCount}
+                      🟢 Jade Totem × {row.jadeTotemCount}
                     </div>
                   )}
                   {bucket === 'hunt' &&

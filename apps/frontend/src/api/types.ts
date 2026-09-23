@@ -109,6 +109,7 @@ export interface HuntDetail {
 
 export interface OverviewStats {
   huntCount: number;
+  totalDurationSeconds: number;
   totalProfit: number;
   avgProfitPerHour: number | null;
   maxProfitPerHour: number | null;
@@ -127,6 +128,16 @@ export interface OverviewStats {
   mostProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
   leastProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
   mostFrequentHunt: { huntName: string; count: number } | null;
+}
+
+export interface RareKillRow {
+  id: number;
+  huntId: number;
+  huntName: string | null;
+  startTime: string;
+  enemy: string;
+  count: number;
+  fromNightmareCrystal: boolean;
 }
 
 export interface MonthBucket {

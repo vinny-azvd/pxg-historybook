@@ -19,6 +19,7 @@ export function HuntDetailPage() {
   const [editingCrystal, setEditingCrystal] = useState(false);
   const [crystalDraft, setCrystalDraft] = useState<Set<number>>(new Set());
   const [savingCrystal, setSavingCrystal] = useState(false);
+  const [showRareDetail, setShowRareDetail] = useState(false);
   const { rareDropThreshold } = usePreferences();
 
   useEffect(() => {
@@ -145,12 +146,40 @@ export function HuntDetailPage() {
           label="Raros"
           value={formatInt(hunt.rare_kills)}
           sub={`${formatInt(hunt.rare_kills_per_hour)}/h`}
+          onClick={() => setShowRareDetail((v) => !v)}
         />
         <StatTile label="Exp/h" value={formatCompact(hunt.experience_per_hour)} />
         <StatTile label="Suprimentos" value={formatCompact(hunt.supplies_cost)} sub={`${formatCompact(hunt.supplies_per_hour)}/h`} />
         <StatTile label="Dano/s (causado)" value={formatInt(hunt.damage_dealt_per_second)} />
         <StatTile label="Dano/s (recebido)" value={formatInt(hunt.damage_taken_per_second)} />
       </div>
+
+      {showRareDetail && (
+        <div className="section">
+          <h2 className="section-title">Raros mortos ({rareEnemies.length})</h2>
+          <div className="card">
+            {rareEnemies.length === 0 ? (
+              <div className="empty-state">Nenhum raro nessa hunt.</div>
+            ) : (
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5 }}>
+                {rareEnemies.map((e) => (
+                  <li key={e.id}>
+                    {e.enemy} × {formatInt(e.count)}
+                    {!!e.from_nightmare_crystal && (
+                      <>
+                        {' '}
+                        <span className="badge badge-jade" title="Spawn aleatório do Nightmare Crystal">
+                          via Nightmare Crystal
+                        </span>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="two-col">
         <div className="section">

@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
 import { usePreferences } from '../PreferencesContext';
-import type { HuntListItem, OverviewStats, PlayerTrendPoint, TrendPoint } from '../api/types';
+import type { HuntListItem, OverviewStats, PlayerTrendPoint, RareKillRow, TrendPoint } from '../api/types';
 import { StatTile } from '../components/StatTile';
 import { TrendChart } from '../components/charts/TrendChart';
 import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChart';
 import { PlayerLegend } from '../components/PlayerLegend';
 import { HuntCard } from '../components/HuntCard';
-import { formatBucketLabel, formatCompact, formatDateTime, formatInt } from '../format';
+import { formatBucketLabel, formatCompact, formatDateTime, formatHours, formatInt } from '../format';
 import { bucketRange } from '../dates';
 
 type Bucket = 'day' | 'week' | 'month' | 'hunt';
@@ -37,6 +37,9 @@ export function DashboardPage() {
   const [dayTrend, setDayTrend] = useState<TrendPoint[]>([]);
   const [dayHunts, setDayHunts] = useState<HuntListItem[]>([]);
   const [dayHuntsLoading, setDayHuntsLoading] = useState(false);
+  const [showRareKills, setShowRareKills] = useState(false);
+  const [rareKills, setRareKills] = useState<RareKillRow[]>([]);
+  const [rareKillsLoading, setRareKillsLoading] = useState(false);
   const drillDownRef = useRef<HTMLDivElement>(null);
 
   // No single character selected - color-code the main chart per player
@@ -50,6 +53,23 @@ export function DashboardPage() {
   }, [player, sessionType, from, to, bucket]);
 
   const overviewRange = pointFilter ?? { from, to };
+
+  useEffect(() => {
+    if (!showRareKills) return;
+    let ignore = false;
+    setRareKillsLoading(true);
+    api
+      .getRareKills({ player, sessionType, from: overviewRange.from, to: overviewRange.to })
+      .then((res) => {
+        if (!ignore) setRareKills(res);
+      })
+      .finally(() => {
+        if (!ignore) setRareKillsLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [showRareKills, player, sessionType, overviewRange.from, overviewRange.to]);
 
   // Requests can resolve out of order (e.g. picking "Este mês" then quickly
   // "Mês passado" - the first response can land after the second one and
@@ -188,6 +208,7 @@ export function DashboardPage() {
       </p>
 
       <div className="stat-grid">
+        <StatTile label="Horas caçadas" value={formatHours(overview.totalDurationSeconds)} />
         <StatTile label="Profit total" value={formatCompact(overview.totalProfit)} />
         <StatTile
           label="Profit/h médio"
@@ -200,7 +221,11 @@ export function DashboardPage() {
           value={formatInt(overview.avgKillsPerHour)}
           sub={`máx ${formatInt(overview.maxKillsPerHour)}/h · recorde ${formatInt(overview.maxKills)} numa hunt`}
         />
-        <StatTile label="Raros total" value={formatInt(overview.totalRareKills)} />
+        <StatTile
+          label="Raros total"
+          value={formatInt(overview.totalRareKills)}
+          onClick={() => setShowRareKills((v) => !v)}
+        />
         <StatTile
           label="Raros/h médio"
           value={formatInt(overview.avgRareKillsPerHour)}
@@ -209,6 +234,52 @@ export function DashboardPage() {
         <StatTile label="Exp/h médio" value={formatCompact(overview.avgExperiencePerHour)} />
         <StatTile label="Suprimentos/h médio" value={formatCompact(overview.avgSuppliesPerHour)} />
       </div>
+
+      {showRareKills && (
+        <div className="section">
+          <h2 className="section-title">Raros mortos no período ({rareKills.length})</h2>
+          <div className="card">
+            {rareKillsLoading ? (
+              <div className="empty-state">Carregando...</div>
+            ) : rareKills.length === 0 ? (
+              <div className="empty-state">Nenhum raro no período selecionado.</div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Hunt</th>
+                    <th>Data</th>
+                    <th>Inimigo</th>
+                    <th>Quantidade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rareKills.map((rk) => (
+                    <tr key={rk.id}>
+                      <td>
+                        <Link to={`/hunts/${rk.huntId}`}>{rk.huntName ?? 'Hunt'}</Link>
+                      </td>
+                      <td>{formatDateTime(rk.startTime)}</td>
+                      <td>
+                        {rk.enemy}
+                        {rk.fromNightmareCrystal && (
+                          <>
+                            {' '}
+                            <span className="badge badge-jade" title="Spawn aleatório do Nightmare Crystal">
+                              via Nightmare Crystal
+                            </span>
+                          </>
+                        )}
+                      </td>
+                      <td>{formatInt(rk.count)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
 
       {(overview.mostProfitableHunt || overview.leastProfitableHunt || overview.mostFrequentHunt) && (
         <div className="highlight-grid section" style={{ marginBottom: 24 }}>

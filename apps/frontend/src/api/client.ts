@@ -8,6 +8,7 @@ import type {
   OverviewStats,
   Player,
   PlayerTrendPoint,
+  RareKillRow,
   TrendPoint,
 } from './types';
 
@@ -73,6 +74,8 @@ export const api = {
   },
 
   getOverview: (filters: Filters) => request<OverviewStats>(`/api/stats/overview${toQuery(filters)}`),
+
+  getRareKills: (filters: Filters) => request<RareKillRow[]>(`/api/stats/rare-kills${toQuery(filters)}`),
 
   getMonths: (filters: { player?: string; sessionType?: string }) =>
     request<MonthBucket[]>(`/api/stats/months${toQuery(filters)}`),

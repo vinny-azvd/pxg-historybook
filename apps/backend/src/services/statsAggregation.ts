@@ -3,6 +3,7 @@ import { buildHuntFilter, type HuntFilterQuery } from './huntFilters.js';
 
 export interface OverviewStats {
   huntCount: number;
+  totalDurationSeconds: number;
   totalProfit: number;
   avgProfitPerHour: number | null;
   maxProfitPerHour: number | null;
@@ -30,6 +31,7 @@ export function computeOverview(filter: HuntFilterQuery): OverviewStats {
     .prepare(
       `SELECT
          COUNT(*) AS huntCount,
+         COALESCE(SUM(h.duration_seconds), 0) AS totalDurationSeconds,
          COALESCE(SUM(h.profit), 0) AS totalProfit,
          AVG(h.profit_per_hour) AS avgProfitPerHour,
          MAX(h.profit_per_hour) AS maxProfitPerHour,
@@ -95,6 +97,38 @@ export function computeOverview(filter: HuntFilterQuery): OverviewStats {
     leastProfitableHunt: leastProfitable ?? null,
     mostFrequentHunt: mostFrequent ?? null,
   };
+}
+
+export interface RareKillRow {
+  id: number;
+  huntId: number;
+  huntName: string | null;
+  startTime: string;
+  enemy: string;
+  count: number;
+  fromNightmareCrystal: boolean;
+}
+
+// Per-enemy-kill breakdown behind the dashboard's aggregate "Raros total"
+// tile - unlike the overview's single totalRareKills number, this names
+// which rares came from which hunt so a click on that tile can answer
+// "which rares died in a given hunt" across the whole filtered period.
+export function computeRareKills(filter: HuntFilterQuery): RareKillRow[] {
+  const { whereClause, params } = buildHuntFilter(filter);
+  const rareClause = whereClause ? `${whereClause} AND ed.rare = 1` : 'WHERE ed.rare = 1';
+
+  const rows = db
+    .prepare(
+      `SELECT ed.id AS id, ed.hunt_id AS huntId, h.hunt_name AS huntName, h.start_time AS startTime,
+              ed.enemy AS enemy, ed.count AS count, ed.from_nightmare_crystal AS fromNightmareCrystal
+       FROM hunt_enemies_defeated ed
+       JOIN hunts h ON h.id = ed.hunt_id
+       ${rareClause}
+       ORDER BY h.start_time DESC, ed.id ASC`
+    )
+    .all(params) as any[];
+
+  return rows.map((row) => ({ ...row, fromNightmareCrystal: !!row.fromNightmareCrystal }));
 }
 
 const BUCKET_EXPRESSIONS: Record<string, string> = {

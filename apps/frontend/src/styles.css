@@ -238,6 +238,14 @@ a {
   font-weight: 600;
 }
 
+.stat-tile.clickable {
+  cursor: pointer;
+}
+
+.stat-tile.clickable:hover {
+  border-color: var(--series-1);
+}
+
 .delta.up {
   color: var(--success);
 }

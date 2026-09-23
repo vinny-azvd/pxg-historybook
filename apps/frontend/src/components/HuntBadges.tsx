@@ -13,7 +13,7 @@ export function JadeBadge({ count, severe }: JadeBadgeProps) {
     : `${count} Jade Totem consumido${count === 1 ? '' : 's'}`;
   return (
     <span className={`badge ${severe ? 'badge-jade-severe' : 'badge-jade'}`} title={title}>
-      🟢 Jade Totem{severe ? ' (severo)' : ''}
+      🟢 Jade Totem
     </span>
   );
 }
