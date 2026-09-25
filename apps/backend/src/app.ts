@@ -10,6 +10,8 @@ import { huntsRouter } from './routes/hunts.js';
 import { statsRouter } from './routes/stats.js';
 import { playersRouter } from './routes/players.js';
 import { itemsRouter } from './routes/items.js';
+import { terrorsRouter } from './routes/terrors.js';
+import { terrorStatsRouter } from './routes/terrorStats.js';
 
 export function createApp() {
   const app = express();
@@ -25,6 +27,8 @@ export function createApp() {
   app.use('/api/stats', statsRouter);
   app.use('/api/players', playersRouter);
   app.use('/api/items', itemsRouter);
+  app.use('/api/terrors', terrorsRouter);
+  app.use('/api/terror-stats', terrorStatsRouter);
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
 

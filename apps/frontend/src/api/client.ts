@@ -9,6 +9,10 @@ import type {
   Player,
   PlayerTrendPoint,
   RareKillRow,
+  TerrorDetail,
+  TerrorListResponse,
+  TerrorOverviewStats,
+  TerrorRareKillRow,
   TrendPoint,
 } from './types';
 
@@ -105,4 +109,41 @@ export const api = {
   getUnmatchedItems: () => request<{ item: string; itemNormalized: string; occurrences: number }[]>(
     '/api/items/unmatched'
   ),
+
+  getTerrors: (filters: Filters & { sort?: string; order?: string; page?: number; pageSize?: number }) =>
+    request<TerrorListResponse>(`/api/terrors${toQuery(filters)}`),
+
+  getTerror: (id: number) => request<TerrorDetail>(`/api/terrors/${id}`),
+
+  renameTerror: async (id: number, terrorName: string) => {
+    const res = await fetch(`/api/terrors/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ terrorName }),
+    });
+    if (!res.ok) throw new Error('Falha ao renomear o terror');
+    return res.json();
+  },
+
+  deleteTerror: async (id: number) => {
+    const res = await fetch(`/api/terrors/${id}`, { method: 'DELETE' });
+    if (!res.ok && res.status !== 204) throw new Error('Falha ao remover terror');
+  },
+
+  uploadTerror: async (payload: unknown) => {
+    const res = await fetch('/api/terrors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, body };
+  },
+
+  getTerrorOverview: (filters: Filters) => request<TerrorOverviewStats>(`/api/terror-stats/overview${toQuery(filters)}`),
+
+  getTerrorRareKills: (filters: Filters) => request<TerrorRareKillRow[]>(`/api/terror-stats/rare-kills${toQuery(filters)}`),
+
+  getTerrorTrends: (filters: Filters & { bucket: string }) =>
+    request<TrendPoint[]>(`/api/terror-stats/trends${toQuery(filters)}`),
 };

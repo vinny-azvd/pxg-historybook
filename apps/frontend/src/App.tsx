@@ -6,6 +6,8 @@ import { HuntsHistoryPage } from './pages/HuntsHistoryPage';
 import { HuntDetailPage } from './pages/HuntDetailPage';
 import { UploadPage } from './pages/UploadPage';
 import { TrendsPage } from './pages/TrendsPage';
+import { TerrorPage } from './pages/TerrorPage';
+import { TerrorDetailPage } from './pages/TerrorDetailPage';
 
 export default function App() {
   return (
@@ -25,6 +27,9 @@ export default function App() {
           <NavLink to="/upload" className={({ isActive }) => (isActive ? 'active' : '')}>
             Importar hunt
           </NavLink>
+          <NavLink to="/terror" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Terror
+          </NavLink>
         </nav>
         <PlayerFilter />
         <PeriodFilter />
@@ -36,6 +41,8 @@ export default function App() {
           <Route path="/hunts/:id" element={<HuntDetailPage />} />
           <Route path="/trends" element={<TrendsPage />} />
           <Route path="/upload" element={<UploadPage />} />
+          <Route path="/terror" element={<TerrorPage />} />
+          <Route path="/terror/:id" element={<TerrorDetailPage />} />
         </Routes>
       </main>
     </div>

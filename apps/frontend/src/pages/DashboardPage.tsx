@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
 import { usePreferences } from '../PreferencesContext';
 import type { HuntListItem, OverviewStats, PlayerTrendPoint, RareKillRow, TrendPoint } from '../api/types';
 import { StatTile } from '../components/StatTile';
+import { PeriodNavigator } from '../components/PeriodNavigator';
 import { TrendChart } from '../components/charts/TrendChart';
 import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChart';
 import { PlayerLegend } from '../components/PlayerLegend';
@@ -21,8 +22,14 @@ const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
   { value: 'hunt', label: 'Por hunt' },
 ];
 
+// Reserves room for 2 lines so the highlight cards don't change height
+// depending on whether their text wraps (a long hunt name/date) or is a
+// short one-liner (the "Sem hunts no período" placeholder) - that height
+// change was shoving the chart section (and its nav buttons) around.
+const highlightTextStyle: CSSProperties = { margin: 0, fontSize: 14, minHeight: 40, lineHeight: '20px' };
+
 export function DashboardPage() {
-  const { player, sessionType, from, to, setDateRange } = useFilters();
+  const { player, sessionType, from, to, months, setDateRange } = useFilters();
   const { rareDropThreshold, getPlayerColor } = usePreferences();
   const [overview, setOverview] = useState<OverviewStats | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
@@ -175,7 +182,12 @@ export function DashboardPage() {
 
   if (!overview) return <div className="empty-state">Carregando...</div>;
 
-  if (overview.huntCount === 0) {
+  // Only show the "nothing imported yet" onboarding screen when there is truly
+  // no hunt for this player/session anywhere (months is unaffected by the
+  // from/to period filter) - an empty *selected* period, e.g. after navigating
+  // to a week with no hunts, should still show the chart and period nav so the
+  // user can navigate back out, not lose the whole page.
+  if (overview.huntCount === 0 && months.length === 0) {
     return (
       <div>
         <h1 className="page-title">Dashboard</h1>
@@ -281,63 +293,85 @@ export function DashboardPage() {
         </div>
       )}
 
-      {(overview.mostProfitableHunt || overview.leastProfitableHunt || overview.mostFrequentHunt) && (
-        <div className="highlight-grid section" style={{ marginBottom: 24 }}>
-          {overview.mostProfitableHunt && (
-            <div className="card">
-              <h2 className="section-title">Hunt mais lucrativa</h2>
-              <p style={{ margin: 0, fontSize: 14 }}>
-                <Link to={`/hunts/${overview.mostProfitableHunt.id}`}>
-                  {overview.mostProfitableHunt.huntName ?? 'Hunt'}
-                </Link>{' '}
-                em {formatDateTime(overview.mostProfitableHunt.startTime)} — profit de{' '}
-                {formatCompact(overview.mostProfitableHunt.profit)} (
-                {formatCompact(overview.mostProfitableHunt.profitPerHour)}/h)
-              </p>
-            </div>
-          )}
-          {overview.leastProfitableHunt && (
-            <div className="card">
-              <h2 className="section-title">Hunt menos lucrativa</h2>
-              <p style={{ margin: 0, fontSize: 14 }}>
-                <Link to={`/hunts/${overview.leastProfitableHunt.id}`}>
-                  {overview.leastProfitableHunt.huntName ?? 'Hunt'}
-                </Link>{' '}
-                em {formatDateTime(overview.leastProfitableHunt.startTime)} — profit de{' '}
-                {formatCompact(overview.leastProfitableHunt.profit)} (
-                {formatCompact(overview.leastProfitableHunt.profitPerHour)}/h)
-              </p>
-            </div>
-          )}
-          {overview.mostFrequentHunt && (
-            <div className="card">
-              <h2 className="section-title">Hunt mais feita</h2>
-              <p style={{ margin: 0, fontSize: 14 }}>
-                <strong>{overview.mostFrequentHunt.huntName}</strong> — {overview.mostFrequentHunt.count} hunt
-                {overview.mostFrequentHunt.count === 1 ? '' : 's'} registrada
-                {overview.mostFrequentHunt.count === 1 ? '' : 's'} no período
-              </p>
-            </div>
+      {/* Always rendered, even with placeholders, so navigating to an empty
+          period doesn't collapse this block and shove the rest of the page
+          up - only the text inside changes, not the layout around it.
+          highlightTextStyle reserves room for 2 lines so that going from a
+          long wrapped line (real hunt data) to a short one-liner ("Sem hunts
+          no período") doesn't itself shift everything below it either. */}
+      <div className="highlight-grid section" style={{ marginBottom: 24 }}>
+        <div className="card">
+          <h2 className="section-title">Hunt mais lucrativa</h2>
+          {overview.mostProfitableHunt ? (
+            <p style={highlightTextStyle}>
+              <Link to={`/hunts/${overview.mostProfitableHunt.id}`}>
+                {overview.mostProfitableHunt.huntName ?? 'Hunt'}
+              </Link>{' '}
+              em {formatDateTime(overview.mostProfitableHunt.startTime)} — profit de{' '}
+              {formatCompact(overview.mostProfitableHunt.profit)} (
+              {formatCompact(overview.mostProfitableHunt.profitPerHour)}/h)
+            </p>
+          ) : (
+            <p style={{ ...highlightTextStyle, color: 'var(--text-muted)' }}>Sem hunts no período.</p>
           )}
         </div>
-      )}
+        <div className="card">
+          <h2 className="section-title">Hunt menos lucrativa</h2>
+          {overview.leastProfitableHunt ? (
+            <p style={highlightTextStyle}>
+              <Link to={`/hunts/${overview.leastProfitableHunt.id}`}>
+                {overview.leastProfitableHunt.huntName ?? 'Hunt'}
+              </Link>{' '}
+              em {formatDateTime(overview.leastProfitableHunt.startTime)} — profit de{' '}
+              {formatCompact(overview.leastProfitableHunt.profit)} (
+              {formatCompact(overview.leastProfitableHunt.profitPerHour)}/h)
+            </p>
+          ) : (
+            <p style={{ ...highlightTextStyle, color: 'var(--text-muted)' }}>Sem hunts no período.</p>
+          )}
+        </div>
+        <div className="card">
+          <h2 className="section-title">Hunt mais feita</h2>
+          {overview.mostFrequentHunt ? (
+            <p style={highlightTextStyle}>
+              <strong>{overview.mostFrequentHunt.huntName}</strong> — {overview.mostFrequentHunt.count} hunt
+              {overview.mostFrequentHunt.count === 1 ? '' : 's'} registrada
+              {overview.mostFrequentHunt.count === 1 ? '' : 's'} no período
+            </p>
+          ) : (
+            <p style={{ ...highlightTextStyle, color: 'var(--text-muted)' }}>Sem hunts no período.</p>
+          )}
+        </div>
+      </div>
 
       <div className="section">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 12,
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
           <h2 className="section-title" style={{ margin: 0 }}>
             Profit/h por{' '}
             {bucket === 'day' ? 'dia' : bucket === 'week' ? 'semana' : bucket === 'month' ? 'mês' : 'hunt'}
           </h2>
-          <div className="bucket-toggle">
-            {BUCKET_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                className={bucket === opt.value ? '' : 'secondary'}
-                onClick={() => setBucket(opt.value)}
-              >
-                {opt.label}
-              </button>
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            {bucket !== 'hunt' && <PeriodNavigator bucket={bucket} />}
+            <div className="bucket-toggle">
+              {BUCKET_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  className={bucket === opt.value ? '' : 'secondary'}
+                  onClick={() => setBucket(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         <div className="card">

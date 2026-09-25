@@ -23,7 +23,7 @@ export function MultiSeriesTrendChart({ series, bucket, onPointClick, selectedBu
   const bucketStarts = [...new Set(series.flatMap((s) => s.points.map((p) => p.bucketStart)))].sort();
 
   if (bucketStarts.length === 0) {
-    return <div className="empty-state">Sem dados suficientes para o gráfico.</div>;
+    return <div className="chart-empty-state">Sem dados suficientes para o gráfico.</div>;
   }
 
   const rows = bucketStarts.map((bucketStart) => {

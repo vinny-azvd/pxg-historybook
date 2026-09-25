@@ -8,11 +8,12 @@ interface TrendChartProps {
   metricKey: keyof TrendPoint;
   seriesLabel: string;
   seriesColor: string;
-  bucket?: 'day' | 'week' | 'month' | 'hunt';
+  bucket?: 'day' | 'week' | 'month' | 'hunt' | 'terror';
   formatValue?: (value: number) => string;
   onPointClick?: (bucketStart: string) => void;
   selectedBucketStart?: string | null;
   rareDropThreshold?: number;
+  unitLabel?: string;
 }
 
 function pointColor(payload: TrendPoint | undefined, rareDropThreshold: number, fallback: string): string | null {
@@ -33,13 +34,15 @@ export function TrendChart({
   onPointClick,
   selectedBucketStart,
   rareDropThreshold = 1_000_000,
+  unitLabel = 'hunt',
 }: TrendChartProps) {
-  if (data.length === 0) {
-    return <div className="empty-state">Sem dados suficientes para o gráfico.</div>;
-  }
+  const isEmpty = data.length === 0;
 
   return (
     <div>
+      {isEmpty ? (
+        <div className="chart-empty-state">Sem dados suficientes para o gráfico.</div>
+      ) : (
       <ResponsiveContainer width="100%" height={280}>
         <LineChart
           data={data}
@@ -71,6 +74,7 @@ export function TrendChart({
               if (!active || !payload || payload.length === 0) return null;
               const row = payload[0].payload as TrendPoint;
               const value = row[metricKey] as number | null;
+              const isEntryBucket = bucket === 'hunt' || bucket === 'terror';
               return (
                 <div
                   style={{
@@ -83,19 +87,19 @@ export function TrendChart({
                 >
                   <div style={{ color: 'var(--text-secondary)', marginBottom: 4 }}>
                     {bucket === 'week' ? 'Semana de ' : ''}
-                    {bucket === 'hunt' && row.huntName ? row.huntName : ''}
-                    {bucket === 'hunt' && row.huntName ? ' · ' : ''}
+                    {isEntryBucket && row.huntName ? row.huntName : ''}
+                    {isEntryBucket && row.huntName ? ' · ' : ''}
                     {formatBucketLabel(String(label), bucket)}
                   </div>
                   <div>
                     {seriesLabel}: <strong>{value === null || value === undefined ? '—' : formatValue(value)}</strong>
                   </div>
-                  {bucket !== 'hunt' && (
+                  {!isEntryBucket && (
                     <div style={{ color: 'var(--text-muted)' }}>
-                      {row.huntCount} hunt{row.huntCount === 1 ? '' : 's'}
+                      {row.huntCount} {unitLabel}{row.huntCount === 1 ? '' : 's'}
                     </div>
                   )}
-                  {bucket === 'hunt' && (row.jadeTotemCount ?? 0) > 0 && (
+                  {isEntryBucket && (row.jadeTotemCount ?? 0) > 0 && (
                     // --jade/--jade-soft are tuned as chart-marker fills, not
                     // text-on-surface colors (the soft variant fails WCAG
                     // contrast as text - ~1.7:1 in light theme). Severity is
@@ -104,7 +108,7 @@ export function TrendChart({
                       🟢 Jade Totem × {row.jadeTotemCount}
                     </div>
                   )}
-                  {bucket === 'hunt' &&
+                  {isEntryBucket &&
                     getRareDrops(row.topDrops ?? [], rareDropThreshold).map((drop) => (
                       <div key={drop.item} style={{ color: 'var(--rare-drop-badge-text)' }}>
                         💎 {drop.item} ({formatCompact(drop.unitPrice)}/un.)
@@ -144,6 +148,7 @@ export function TrendChart({
           />
         </LineChart>
       </ResponsiveContainer>
+      )}
       {onPointClick && (
         <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '4px 0 0', textAlign: 'center' }}>
           Clique num ponto do gráfico para focar o dashboard naquele período.

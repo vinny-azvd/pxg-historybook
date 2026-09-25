@@ -10,7 +10,10 @@ export function PlayerLegend({ entries }: { entries: PlayerLegendEntry[] }) {
   const { setPlayerColor } = usePreferences();
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 10 }}>
+    // minHeight keeps this row's footprint the same whether there are 0 or
+    // several players, so switching to a period with no hunts (no entries)
+    // doesn't shift the chart - and its nav buttons - up underneath the cursor.
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, minHeight: 20, marginBottom: 10 }}>
       {entries.map((e) => (
         <label
           key={e.id}

@@ -44,12 +44,44 @@ export function bucketRange(bucketStart: string, bucket: 'day' | 'week' | 'month
   return { from: bucketStart, to: bucketStart };
 }
 
-function startOfWeek(date: Date): Date {
+export function startOfWeek(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();
   const diff = day === 0 ? 6 : day - 1;
   d.setDate(d.getDate() - diff);
   return d;
+}
+
+/** The { from, to } range of the day/week/month that contains `date`, e.g. to
+ * jump the dashboard's period filter straight to "the week of March 3rd". */
+export function periodRangeForDate(date: Date, bucket: 'day' | 'week' | 'month'): { from: string; to: string } {
+  if (bucket === 'month') return monthRange(monthKey(date));
+  if (bucket === 'week') {
+    const start = startOfWeek(date);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    return { from: toISODate(start), to: toISODate(end) };
+  }
+  const iso = toISODate(date);
+  return { from: iso, to: iso };
+}
+
+/** The bucketStart value the backend would report for the day/week/month
+ * containing `date`, for reuse with formatBucketLabel. */
+export function bucketStartForDate(date: Date, bucket: 'day' | 'week' | 'month'): string {
+  if (bucket === 'month') return `${monthKey(date)}-01`;
+  if (bucket === 'week') return toISODate(startOfWeek(date));
+  return toISODate(date);
+}
+
+/** One day/week/month before or after `date`, for stepping the period
+ * navigator's prev/next buttons. Months land on the 1st, so a step from Jan
+ * 31st doesn't roll over into March. */
+export function shiftPeriodDate(date: Date, bucket: 'day' | 'week' | 'month', direction: 1 | -1): Date {
+  if (bucket === 'month') return new Date(date.getFullYear(), date.getMonth() + direction, 1);
+  const result = new Date(date);
+  result.setDate(result.getDate() + direction * (bucket === 'week' ? 7 : 1));
+  return result;
 }
 
 export function defaultPeriods() {
