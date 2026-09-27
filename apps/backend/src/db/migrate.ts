@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { db } from './connection.js';
 import { deriveHuntName } from '../services/huntNaming.js';
 import { deriveTerrorName } from '../services/terrorNaming.js';
+import { deriveMdName } from '../services/mdNaming.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -62,21 +63,18 @@ function backfillTerrorNames() {
   }
 }
 
-// Unlike Terror (named from the Damage log's bosses), MD has no known
-// boss-naming convention, so it's named the same way Hunts is: from its
-// Enemies Defeated list.
 function backfillMdNames() {
   const missing = db
     .prepare('SELECT id FROM mds WHERE md_name IS NULL')
     .all() as { id: number }[];
   if (missing.length === 0) return;
 
-  const enemiesStmt = db.prepare('SELECT enemy, count FROM md_enemies_defeated WHERE md_id = ?');
+  const damageStmt = db.prepare('SELECT enemy AS "Enemy" FROM md_damage WHERE md_id = ?');
   const updateStmt = db.prepare('UPDATE mds SET md_name = ? WHERE id = ?');
 
   for (const { id } of missing) {
-    const enemies = enemiesStmt.all(id) as { enemy: string; count: number }[];
-    const mdName = deriveHuntName(enemies);
+    const damage = damageStmt.all(id) as { Enemy: string }[];
+    const mdName = deriveMdName(damage);
     if (mdName) updateStmt.run(mdName, id);
   }
 }

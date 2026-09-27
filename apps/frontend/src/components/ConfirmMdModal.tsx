@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { deriveHuntName } from '../huntNaming';
+import { extractMdEnemies, deriveMdName } from '../mdNaming';
 import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
 
 interface MdExportPreview {
@@ -15,6 +15,7 @@ interface MdExportPreview {
   Experience?: { Player: string; Experience: number }[];
   Supplies?: { Player: string }[];
   Drops?: { Player: string }[];
+  Damage?: { Enemy: string }[];
   'Enemies Defeated'?: { Enemy: string; Count: number; Player: string; Rare?: boolean }[];
 }
 
@@ -41,8 +42,9 @@ function derivePlayers(md: MdExportPreview): string[] {
 }
 
 export function ConfirmMdModal({ md, submitting, errorMessage, onConfirm, onCancel }: ConfirmMdModalProps) {
-  const enemies = asArray(md['Enemies Defeated']);
-  const suggested = deriveHuntName(enemies.map((e) => ({ enemy: e.Enemy, count: e.Count }))) ?? '';
+  const damage = asArray(md.Damage);
+  const enemies = extractMdEnemies(damage);
+  const suggested = deriveMdName(damage) ?? '';
   const [name, setName] = useState(suggested);
 
   const players = derivePlayers(md);
@@ -97,6 +99,10 @@ export function ConfirmMdModal({ md, submitting, errorMessage, onConfirm, onCanc
           <div>
             <dt>Raros</dt>
             <dd>{formatInt(session['Rare kills'])}</dd>
+          </div>
+          <div>
+            <dt>Inimigos detectados</dt>
+            <dd>{enemies.length > 0 ? enemies.join(', ') : '—'}</dd>
           </div>
         </dl>
 

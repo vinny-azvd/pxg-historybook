@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { db, withTransaction } from '../db/connection.js';
 import { normalizeItemName } from './itemIconMatcher.js';
-import { deriveHuntName } from './huntNaming.js';
+import { deriveMdName } from './mdNaming.js';
 import type { MdExport } from './mdValidation.js';
 
 export class DuplicateMdError extends Error {
@@ -53,9 +53,7 @@ export function ingestMd(
     const primaryPlayerId = primaryPlayerName ? playerIds.get(primaryPlayerName) ?? null : null;
 
     const trimmedOverride = mdNameOverride?.trim();
-    const mdName = trimmedOverride
-      ? trimmedOverride
-      : deriveHuntName(md['Enemies Defeated'].map((row) => ({ enemy: row.Enemy, count: row.Count })));
+    const mdName = trimmedOverride ? trimmedOverride : deriveMdName(md.Damage);
 
     const session = md.Session;
     const mdResult = db
