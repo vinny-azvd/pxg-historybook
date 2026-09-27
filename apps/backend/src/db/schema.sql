@@ -222,6 +222,7 @@ CREATE TABLE IF NOT EXISTS mds (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   session_id INTEGER,
   md_name TEXT,
+  difficulty TEXT CHECK (difficulty IN ('Grand Master', 'Master', 'Hyper', 'Ultra', 'Platinum')),
   content_hash TEXT NOT NULL UNIQUE,
   session_type TEXT NOT NULL CHECK (session_type IN ('player', 'party')),
   status TEXT,

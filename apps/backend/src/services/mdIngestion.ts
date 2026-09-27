@@ -4,6 +4,10 @@ import { normalizeItemName } from './itemIconMatcher.js';
 import { deriveMdName } from './mdNaming.js';
 import type { MdExport } from './mdValidation.js';
 
+// Hardest to easiest.
+export const MD_DIFFICULTIES = ['Grand Master', 'Master', 'Hyper', 'Ultra', 'Platinum'] as const;
+export type MdDifficulty = (typeof MD_DIFFICULTIES)[number];
+
 export class DuplicateMdError extends Error {
   constructor(public existingMdId: number) {
     super('Mystery Dungeon already imported');
@@ -25,7 +29,8 @@ function upsertPlayer(name: string): number {
 export function ingestMd(
   rawJson: string,
   md: MdExport,
-  mdNameOverride?: string | null
+  mdNameOverride?: string | null,
+  difficulty?: MdDifficulty | null
 ): { id: number; sessionType: string; players: string[]; mdName: string | null } {
   const contentHash = hashPayload(rawJson);
 
@@ -59,13 +64,13 @@ export function ingestMd(
     const mdResult = db
       .prepare(
         `INSERT INTO mds (
-          session_id, md_name, content_hash, session_type, status, start_time, duration_seconds, paused_seconds,
+          session_id, md_name, difficulty, content_hash, session_type, status, start_time, duration_seconds, paused_seconds,
           kills, kills_per_hour, rare_kills, rare_kills_per_hour, experience, experience_per_hour,
           damage_dealt, damage_dealt_per_second, damage_taken, damage_taken_per_second,
           supplies_cost, supplies_per_hour, raw_gains, raw_gains_per_hour, profit, profit_per_hour,
           time_to_next_level_seconds, primary_player_id, raw_json
         ) VALUES (
-          @session_id, @md_name, @content_hash, @session_type, @status, @start_time, @duration_seconds, @paused_seconds,
+          @session_id, @md_name, @difficulty, @content_hash, @session_type, @status, @start_time, @duration_seconds, @paused_seconds,
           @kills, @kills_per_hour, @rare_kills, @rare_kills_per_hour, @experience, @experience_per_hour,
           @damage_dealt, @damage_dealt_per_second, @damage_taken, @damage_taken_per_second,
           @supplies_cost, @supplies_per_hour, @raw_gains, @raw_gains_per_hour, @profit, @profit_per_hour,
@@ -75,6 +80,7 @@ export function ingestMd(
       .run({
         session_id: session['Session ID'] ?? null,
         md_name: mdName,
+        difficulty: difficulty ?? null,
         content_hash: contentHash,
         session_type: session['Session type'],
         status: session.Status ?? null,

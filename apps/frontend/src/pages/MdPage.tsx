@@ -11,7 +11,7 @@ import { PeriodNavigator } from '../components/PeriodNavigator';
 import { TrendChart } from '../components/charts/TrendChart';
 import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChart';
 import { PlayerLegend } from '../components/PlayerLegend';
-import type { PlayerTrendPoint, MdListItem, MdOverviewStats, MdWeeklySummary } from '../api/types';
+import type { PlayerTrendPoint, MdDifficulty, MdListItem, MdOverviewStats, MdWeeklySummary } from '../api/types';
 import { formatBucketLabel, formatCompact, formatDateTime, formatInt } from '../format';
 import { bucketRange, periodRangeForDate } from '../dates';
 import { MdWeekCard } from '../components/MdWeekCard';
@@ -253,7 +253,7 @@ function MdDashboardTab() {
       </p>
 
       <div className="stat-grid">
-        <StatTileLite label="Rotações realizadas" value={formatInt(overview.mdCount)} />
+        <StatTileLite label="Bosses derrotados" value={formatInt(overview.mdCount)} />
         <StatTileLite label="Profit total" value={formatCompact(overview.totalProfit)} />
         <StatTileLite
           label="Profit médio"
@@ -518,11 +518,11 @@ function MdUploadTab({ onImported }: { onImported: () => void }) {
     setPendingMd(parsed.data);
   }
 
-  async function confirmUpload(mdName: string) {
+  async function confirmUpload(mdName: string, difficulty: MdDifficulty | null) {
     setSubmitting(true);
     setModalError(null);
     try {
-      const res = await api.uploadMd({ md: pendingMd, mdName });
+      const res = await api.uploadMd({ md: pendingMd, mdName, difficulty });
       if (res.status === 409) {
         setPendingMd(null);
         setStatus({ kind: 'duplicate', mdId: res.body.existingMdId });

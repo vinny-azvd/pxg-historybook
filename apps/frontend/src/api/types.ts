@@ -309,9 +309,12 @@ export interface TerrorWeeklyResponse {
   total: number;
 }
 
+export type MdDifficulty = 'Grand Master' | 'Master' | 'Hyper' | 'Ultra' | 'Platinum';
+
 export interface MdListItem {
   id: number;
   md_name: string | null;
+  difficulty: MdDifficulty | null;
   session_type: 'player' | 'party';
   status: string | null;
   start_time: string;
@@ -342,6 +345,7 @@ export interface MdRecord {
   id: number;
   session_id: number | null;
   md_name: string | null;
+  difficulty: MdDifficulty | null;
   session_type: 'player' | 'party';
   status: string | null;
   start_time: string;

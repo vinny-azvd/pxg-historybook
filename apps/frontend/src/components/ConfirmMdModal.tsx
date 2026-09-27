@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { extractMdEnemies, deriveMdName } from '../mdNaming';
 import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
+import type { MdDifficulty } from '../api/types';
+
+// Hardest to easiest.
+const MD_DIFFICULTIES: MdDifficulty[] = ['Grand Master', 'Master', 'Hyper', 'Ultra', 'Platinum'];
 
 interface MdExportPreview {
   Session?: {
@@ -23,7 +27,7 @@ interface ConfirmMdModalProps {
   md: MdExportPreview;
   submitting: boolean;
   errorMessage?: string | null;
-  onConfirm: (mdName: string) => void;
+  onConfirm: (mdName: string, difficulty: MdDifficulty | null) => void;
   onCancel: () => void;
 }
 
@@ -46,6 +50,7 @@ export function ConfirmMdModal({ md, submitting, errorMessage, onConfirm, onCanc
   const enemies = extractMdEnemies(damage);
   const suggested = deriveMdName(damage) ?? '';
   const [name, setName] = useState(suggested);
+  const [difficulty, setDifficulty] = useState<MdDifficulty | null>(null);
 
   const players = derivePlayers(md);
   const session = md.Session ?? {};
@@ -68,6 +73,23 @@ export function ConfirmMdModal({ md, submitting, errorMessage, onConfirm, onCanc
             onChange={(e) => setName(e.target.value)}
             autoFocus
           />
+        </div>
+
+        <div className="field-group">
+          <label className="field-label">Dificuldade</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {MD_DIFFICULTIES.map((level) => (
+              <button
+                key={level}
+                type="button"
+                className={difficulty === level ? '' : 'secondary'}
+                style={{ fontSize: 12, padding: '4px 10px' }}
+                onClick={() => setDifficulty((prev) => (prev === level ? null : level))}
+              >
+                {level}
+              </button>
+            ))}
+          </div>
         </div>
 
         {enemies.length > 1 && (
@@ -127,7 +149,7 @@ export function ConfirmMdModal({ md, submitting, errorMessage, onConfirm, onCanc
           <button className="secondary" onClick={onCancel} disabled={submitting}>
             Cancelar
           </button>
-          <button onClick={() => onConfirm(name)} disabled={submitting || !name.trim()}>
+          <button onClick={() => onConfirm(name, difficulty)} disabled={submitting || !name.trim()}>
             {submitting ? 'Importando...' : 'Confirmar e importar'}
           </button>
         </div>

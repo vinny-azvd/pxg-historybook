@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db/connection.js';
 import { validateMdExport } from '../services/mdValidation.js';
-import { DuplicateMdError, ingestMd } from '../services/mdIngestion.js';
+import { DuplicateMdError, ingestMd, MD_DIFFICULTIES, type MdDifficulty } from '../services/mdIngestion.js';
 import { buildMdFilter } from '../services/mdFilters.js';
 
 export const mdsRouter = Router();
@@ -28,6 +28,11 @@ mdsRouter.post('/', (req, res) => {
   const mdPayload = isWrapped ? (body as { md: unknown }).md : body;
   const mdNameOverrideRaw = isWrapped ? (body as { mdName?: unknown }).mdName : undefined;
   const mdNameOverride = typeof mdNameOverrideRaw === 'string' ? mdNameOverrideRaw : undefined;
+  const difficultyRaw = isWrapped ? (body as { difficulty?: unknown }).difficulty : undefined;
+  const difficulty: MdDifficulty | undefined =
+    typeof difficultyRaw === 'string' && (MD_DIFFICULTIES as readonly string[]).includes(difficultyRaw)
+      ? (difficultyRaw as MdDifficulty)
+      : undefined;
 
   const parsed = validateMdExport(mdPayload);
   if (!parsed.success) {
@@ -36,7 +41,7 @@ mdsRouter.post('/', (req, res) => {
 
   const rawJson = JSON.stringify(mdPayload);
   try {
-    const result = ingestMd(rawJson, parsed.data, mdNameOverride);
+    const result = ingestMd(rawJson, parsed.data, mdNameOverride, difficulty);
     const summary = db.prepare('SELECT * FROM mds WHERE id = ?').get(result.id);
     res.status(201).json({ ...result, summary });
   } catch (err) {
@@ -65,7 +70,7 @@ mdsRouter.get('/', (req, res) => {
 
   const rows = db
     .prepare(
-      `SELECT t.id, t.md_name, t.session_type, t.status, t.start_time, t.duration_seconds, t.kills, t.kills_per_hour,
+      `SELECT t.id, t.md_name, t.difficulty, t.session_type, t.status, t.start_time, t.duration_seconds, t.kills, t.kills_per_hour,
               t.rare_kills, t.rare_kills_per_hour, t.experience_per_hour, t.supplies_cost, t.supplies_per_hour,
               t.profit, t.profit_per_hour,
               t.damage_dealt_per_second, t.damage_taken_per_second,

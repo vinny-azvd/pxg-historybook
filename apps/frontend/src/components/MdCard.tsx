@@ -45,6 +45,12 @@ export function MdCard({ md }: MdCardProps) {
             <span className="badge">party</span>
           </>
         )}
+        {md.difficulty && (
+          <>
+            {' '}
+            <span className="badge">{md.difficulty}</span>
+          </>
+        )}
       </div>
 
       <div className="hunt-card-badges">

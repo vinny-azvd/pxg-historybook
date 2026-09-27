@@ -86,6 +86,12 @@ export function MdDetailPage() {
                   {' '}
                   <span className="badge">party</span>
                 </>
+              )}
+              {md.difficulty && (
+                <>
+                  {' '}
+                  <span className="badge">{md.difficulty}</span>
+                </>
               )}{' '}
               <RareDropBadge items={topDrops} threshold={rareDropThreshold} />{' '}
               <button

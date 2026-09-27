@@ -25,6 +25,13 @@ export function migrate() {
     db.exec('ALTER TABLE hunt_enemies_defeated ADD COLUMN from_nightmare_crystal INTEGER NOT NULL DEFAULT 0');
   }
 
+  const mdColumns = db.prepare('PRAGMA table_info(mds)').all() as { name: string }[];
+  if (!mdColumns.some((c) => c.name === 'difficulty')) {
+    db.exec(
+      "ALTER TABLE mds ADD COLUMN difficulty TEXT CHECK (difficulty IN ('Grand Master', 'Master', 'Hyper', 'Ultra', 'Platinum'))"
+    );
+  }
+
   backfillHuntNames();
   backfillTerrorNames();
   backfillMdNames();
