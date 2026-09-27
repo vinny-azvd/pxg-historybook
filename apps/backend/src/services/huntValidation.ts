@@ -41,7 +41,8 @@ const sessionSchema = z.object({
   'Experience per hour': z.number(),
   'Damage dealt per second': z.number(),
   'Damage taken per second': z.number(),
-  'Kills per hour': z.number(),
+  // The analyzer emits null here (instead of 0) when Kills is 0.
+  'Kills per hour': z.number().nullable().transform((v) => v ?? 0),
   'Time to next level': z.string().nullable().optional(),
   'Paused seconds': z.number().optional().default(0),
   'Raw gains': z.number(),
@@ -64,7 +65,11 @@ export const huntExportSchema = z.object({
   Session: sessionSchema,
   Drops: z.array(itemLineSchema).default([]),
   Experience: z.array(experienceLineSchema).default([]),
-  'Enemies Defeated': z.array(enemyDefeatedLineSchema).default([]),
+  // The analyzer emits {} (instead of []) when there are no entries.
+  'Enemies Defeated': z.preprocess(
+    (val) => (Array.isArray(val) ? val : []),
+    z.array(enemyDefeatedLineSchema)
+  ),
 });
 
 export type HuntExport = z.infer<typeof huntExportSchema>;

@@ -158,6 +158,10 @@ export interface PlayerTrendPoint {
   avgSuppliesPerHour: number | null;
   huntId?: number;
   huntName?: string | null;
+  // Terror-only: per-rotation totals/averages instead of Hunts' per-hour rates.
+  avgProfit?: number | null;
+  avgExperience?: number | null;
+  avgSupplies?: number | null;
 }
 
 export interface TrendPoint {
@@ -174,6 +178,12 @@ export interface TrendPoint {
   jadeTotemCount?: number;
   jadeSevere?: boolean;
   topDrops?: TopDrop[];
+  // Terror-only: per-rotation totals/averages instead of Hunts' per-hour rates.
+  avgProfit?: number | null;
+  avgKills?: number | null;
+  avgRareKills?: number | null;
+  avgExperience?: number | null;
+  avgSupplies?: number | null;
 }
 
 export interface CompareDelta {
@@ -277,32 +287,24 @@ export interface TerrorDetail {
 
 export interface TerrorOverviewStats {
   terrorCount: number;
-  totalDurationSeconds: number;
   totalProfit: number;
-  avgProfitPerHour: number | null;
-  maxProfitPerHour: number | null;
-  totalKills: number;
-  avgKillsPerHour: number | null;
-  maxKillsPerHour: number | null;
-  maxKills: number | null;
-  totalRareKills: number;
-  avgRareKillsPerHour: number | null;
-  maxRareKillsPerHour: number | null;
-  maxRareKills: number | null;
-  avgExperiencePerHour: number | null;
-  avgSuppliesPerHour: number | null;
-  avgDamageDealtPerSecond: number | null;
-  avgDamageTakenPerSecond: number | null;
-  mostProfitableTerror: { id: number; terrorName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
-  leastProfitableTerror: { id: number; terrorName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
+  avgProfit: number | null;
+  maxProfit: number | null;
+  avgExperience: number | null;
+  avgNightmareTokens: number | null;
+  mostProfitableTerror: { id: number; terrorName: string | null; profit: number; profitPerHour: number; startTime: string; players: string[] } | null;
+  leastProfitableTerror: { id: number; terrorName: string | null; profit: number; profitPerHour: number; startTime: string; players: string[] } | null;
   mostFrequentTerror: { terrorName: string; count: number } | null;
 }
 
-export interface TerrorRareKillRow {
-  id: number;
-  terrorId: number;
-  terrorName: string | null;
-  startTime: string;
-  enemy: string;
-  count: number;
+export interface TerrorWeeklySummary {
+  weekStart: string;
+  terrorCount: number;
+  totalProfit: number;
+  avgProfit: number | null;
+}
+
+export interface TerrorWeeklyResponse {
+  items: TerrorWeeklySummary[];
+  total: number;
 }

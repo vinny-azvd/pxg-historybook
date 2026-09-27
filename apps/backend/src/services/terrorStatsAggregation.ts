@@ -3,27 +3,25 @@ import { buildTerrorFilter, type TerrorFilterQuery } from './terrorFilters.js';
 
 export interface TerrorOverviewStats {
   terrorCount: number;
-  totalDurationSeconds: number;
   totalProfit: number;
-  avgProfitPerHour: number | null;
-  maxProfitPerHour: number | null;
-  totalKills: number;
-  avgKillsPerHour: number | null;
-  maxKillsPerHour: number | null;
-  maxKills: number | null;
-  totalRareKills: number;
-  avgRareKillsPerHour: number | null;
-  maxRareKillsPerHour: number | null;
-  maxRareKills: number | null;
-  avgExperiencePerHour: number | null;
-  avgSuppliesPerHour: number | null;
-  avgDamageDealtPerSecond: number | null;
-  avgDamageTakenPerSecond: number | null;
-  mostProfitableTerror: { id: number; terrorName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
-  leastProfitableTerror: { id: number; terrorName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
+  avgProfit: number | null;
+  maxProfit: number | null;
+  avgExperience: number | null;
+  // Average count of "Nightmare token" consumed per terror - the item spent
+  // as the entry cost per boss try, not a gold amount (it has no market
+  // price, so a gold-based supplies average is meaningless here).
+  avgNightmareTokens: number | null;
+  mostProfitableTerror: { id: number; terrorName: string | null; profit: number; profitPerHour: number; startTime: string; players: string[] } | null;
+  leastProfitableTerror: { id: number; terrorName: string | null; profit: number; profitPerHour: number; startTime: string; players: string[] } | null;
   mostFrequentTerror: { terrorName: string; count: number } | null;
 }
 
+// Terror is a weekly rotation you clear once, not an ongoing hunt you
+// optimize gold/hour on - so its overview is framed around totals and
+// per-rotation averages rather than the hourly rates Hunts uses. Kills/rare
+// kills aren't tracked here at all: the game's analyzer doesn't count boss
+// encounters toward "Kills"/"Rare kills" the way it does in a Hunt, so those
+// fields are always 0 for a Terror import and were dropped as dead data.
 export function computeTerrorOverview(filter: TerrorFilterQuery): TerrorOverviewStats {
   const { whereClause, params } = buildTerrorFilter(filter);
 
@@ -31,49 +29,45 @@ export function computeTerrorOverview(filter: TerrorFilterQuery): TerrorOverview
     .prepare(
       `SELECT
          COUNT(*) AS terrorCount,
-         COALESCE(SUM(t.duration_seconds), 0) AS totalDurationSeconds,
          COALESCE(SUM(t.profit), 0) AS totalProfit,
-         AVG(t.profit_per_hour) AS avgProfitPerHour,
-         MAX(t.profit_per_hour) AS maxProfitPerHour,
-         COALESCE(SUM(t.kills), 0) AS totalKills,
-         AVG(t.kills_per_hour) AS avgKillsPerHour,
-         MAX(t.kills_per_hour) AS maxKillsPerHour,
-         MAX(t.kills) AS maxKills,
-         COALESCE(SUM(t.rare_kills), 0) AS totalRareKills,
-         AVG(t.rare_kills_per_hour) AS avgRareKillsPerHour,
-         MAX(t.rare_kills_per_hour) AS maxRareKillsPerHour,
-         MAX(t.rare_kills) AS maxRareKills,
-         AVG(t.experience_per_hour) AS avgExperiencePerHour,
-         AVG(t.supplies_per_hour) AS avgSuppliesPerHour,
-         AVG(t.damage_dealt_per_second) AS avgDamageDealtPerSecond,
-         AVG(t.damage_taken_per_second) AS avgDamageTakenPerSecond
+         AVG(t.profit) AS avgProfit,
+         MAX(t.profit) AS maxProfit,
+         AVG(t.experience) AS avgExperience,
+         AVG((
+           SELECT COALESCE(SUM(s.count), 0) FROM terror_supplies s
+           WHERE s.terror_id = t.id AND s.item_normalized = 'nightmare token'
+         )) AS avgNightmareTokens
        FROM terrors t
        ${whereClause}`
     )
     .get(params) as any;
 
+  const playersSubquery = `(SELECT GROUP_CONCAT(p.name, '||') FROM terror_players tp JOIN players p ON p.id = tp.player_id WHERE tp.terror_id = t.id)`;
+
   const mostProfitable = db
     .prepare(
-      `SELECT t.id, t.terror_name AS terrorName, t.profit, t.profit_per_hour AS profitPerHour, t.start_time AS startTime
+      `SELECT t.id, t.terror_name AS terrorName, t.profit, t.profit_per_hour AS profitPerHour, t.start_time AS startTime,
+              ${playersSubquery} AS playersRaw
        FROM terrors t
        ${whereClause}
        ORDER BY t.profit DESC
        LIMIT 1`
     )
     .get(params) as
-    | { id: number; terrorName: string | null; profit: number; profitPerHour: number; startTime: string }
+    | { id: number; terrorName: string | null; profit: number; profitPerHour: number; startTime: string; playersRaw: string | null }
     | undefined;
 
   const leastProfitable = db
     .prepare(
-      `SELECT t.id, t.terror_name AS terrorName, t.profit, t.profit_per_hour AS profitPerHour, t.start_time AS startTime
+      `SELECT t.id, t.terror_name AS terrorName, t.profit, t.profit_per_hour AS profitPerHour, t.start_time AS startTime,
+              ${playersSubquery} AS playersRaw
        FROM terrors t
        ${whereClause}
        ORDER BY t.profit ASC
        LIMIT 1`
     )
     .get(params) as
-    | { id: number; terrorName: string | null; profit: number; profitPerHour: number; startTime: string }
+    | { id: number; terrorName: string | null; profit: number; profitPerHour: number; startTime: string; playersRaw: string | null }
     | undefined;
 
   const nameWhereClause = whereClause
@@ -93,35 +87,121 @@ export function computeTerrorOverview(filter: TerrorFilterQuery): TerrorOverview
 
   return {
     ...aggregates,
-    mostProfitableTerror: mostProfitable ?? null,
-    leastProfitableTerror: leastProfitable ?? null,
+    mostProfitableTerror: mostProfitable
+      ? {
+          id: mostProfitable.id,
+          terrorName: mostProfitable.terrorName,
+          profit: mostProfitable.profit,
+          profitPerHour: mostProfitable.profitPerHour,
+          startTime: mostProfitable.startTime,
+          players: mostProfitable.playersRaw ? mostProfitable.playersRaw.split('||') : [],
+        }
+      : null,
+    leastProfitableTerror: leastProfitable
+      ? {
+          id: leastProfitable.id,
+          terrorName: leastProfitable.terrorName,
+          profit: leastProfitable.profit,
+          profitPerHour: leastProfitable.profitPerHour,
+          startTime: leastProfitable.startTime,
+          players: leastProfitable.playersRaw ? leastProfitable.playersRaw.split('||') : [],
+        }
+      : null,
     mostFrequentTerror: mostFrequent ?? null,
   };
 }
 
-export interface TerrorRareKillRow {
-  id: number;
-  terrorId: number;
-  terrorName: string | null;
-  startTime: string;
-  enemy: string;
-  count: number;
+export interface TerrorWeeklySummary {
+  weekStart: string;
+  terrorCount: number;
+  totalProfit: number;
+  avgProfit: number | null;
 }
 
-export function computeTerrorRareKills(filter: TerrorFilterQuery): TerrorRareKillRow[] {
+// Terror is a weekly boss rotation, so the natural browsing unit for the
+// history list is "one card per week" rather than one per import - most
+// weeks have exactly one, but nothing stops someone from splitting a
+// rotation across multiple imports (or redoing part of it).
+export function computeTerrorWeeklyGroups(
+  filter: TerrorFilterQuery,
+  page: number,
+  pageSize: number
+): { items: TerrorWeeklySummary[]; total: number } {
   const { whereClause, params } = buildTerrorFilter(filter);
-  const rareClause = whereClause ? `${whereClause} AND ed.rare = 1` : 'WHERE ed.rare = 1';
+  const weekExpr = "date(t.start_time, 'weekday 0', '-6 days')";
+
+  const totalRow = db
+    .prepare(`SELECT COUNT(DISTINCT ${weekExpr}) AS count FROM terrors t ${whereClause}`)
+    .get(params) as { count: number };
+
+  const items = db
+    .prepare(
+      `SELECT
+         ${weekExpr} AS weekStart,
+         COUNT(*) AS terrorCount,
+         COALESCE(SUM(t.profit), 0) AS totalProfit,
+         AVG(t.profit) AS avgProfit
+       FROM terrors t
+       ${whereClause}
+       GROUP BY weekStart
+       ORDER BY weekStart DESC
+       LIMIT @limit OFFSET @offset`
+    )
+    .all({ ...params, limit: pageSize, offset: (page - 1) * pageSize }) as unknown as TerrorWeeklySummary[];
+
+  return { items, total: totalRow.count };
+}
+
+// Same shape as computeTerrorTrends' rows, but broken out one series per
+// character instead of averaged across all of them - lets the dashboard
+// color-code who ran what, same as the Hunts dashboard's per-player chart.
+export function computeTerrorTrendsByPlayer(filter: TerrorFilterQuery, bucket: string) {
+  const { whereClause, params } = buildTerrorFilter(filter);
+
+  if (bucket === 'terror') {
+    return db
+      .prepare(
+        `SELECT
+           p.id AS playerId,
+           p.name AS playerName,
+           t.id AS huntId,
+           t.terror_name AS huntName,
+           t.start_time AS bucketStart,
+           1 AS huntCount,
+           t.profit AS totalProfit,
+           t.profit AS avgProfit,
+           t.experience AS avgExperience,
+           t.supplies_cost AS avgSupplies
+         FROM terrors t
+         JOIN terror_players tp ON tp.terror_id = t.id
+         JOIN players p ON p.id = tp.player_id
+         ${whereClause}
+         ORDER BY p.id, t.start_time ASC`
+      )
+      .all(params);
+  }
+
+  const bucketExpr = BUCKET_EXPRESSIONS[bucket] ?? BUCKET_EXPRESSIONS.week;
 
   return db
     .prepare(
-      `SELECT ed.id AS id, ed.terror_id AS terrorId, t.terror_name AS terrorName, t.start_time AS startTime,
-              ed.enemy AS enemy, ed.count AS count
-       FROM terror_enemies_defeated ed
-       JOIN terrors t ON t.id = ed.terror_id
-       ${rareClause}
-       ORDER BY t.start_time DESC, ed.id ASC`
+      `SELECT
+         p.id AS playerId,
+         p.name AS playerName,
+         ${bucketExpr} AS bucketStart,
+         COUNT(*) AS huntCount,
+         COALESCE(SUM(t.profit), 0) AS totalProfit,
+         AVG(t.profit) AS avgProfit,
+         AVG(t.experience) AS avgExperience,
+         AVG(t.supplies_cost) AS avgSupplies
+       FROM terrors t
+       JOIN terror_players tp ON tp.terror_id = t.id
+       JOIN players p ON p.id = tp.player_id
+       ${whereClause}
+       GROUP BY p.id, bucketStart
+       ORDER BY p.id, bucketStart ASC`
     )
-    .all(params) as unknown as TerrorRareKillRow[];
+    .all(params);
 }
 
 const BUCKET_EXPRESSIONS: Record<string, string> = {
@@ -137,9 +217,9 @@ export function computeTerrorTrends(filter: TerrorFilterQuery, bucket: string) {
     return db
       .prepare(
         `SELECT t.id AS huntId, t.terror_name AS huntName, t.start_time AS bucketStart,
-                1 AS huntCount, t.profit AS totalProfit, t.profit_per_hour AS avgProfitPerHour,
-                t.kills_per_hour AS avgKillsPerHour, t.rare_kills_per_hour AS avgRareKillsPerHour,
-                t.experience_per_hour AS avgExperiencePerHour, t.supplies_per_hour AS avgSuppliesPerHour,
+                1 AS huntCount, t.profit AS totalProfit, t.profit AS avgProfit,
+                t.kills AS avgKills, t.rare_kills AS avgRareKills,
+                t.experience AS avgExperience, t.supplies_cost AS avgSupplies,
                 (SELECT GROUP_CONCAT(td.item || '::' || td.unit_price, '||')
                    FROM (SELECT item, unit_price FROM terror_drops WHERE terror_id = t.id AND (ignored IS NULL OR ignored = 0)
                          ORDER BY unit_price DESC LIMIT 5) td) AS topDropsRaw
@@ -168,11 +248,11 @@ export function computeTerrorTrends(filter: TerrorFilterQuery, bucket: string) {
          ${bucketExpr} AS bucketStart,
          COUNT(*) AS huntCount,
          COALESCE(SUM(t.profit), 0) AS totalProfit,
-         AVG(t.profit_per_hour) AS avgProfitPerHour,
-         AVG(t.kills_per_hour) AS avgKillsPerHour,
-         AVG(t.rare_kills_per_hour) AS avgRareKillsPerHour,
-         AVG(t.experience_per_hour) AS avgExperiencePerHour,
-         AVG(t.supplies_per_hour) AS avgSuppliesPerHour
+         AVG(t.profit) AS avgProfit,
+         AVG(t.kills) AS avgKills,
+         AVG(t.rare_kills) AS avgRareKills,
+         AVG(t.experience) AS avgExperience,
+         AVG(t.supplies_cost) AS avgSupplies
        FROM terrors t
        ${whereClause}
        GROUP BY bucketStart

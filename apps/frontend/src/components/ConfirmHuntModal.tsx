@@ -26,17 +26,22 @@ interface ConfirmHuntModalProps {
   onCancel: () => void;
 }
 
+// The analyzer emits {} (instead of []) when there are no entries.
+function asArray<T>(value: T[] | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
 function derivePlayers(hunt: HuntExportPreview): string[] {
   const names = new Set<string>();
   for (const row of hunt.Experience ?? []) if (row.Player) names.add(row.Player.trim());
   for (const row of hunt.Supplies ?? []) if (row.Player) names.add(row.Player.trim());
   for (const row of hunt.Drops ?? []) if (row.Player) names.add(row.Player.trim());
-  for (const row of hunt['Enemies Defeated'] ?? []) if (row.Player) names.add(row.Player.trim());
+  for (const row of asArray(hunt['Enemies Defeated'])) if (row.Player) names.add(row.Player.trim());
   return [...names];
 }
 
 export function ConfirmHuntModal({ hunt, submitting, errorMessage, onConfirm, onCancel }: ConfirmHuntModalProps) {
-  const enemies = hunt['Enemies Defeated'] ?? [];
+  const enemies = asArray(hunt['Enemies Defeated']);
   const suggested = deriveHuntName(enemies.map((e) => ({ enemy: e.Enemy, count: e.Count }))) ?? '';
   const [name, setName] = useState(suggested);
   const [crystalSelections, setCrystalSelections] = useState<Set<string>>(new Set());

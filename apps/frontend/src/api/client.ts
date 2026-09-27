@@ -12,7 +12,7 @@ import type {
   TerrorDetail,
   TerrorListResponse,
   TerrorOverviewStats,
-  TerrorRareKillRow,
+  TerrorWeeklyResponse,
   TrendPoint,
 } from './types';
 
@@ -142,8 +142,12 @@ export const api = {
 
   getTerrorOverview: (filters: Filters) => request<TerrorOverviewStats>(`/api/terror-stats/overview${toQuery(filters)}`),
 
-  getTerrorRareKills: (filters: Filters) => request<TerrorRareKillRow[]>(`/api/terror-stats/rare-kills${toQuery(filters)}`),
-
   getTerrorTrends: (filters: Filters & { bucket: string }) =>
     request<TrendPoint[]>(`/api/terror-stats/trends${toQuery(filters)}`),
+
+  getTerrorTrendsByPlayer: (filters: Filters & { bucket: string }) =>
+    request<PlayerTrendPoint[]>(`/api/terror-stats/trends-by-player${toQuery(filters)}`),
+
+  getTerrorsWeekly: (filters: Filters & { page?: number; pageSize?: number }) =>
+    request<TerrorWeeklyResponse>(`/api/terror-stats/weekly${toQuery(filters)}`),
 };

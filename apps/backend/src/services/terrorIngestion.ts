@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { db, withTransaction } from '../db/connection.js';
 import { normalizeItemName } from './itemIconMatcher.js';
-import { deriveHuntName as deriveTerrorName } from './huntNaming.js';
+import { deriveTerrorName } from './terrorNaming.js';
 import type { TerrorExport } from './terrorValidation.js';
 
 export class DuplicateTerrorError extends Error {
@@ -53,9 +53,7 @@ export function ingestTerror(
     const primaryPlayerId = primaryPlayerName ? playerIds.get(primaryPlayerName) ?? null : null;
 
     const trimmedOverride = terrorNameOverride?.trim();
-    const terrorName = trimmedOverride
-      ? trimmedOverride
-      : deriveTerrorName(terror['Enemies Defeated'].map((row) => ({ enemy: row.Enemy, count: row.Count })));
+    const terrorName = trimmedOverride ? trimmedOverride : deriveTerrorName(terror.Damage);
 
     const session = terror.Session;
     const terrorResult = db

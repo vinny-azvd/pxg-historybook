@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
@@ -7,10 +7,14 @@ import { parseHuntJson } from '../jsonParse';
 import { ConfirmTerrorModal } from '../components/ConfirmTerrorModal';
 import { TerrorCard } from '../components/TerrorCard';
 import { CardSettingsPanel } from '../components/CardSettingsPanel';
+import { PeriodNavigator } from '../components/PeriodNavigator';
 import { TrendChart } from '../components/charts/TrendChart';
-import type { TerrorListItem, TerrorOverviewStats, TerrorRareKillRow } from '../api/types';
-import { formatBucketLabel, formatCompact, formatDateTime, formatHours, formatInt } from '../format';
-import { bucketRange } from '../dates';
+import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChart';
+import { PlayerLegend } from '../components/PlayerLegend';
+import type { PlayerTrendPoint, TerrorListItem, TerrorOverviewStats, TerrorWeeklySummary } from '../api/types';
+import { formatBucketLabel, formatCompact, formatDateTime, formatInt } from '../format';
+import { bucketRange, periodRangeForDate } from '../dates';
+import { TerrorWeekCard } from '../components/TerrorWeekCard';
 
 type Tab = 'dashboard' | 'history' | 'upload';
 type Bucket = 'day' | 'week' | 'month' | 'terror';
@@ -22,15 +26,17 @@ const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
   { value: 'terror', label: 'Por terror' },
 ];
 
-const SORT_OPTIONS: { key: string; label: string }[] = [
-  { key: 'start_time', label: 'Data' },
-  { key: 'terror_name', label: 'Terror' },
-  { key: 'duration_seconds', label: 'Duração' },
-  { key: 'profit', label: 'Profit' },
-  { key: 'profit_per_hour', label: 'Profit/h' },
-  { key: 'kills_per_hour', label: 'Kills/h' },
-  { key: 'rare_kills_per_hour', label: 'Raros/h' },
-];
+const CHART_BUCKET_LABEL: Record<Bucket, string> = {
+  day: 'dia',
+  week: 'semana',
+  month: 'mês',
+  terror: 'terror',
+};
+
+// Reserves room for 2 lines so the highlight cards don't change height
+// depending on whether their text wraps (a long terror name/date) or is a
+// short one-liner (the "Sem terrors no período" placeholder).
+const highlightTextStyle: CSSProperties = { margin: 0, fontSize: 14, minHeight: 40, lineHeight: '20px' };
 
 export function TerrorPage() {
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -59,41 +65,62 @@ export function TerrorPage() {
 
 function TerrorDashboardTab() {
   const { player, sessionType, from, to, setDateRange } = useFilters();
-  const { rareDropThreshold } = usePreferences();
+  const { rareDropThreshold, getPlayerColor } = usePreferences();
   const [overview, setOverview] = useState<TerrorOverviewStats | null>(null);
+  // Unaffected by the from/to period filter, unlike `overview` - so
+  // navigating to a period with zero terrors (e.g. an empty week) doesn't
+  // get mistaken for "nothing imported yet" and blank out the whole page.
+  const [totalTerrorCount, setTotalTerrorCount] = useState<number | null>(null);
   const [trend, setTrend] = useState<any[]>([]);
+  const [playerTrend, setPlayerTrend] = useState<PlayerTrendPoint[]>([]);
   const [bucket, setBucket] = useState<Bucket>('week');
   const [pointFilter, setPointFilter] = useState<{ from: string; to: string } | null>(null);
   const [dayTrend, setDayTrend] = useState<any[]>([]);
   const [dayTerrors, setDayTerrors] = useState<TerrorListItem[]>([]);
   const [dayTerrorsLoading, setDayTerrorsLoading] = useState(false);
-  const [showRareKills, setShowRareKills] = useState(false);
-  const [rareKills, setRareKills] = useState<TerrorRareKillRow[]>([]);
-  const [rareKillsLoading, setRareKillsLoading] = useState(false);
   const drillDownRef = useRef<HTMLDivElement>(null);
+
+  // No single character selected - color-code the main chart per player
+  // instead of blending everyone into one averaged line, same as the Hunts
+  // dashboard. The per-terror granularity already colors by top drop, so it
+  // keeps its own single line rather than layering both signals into one chart.
+  const showPlayerBreakdown = !player && bucket !== 'terror';
+
+  // The bucket toggle picks which single period you're browsing (a day, a
+  // week, a month), but the chart itself always drills one level finer than
+  // that: a week shows its days, a month shows its weeks, a day shows its
+  // individual terrors. "Por terror" has no coarser period around it, so it
+  // just shows terrors across whatever the outer date filter is.
+  const chartBucket: Bucket = bucket === 'day' ? 'terror' : bucket === 'week' ? 'day' : bucket === 'month' ? 'week' : 'terror';
+
+  // Switching the bucket toggle pins the outer date filter to a single
+  // concrete day/week/month (defaulting to whichever one is already in view,
+  // or today) - otherwise "Semana" over an unrestricted "Todo o período"
+  // filter would still show every week ever recorded instead of just one.
+  function selectBucket(next: Bucket) {
+    setBucket(next);
+    if (next === 'terror') return;
+    const referenceIso = to || from;
+    const referenceDate = referenceIso ? new Date(`${referenceIso}T00:00:00`) : new Date();
+    setDateRange(periodRangeForDate(referenceDate, next));
+  }
+
+  // Same pinning, but only for the very first render, and only if the date
+  // filter hasn't been touched yet (from/to still empty) - respects a filter
+  // the user already had set (e.g. arriving from another page) instead of
+  // silently overriding it.
+  useEffect(() => {
+    if (bucket !== 'terror' && !from && !to) {
+      setDateRange(periodRangeForDate(new Date(), bucket));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     setPointFilter(null);
   }, [player, sessionType, from, to, bucket]);
 
   const overviewRange = pointFilter ?? { from, to };
-
-  useEffect(() => {
-    if (!showRareKills) return;
-    let ignore = false;
-    setRareKillsLoading(true);
-    api
-      .getTerrorRareKills({ player, sessionType, from: overviewRange.from, to: overviewRange.to })
-      .then((res) => {
-        if (!ignore) setRareKills(res);
-      })
-      .finally(() => {
-        if (!ignore) setRareKillsLoading(false);
-      });
-    return () => {
-      ignore = true;
-    };
-  }, [showRareKills, player, sessionType, overviewRange.from, overviewRange.to]);
 
   useEffect(() => {
     let ignore = false;
@@ -107,13 +134,41 @@ function TerrorDashboardTab() {
 
   useEffect(() => {
     let ignore = false;
-    api.getTerrorTrends({ player, sessionType, from, to, bucket }).then((res) => {
-      if (!ignore) setTrend(res);
+    api.getTerrorOverview({ player, sessionType }).then((res) => {
+      if (!ignore) setTotalTerrorCount(res.terrorCount);
     });
     return () => {
       ignore = true;
     };
-  }, [player, sessionType, from, to, bucket]);
+  }, [player, sessionType]);
+
+  useEffect(() => {
+    let ignore = false;
+    if (showPlayerBreakdown) {
+      api.getTerrorTrendsByPlayer({ player, sessionType, from, to, bucket: chartBucket }).then((res) => {
+        if (!ignore) setPlayerTrend(res);
+      });
+    } else {
+      api.getTerrorTrends({ player, sessionType, from, to, bucket: chartBucket }).then((res) => {
+        if (!ignore) setTrend(res);
+      });
+    }
+    return () => {
+      ignore = true;
+    };
+  }, [player, sessionType, from, to, chartBucket, showPlayerBreakdown]);
+
+  const playerSeries = useMemo(() => {
+    const byPlayer = new Map<number, { playerId: number; playerName: string; points: PlayerTrendPoint[] }>();
+    for (const row of playerTrend) {
+      const existing = byPlayer.get(row.playerId);
+      if (existing) existing.points.push(row);
+      else byPlayer.set(row.playerId, { playerId: row.playerId, playerName: row.playerName, points: [row] });
+    }
+    return [...byPlayer.values()]
+      .sort((a, b) => a.playerId - b.playerId)
+      .map((entry, index) => ({ ...entry, color: getPlayerColor(String(entry.playerId), index) }));
+  }, [playerTrend, getPlayerColor]);
 
   useEffect(() => {
     if (!pointFilter) {
@@ -155,22 +210,22 @@ function TerrorDashboardTab() {
   }, [player, sessionType, pointFilter?.from, pointFilter?.to]);
 
   function handlePointClick(bucketStart: string) {
-    if (bucket === 'terror') return;
-    const range = bucketRange(bucketStart, bucket);
+    if (chartBucket === 'terror') return;
+    const range = bucketRange(bucketStart, chartBucket);
     setPointFilter((prev) => (prev && prev.from === range.from && prev.to === range.to ? null : range));
   }
 
-  const knownBucketStarts = trend.map((p: any) => p.bucketStart);
-  const selectedBucketStart = pointFilter && bucket !== 'terror'
+  const knownBucketStarts = showPlayerBreakdown ? playerTrend.map((p) => p.bucketStart) : trend.map((p: any) => p.bucketStart);
+  const selectedBucketStart = pointFilter && chartBucket !== 'terror'
     ? knownBucketStarts.find((bucketStart: string) => {
-        const range = bucketRange(bucketStart, bucket);
+        const range = bucketRange(bucketStart, chartBucket);
         return range.from === pointFilter.from && range.to === pointFilter.to;
       })
     : undefined;
 
-  if (!overview) return <div className="empty-state">Carregando...</div>;
+  if (!overview || totalTerrorCount === null) return <div className="empty-state">Carregando...</div>;
 
-  if (overview.terrorCount === 0) {
+  if (totalTerrorCount === 0) {
     return (
       <div className="empty-state">
         Nenhum terror registrado ainda. Use a aba "Importar terror" para começar a ver os dashboards.
@@ -182,7 +237,7 @@ function TerrorDashboardTab() {
     <div>
       <p className="page-subtitle">
         {overview.terrorCount} terror{overview.terrorCount === 1 ? '' : 'es'} no período selecionado.
-        {pointFilter && selectedBucketStart && <> · {formatBucketLabel(selectedBucketStart, bucket)}</>}
+        {pointFilter && selectedBucketStart && <> · {formatBucketLabel(selectedBucketStart, chartBucket)}</>}
         {(pointFilter || from || to) && (
           <>
             {' '}
@@ -198,147 +253,130 @@ function TerrorDashboardTab() {
       </p>
 
       <div className="stat-grid">
-        <StatTileLite label="Horas caçadas" value={formatHours(overview.totalDurationSeconds)} />
+        <StatTileLite label="Rotações realizadas" value={formatInt(overview.terrorCount)} />
         <StatTileLite label="Profit total" value={formatCompact(overview.totalProfit)} />
         <StatTileLite
-          label="Profit/h médio"
-          value={formatCompact(overview.avgProfitPerHour)}
-          sub={`máx ${formatCompact(overview.maxProfitPerHour)}`}
+          label="Profit médio"
+          value={formatCompact(overview.avgProfit)}
+          sub={`máx ${formatCompact(overview.maxProfit)} numa rotação`}
         />
-        <StatTileLite label="Kills total" value={formatInt(overview.totalKills)} />
+        <StatTileLite label="Exp médio" value={formatCompact(overview.avgExperience)} />
         <StatTileLite
-          label="Kills/h médio"
-          value={formatInt(overview.avgKillsPerHour)}
-          sub={`máx ${formatInt(overview.maxKillsPerHour)}/h · recorde ${formatInt(overview.maxKills)} num terror`}
+          label="Nightmare tokens / try"
+          value={formatInt(overview.avgNightmareTokens)}
+          sub="média de tokens gastos por rotação"
         />
-        <StatTileLite
-          label="Raros total"
-          value={formatInt(overview.totalRareKills)}
-          onClick={() => setShowRareKills((v) => !v)}
-        />
-        <StatTileLite
-          label="Raros/h médio"
-          value={formatInt(overview.avgRareKillsPerHour)}
-          sub={`máx ${formatInt(overview.maxRareKillsPerHour)}/h · recorde ${formatInt(overview.maxRareKills)} num terror`}
-        />
-        <StatTileLite label="Exp/h médio" value={formatCompact(overview.avgExperiencePerHour)} />
-        <StatTileLite label="Suprimentos/h médio" value={formatCompact(overview.avgSuppliesPerHour)} />
       </div>
 
-      {showRareKills && (
-        <div className="section">
-          <h2 className="section-title">Raros mortos no período ({rareKills.length})</h2>
-          <div className="card">
-            {rareKillsLoading ? (
-              <div className="empty-state">Carregando...</div>
-            ) : rareKills.length === 0 ? (
-              <div className="empty-state">Nenhum raro no período selecionado.</div>
-            ) : (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Terror</th>
-                    <th>Data</th>
-                    <th>Inimigo</th>
-                    <th>Quantidade</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rareKills.map((rk) => (
-                    <tr key={rk.id}>
-                      <td>
-                        <Link to={`/terror/${rk.terrorId}`}>{rk.terrorName ?? 'Terror'}</Link>
-                      </td>
-                      <td>{formatDateTime(rk.startTime)}</td>
-                      <td>{rk.enemy}</td>
-                      <td>{formatInt(rk.count)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-      )}
-
-      {(overview.mostProfitableTerror || overview.leastProfitableTerror || overview.mostFrequentTerror) && (
-        <div className="highlight-grid section" style={{ marginBottom: 24 }}>
-          {overview.mostProfitableTerror && (
-            <div className="card">
-              <h2 className="section-title">Terror mais lucrativo</h2>
-              <p style={{ margin: 0, fontSize: 14 }}>
-                <Link to={`/terror/${overview.mostProfitableTerror.id}`}>
-                  {overview.mostProfitableTerror.terrorName ?? 'Terror'}
-                </Link>{' '}
-                em {formatDateTime(overview.mostProfitableTerror.startTime)} — profit de{' '}
-                {formatCompact(overview.mostProfitableTerror.profit)} (
-                {formatCompact(overview.mostProfitableTerror.profitPerHour)}/h)
-              </p>
-            </div>
-          )}
-          {overview.leastProfitableTerror && (
-            <div className="card">
-              <h2 className="section-title">Terror menos lucrativo</h2>
-              <p style={{ margin: 0, fontSize: 14 }}>
-                <Link to={`/terror/${overview.leastProfitableTerror.id}`}>
-                  {overview.leastProfitableTerror.terrorName ?? 'Terror'}
-                </Link>{' '}
-                em {formatDateTime(overview.leastProfitableTerror.startTime)} — profit de{' '}
-                {formatCompact(overview.leastProfitableTerror.profit)} (
-                {formatCompact(overview.leastProfitableTerror.profitPerHour)}/h)
-              </p>
-            </div>
-          )}
-          {overview.mostFrequentTerror && (
-            <div className="card">
-              <h2 className="section-title">Terror mais feito</h2>
-              <p style={{ margin: 0, fontSize: 14 }}>
-                <strong>{overview.mostFrequentTerror.terrorName}</strong> — {overview.mostFrequentTerror.count} terror
-                {overview.mostFrequentTerror.count === 1 ? '' : 'es'} registrado
-                {overview.mostFrequentTerror.count === 1 ? '' : 's'} no período
-              </p>
-            </div>
+      {/* Always rendered, even with placeholders, so navigating to an empty
+          period doesn't collapse this block and shove the rest of the page
+          up - only the text inside changes, not the layout around it. */}
+      <div className="highlight-grid section" style={{ marginBottom: 24 }}>
+        <div className="card">
+          <h2 className="section-title">Terror mais lucrativo</h2>
+          {overview.mostProfitableTerror ? (
+            <p style={highlightTextStyle}>
+              <Link to={`/terror/${overview.mostProfitableTerror.id}`}>
+                {overview.mostProfitableTerror.terrorName ?? 'Terror'}
+              </Link>{' '}
+              ({overview.mostProfitableTerror.players.join(', ') || '—'}) em{' '}
+              {formatDateTime(overview.mostProfitableTerror.startTime)} — profit de{' '}
+              {formatCompact(overview.mostProfitableTerror.profit)}
+            </p>
+          ) : (
+            <p style={{ ...highlightTextStyle, color: 'var(--text-muted)' }}>Sem terrors no período.</p>
           )}
         </div>
-      )}
+        <div className="card">
+          <h2 className="section-title">Terror menos lucrativo</h2>
+          {overview.leastProfitableTerror ? (
+            <p style={highlightTextStyle}>
+              <Link to={`/terror/${overview.leastProfitableTerror.id}`}>
+                {overview.leastProfitableTerror.terrorName ?? 'Terror'}
+              </Link>{' '}
+              ({overview.leastProfitableTerror.players.join(', ') || '—'}) em{' '}
+              {formatDateTime(overview.leastProfitableTerror.startTime)} — profit de{' '}
+              {formatCompact(overview.leastProfitableTerror.profit)}
+            </p>
+          ) : (
+            <p style={{ ...highlightTextStyle, color: 'var(--text-muted)' }}>Sem terrors no período.</p>
+          )}
+        </div>
+        <div className="card">
+          <h2 className="section-title">Terror mais feito</h2>
+          {overview.mostFrequentTerror ? (
+            <p style={highlightTextStyle}>
+              <strong>{overview.mostFrequentTerror.terrorName}</strong> — {overview.mostFrequentTerror.count} terror
+              {overview.mostFrequentTerror.count === 1 ? '' : 'es'} registrado
+              {overview.mostFrequentTerror.count === 1 ? '' : 's'} no período
+            </p>
+          ) : (
+            <p style={{ ...highlightTextStyle, color: 'var(--text-muted)' }}>Sem terrors no período.</p>
+          )}
+        </div>
+      </div>
 
       <div className="section">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 12,
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
           <h2 className="section-title" style={{ margin: 0 }}>
-            Profit/h por{' '}
-            {bucket === 'day' ? 'dia' : bucket === 'week' ? 'semana' : bucket === 'month' ? 'mês' : 'terror'}
+            Profit por {CHART_BUCKET_LABEL[chartBucket]}
           </h2>
-          <div className="bucket-toggle">
-            {BUCKET_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                className={bucket === opt.value ? '' : 'secondary'}
-                onClick={() => setBucket(opt.value)}
-              >
-                {opt.label}
-              </button>
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            {bucket !== 'terror' && <PeriodNavigator bucket={bucket} />}
+            <div className="bucket-toggle">
+              {BUCKET_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  className={bucket === opt.value ? '' : 'secondary'}
+                  onClick={() => selectBucket(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         <div className="card">
-          <TrendChart
-            data={trend}
-            metricKey="avgProfitPerHour"
-            seriesLabel={bucket === 'terror' ? 'Profit/h' : 'Profit/h médio'}
-            seriesColor="var(--series-1)"
-            bucket={bucket}
-            unitLabel="terror"
-            onPointClick={bucket === 'terror' ? undefined : handlePointClick}
-            selectedBucketStart={selectedBucketStart}
-            rareDropThreshold={rareDropThreshold}
-          />
+          {showPlayerBreakdown ? (
+            <>
+              <PlayerLegend entries={playerSeries.map((s) => ({ id: s.playerId, name: s.playerName, color: s.color }))} />
+              <MultiSeriesTrendChart
+                series={playerSeries}
+                bucket={chartBucket}
+                metricKey="avgProfit"
+                onPointClick={chartBucket === 'terror' ? undefined : handlePointClick}
+                selectedBucketStart={selectedBucketStart}
+              />
+            </>
+          ) : (
+            <TrendChart
+              data={trend}
+              metricKey="avgProfit"
+              seriesLabel={chartBucket === 'terror' ? 'Profit' : 'Profit médio'}
+              seriesColor="var(--series-1)"
+              bucket={chartBucket}
+              unitLabel="terror"
+              onPointClick={chartBucket === 'terror' ? undefined : handlePointClick}
+              selectedBucketStart={selectedBucketStart}
+              rareDropThreshold={rareDropThreshold}
+            />
+          )}
         </div>
       </div>
 
       {pointFilter && (
         <div className="section" ref={drillDownRef} style={{ scrollMarginTop: 96 }}>
           <h2 className="section-title">
-            Terrors em {selectedBucketStart ? formatBucketLabel(selectedBucketStart, bucket) : ''}
+            Terrors em {selectedBucketStart ? formatBucketLabel(selectedBucketStart, chartBucket) : ''}
             {!dayTerrorsLoading && <> ({dayTerrors.length})</>}
           </h2>
           {dayTerrorsLoading ? (
@@ -350,8 +388,8 @@ function TerrorDashboardTab() {
               <div className="card" style={{ marginBottom: 14 }}>
                 <TrendChart
                   data={dayTrend}
-                  metricKey="avgProfitPerHour"
-                  seriesLabel="Profit/h"
+                  metricKey="avgProfit"
+                  seriesLabel="Profit"
                   seriesColor="var(--series-1)"
                   bucket="terror"
                   unitLabel="terror"
@@ -398,62 +436,46 @@ function StatTileLite({
 
 function TerrorHistoryTab() {
   const { player, sessionType, from, to } = useFilters();
-  const [items, setItems] = useState<TerrorListItem[]>([]);
+  const [weeks, setWeeks] = useState<TerrorWeeklySummary[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [sort, setSort] = useState('start_time');
-  const [order, setOrder] = useState<'asc' | 'desc'>('desc');
   const [loading, setLoading] = useState(true);
-  const pageSize = 25;
+  const pageSize = 10;
 
   useEffect(() => {
     setLoading(true);
     api
-      .getTerrors({ player, sessionType, from, to, sort, order, page, pageSize })
+      .getTerrorsWeekly({ player, sessionType, from, to, page, pageSize })
       .then((res) => {
-        setItems(res.items);
+        setWeeks(res.items);
         setTotal(res.total);
       })
       .finally(() => setLoading(false));
-  }, [player, sessionType, from, to, sort, order, page]);
+  }, [player, sessionType, from, to, page]);
 
   useEffect(() => setPage(1), [player, sessionType, from, to]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const totalTerrors = weeks.reduce((sum, w) => sum + w.terrorCount, 0);
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
         <p className="page-subtitle">
-          {total} terror{total === 1 ? '' : 'es'} registrado{total === 1 ? '' : 's'}.
+          {total} semana{total === 1 ? '' : 's'} com terror registrado
+          {weeks.length > 0 && ` (${totalTerrors} nesta página)`}.
         </p>
         <CardSettingsPanel />
       </div>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-        <label htmlFor="terror-sort-select" style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
-          Ordenar por
-        </label>
-        <select id="terror-sort-select" value={sort} onChange={(e) => setSort(e.target.value)}>
-          {SORT_OPTIONS.map((opt) => (
-            <option key={opt.key} value={opt.key}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <button className="secondary" onClick={() => setOrder((o) => (o === 'asc' ? 'desc' : 'asc'))}>
-          {order === 'asc' ? '▲ Asc' : '▼ Desc'}
-        </button>
-      </div>
-
       {loading ? (
         <div className="empty-state">Carregando...</div>
-      ) : items.length === 0 ? (
+      ) : weeks.length === 0 ? (
         <div className="empty-state">Nenhum terror encontrado. Use a aba "Importar terror" para começar.</div>
       ) : (
-        <div className="hunt-card-grid">
-          {items.map((terror) => (
-            <TerrorCard key={terror.id} terror={terror} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {weeks.map((week) => (
+            <TerrorWeekCard key={week.weekStart} summary={week} filters={{ player, sessionType }} />
           ))}
         </div>
       )}

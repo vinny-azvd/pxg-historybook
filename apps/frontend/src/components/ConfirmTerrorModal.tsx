@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { deriveHuntName } from '../huntNaming';
+import { extractTerrorBosses, deriveTerrorName } from '../terrorNaming';
 import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
 
 interface TerrorExportPreview {
@@ -15,6 +15,7 @@ interface TerrorExportPreview {
   Experience?: { Player: string; Experience: number }[];
   Supplies?: { Player: string }[];
   Drops?: { Player: string }[];
+  Damage?: { Enemy: string }[];
   'Enemies Defeated'?: { Enemy: string; Count: number; Player: string; Rare?: boolean }[];
 }
 
@@ -26,18 +27,24 @@ interface ConfirmTerrorModalProps {
   onCancel: () => void;
 }
 
+// The analyzer emits {} (instead of []) when there are no entries.
+function asArray<T>(value: T[] | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
 function derivePlayers(terror: TerrorExportPreview): string[] {
   const names = new Set<string>();
   for (const row of terror.Experience ?? []) if (row.Player) names.add(row.Player.trim());
   for (const row of terror.Supplies ?? []) if (row.Player) names.add(row.Player.trim());
   for (const row of terror.Drops ?? []) if (row.Player) names.add(row.Player.trim());
-  for (const row of terror['Enemies Defeated'] ?? []) if (row.Player) names.add(row.Player.trim());
+  for (const row of asArray(terror['Enemies Defeated'])) if (row.Player) names.add(row.Player.trim());
   return [...names];
 }
 
 export function ConfirmTerrorModal({ terror, submitting, errorMessage, onConfirm, onCancel }: ConfirmTerrorModalProps) {
-  const enemies = terror['Enemies Defeated'] ?? [];
-  const suggested = deriveHuntName(enemies.map((e) => ({ enemy: e.Enemy, count: e.Count }))) ?? '';
+  const damage = asArray(terror.Damage);
+  const bosses = extractTerrorBosses(damage);
+  const suggested = deriveTerrorName(damage) ?? '';
   const [name, setName] = useState(suggested);
 
   const players = derivePlayers(terror);
@@ -92,6 +99,10 @@ export function ConfirmTerrorModal({ terror, submitting, errorMessage, onConfirm
           <div>
             <dt>Raros</dt>
             <dd>{formatInt(session['Rare kills'])}</dd>
+          </div>
+          <div>
+            <dt>Bosses detectados</dt>
+            <dd>{bosses.length > 0 ? bosses.join(', ') : '—'}</dd>
           </div>
         </dl>
 

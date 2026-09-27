@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { db } from './connection.js';
 import { deriveHuntName } from '../services/huntNaming.js';
+import { deriveTerrorName } from '../services/terrorNaming.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,6 +25,7 @@ export function migrate() {
   }
 
   backfillHuntNames();
+  backfillTerrorNames();
   recomputeJadeTotemCounts();
 }
 
@@ -40,6 +42,22 @@ function backfillHuntNames() {
     const enemies = enemiesStmt.all(id) as { enemy: string; count: number }[];
     const huntName = deriveHuntName(enemies);
     if (huntName) updateStmt.run(huntName, id);
+  }
+}
+
+function backfillTerrorNames() {
+  const missing = db
+    .prepare('SELECT id FROM terrors WHERE terror_name IS NULL')
+    .all() as { id: number }[];
+  if (missing.length === 0) return;
+
+  const damageStmt = db.prepare('SELECT enemy AS "Enemy" FROM terror_damage WHERE terror_id = ?');
+  const updateStmt = db.prepare('UPDATE terrors SET terror_name = ? WHERE id = ?');
+
+  for (const { id } of missing) {
+    const damage = damageStmt.all(id) as { Enemy: string }[];
+    const terrorName = deriveTerrorName(damage);
+    if (terrorName) updateStmt.run(terrorName, id);
   }
 }
 

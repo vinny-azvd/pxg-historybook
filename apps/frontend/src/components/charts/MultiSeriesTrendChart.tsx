@@ -1,16 +1,24 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatBucketLabel, formatCompact } from '../../format';
 
+type PlayerTrendMetric = 'avgProfitPerHour' | 'avgProfit';
+
 export interface PlayerSeries {
   playerId: number;
   playerName: string;
   color: string;
-  points: { bucketStart: string; avgProfitPerHour: number | null; huntName?: string | null }[];
+  points: {
+    bucketStart: string;
+    avgProfitPerHour: number | null;
+    avgProfit?: number | null;
+    huntName?: string | null;
+  }[];
 }
 
 interface MultiSeriesTrendChartProps {
   series: PlayerSeries[];
-  bucket: 'day' | 'week' | 'month' | 'hunt';
+  bucket: 'day' | 'week' | 'month' | 'hunt' | 'terror';
+  metricKey?: PlayerTrendMetric;
   onPointClick?: (bucketStart: string) => void;
   selectedBucketStart?: string | null;
 }
@@ -19,24 +27,32 @@ function fieldFor(playerId: number) {
   return `p${playerId}`;
 }
 
-export function MultiSeriesTrendChart({ series, bucket, onPointClick, selectedBucketStart }: MultiSeriesTrendChartProps) {
+export function MultiSeriesTrendChart({
+  series,
+  bucket,
+  metricKey = 'avgProfitPerHour',
+  onPointClick,
+  selectedBucketStart,
+}: MultiSeriesTrendChartProps) {
   const bucketStarts = [...new Set(series.flatMap((s) => s.points.map((p) => p.bucketStart)))].sort();
 
   if (bucketStarts.length === 0) {
     return <div className="chart-empty-state">Sem dados suficientes para o gráfico.</div>;
   }
 
+  const isEntryBucket = bucket === 'hunt' || bucket === 'terror';
+
   const rows = bucketStarts.map((bucketStart) => {
     const row: Record<string, string | number | null> = { bucketStart };
     for (const s of series) {
       const point = s.points.find((p) => p.bucketStart === bucketStart);
-      row[fieldFor(s.playerId)] = point?.avgProfitPerHour ?? null;
+      row[fieldFor(s.playerId)] = point?.[metricKey] ?? null;
     }
     return row;
   });
 
   const huntNameByBucket = new Map<string, string | null>();
-  if (bucket === 'hunt') {
+  if (isEntryBucket) {
     for (const s of series) {
       for (const p of s.points) {
         if (p.huntName) huntNameByBucket.set(p.bucketStart, p.huntName);
@@ -91,7 +107,7 @@ export function MultiSeriesTrendChart({ series, bucket, onPointClick, selectedBu
               >
                 <div style={{ color: 'var(--text-secondary)', marginBottom: 4 }}>
                   {bucket === 'week' ? 'Semana de ' : ''}
-                  {bucket === 'hunt' && huntNameByBucket.get(String(label)) ? `${huntNameByBucket.get(String(label))} · ` : ''}
+                  {isEntryBucket && huntNameByBucket.get(String(label)) ? `${huntNameByBucket.get(String(label))} · ` : ''}
                   {formatBucketLabel(String(label), bucket)}
                 </div>
                 {visible.map((s) => {
