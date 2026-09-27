@@ -70,6 +70,25 @@ export function ConfirmMdModal({ md, submitting, errorMessage, onConfirm, onCanc
           />
         </div>
 
+        {enemies.length > 1 && (
+          <div className="field-group">
+            <label className="field-label">Selecione o inimigo detectado</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {enemies.map((enemy) => (
+                <button
+                  key={enemy}
+                  type="button"
+                  className={name === enemy ? '' : 'secondary'}
+                  style={{ fontSize: 12, padding: '4px 10px' }}
+                  onClick={() => setName(enemy)}
+                >
+                  {enemy}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <dl className="preview-grid">
           <div>
             <dt>Data</dt>
@@ -99,10 +118,6 @@ export function ConfirmMdModal({ md, submitting, errorMessage, onConfirm, onCanc
           <div>
             <dt>Raros</dt>
             <dd>{formatInt(session['Rare kills'])}</dd>
-          </div>
-          <div>
-            <dt>Inimigos detectados</dt>
-            <dd>{enemies.length > 0 ? enemies.join(', ') : '—'}</dd>
           </div>
         </dl>
 
