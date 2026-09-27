@@ -125,8 +125,9 @@ export interface OverviewStats {
   avgSuppliesPerHour: number | null;
   avgDamageDealtPerSecond: number | null;
   avgDamageTakenPerSecond: number | null;
-  mostProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
-  leastProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
+  totalExperience: number;
+  mostProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string; players: string[] } | null;
+  leastProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string; players: string[] } | null;
   mostFrequentHunt: { huntName: string; count: number } | null;
 }
 
@@ -291,6 +292,7 @@ export interface TerrorOverviewStats {
   avgProfit: number | null;
   maxProfit: number | null;
   avgExperience: number | null;
+  totalExperience: number;
   avgNightmareTokens: number | null;
   mostProfitableTerror: { id: number; terrorName: string | null; profit: number; profitPerHour: number; startTime: string; players: string[] } | null;
   leastProfitableTerror: { id: number; terrorName: string | null; profit: number; profitPerHour: number; startTime: string; players: string[] } | null;
@@ -394,6 +396,7 @@ export interface MdOverviewStats {
   avgProfit: number | null;
   maxProfit: number | null;
   avgExperience: number | null;
+  totalExperience: number;
   mostProfitableMd: { id: number; mdName: string | null; profit: number; profitPerHour: number; startTime: string; players: string[] } | null;
   leastProfitableMd: { id: number; mdName: string | null; profit: number; profitPerHour: number; startTime: string; players: string[] } | null;
   mostFrequentMd: { mdName: string; count: number } | null;

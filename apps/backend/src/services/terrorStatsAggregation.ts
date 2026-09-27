@@ -7,6 +7,7 @@ export interface TerrorOverviewStats {
   avgProfit: number | null;
   maxProfit: number | null;
   avgExperience: number | null;
+  totalExperience: number;
   // Average count of "Nightmare token" consumed per terror - the item spent
   // as the entry cost per boss try, not a gold amount (it has no market
   // price, so a gold-based supplies average is meaningless here).
@@ -33,6 +34,7 @@ export function computeTerrorOverview(filter: TerrorFilterQuery): TerrorOverview
          AVG(t.profit) AS avgProfit,
          MAX(t.profit) AS maxProfit,
          AVG(t.experience) AS avgExperience,
+         COALESCE(SUM(t.experience), 0) AS totalExperience,
          AVG((
            SELECT COALESCE(SUM(s.count), 0) FROM terror_supplies s
            WHERE s.terror_id = t.id AND s.item_normalized = 'nightmare token'

@@ -1,7 +1,7 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatBucketLabel, formatCompact } from '../../format';
 
-type PlayerTrendMetric = 'avgProfitPerHour' | 'avgProfit';
+type PlayerTrendMetric = 'avgProfitPerHour' | 'avgProfit' | 'totalProfit';
 
 export interface PlayerSeries {
   playerId: number;
@@ -9,8 +9,9 @@ export interface PlayerSeries {
   color: string;
   points: {
     bucketStart: string;
-    avgProfitPerHour: number | null;
+    avgProfitPerHour?: number | null;
     avgProfit?: number | null;
+    totalProfit?: number | null;
     huntName?: string | null;
   }[];
 }

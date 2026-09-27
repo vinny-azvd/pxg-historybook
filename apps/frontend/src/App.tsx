@@ -1,10 +1,9 @@
 import { NavLink, Route, Routes } from 'react-router-dom';
 import { PlayerFilter } from './components/PlayerFilter';
 import { PeriodFilter } from './components/PeriodFilter';
-import { DashboardPage } from './pages/DashboardPage';
-import { HuntsHistoryPage } from './pages/HuntsHistoryPage';
+import { OverviewPage } from './pages/OverviewPage';
+import { HuntPage } from './pages/HuntPage';
 import { HuntDetailPage } from './pages/HuntDetailPage';
-import { UploadPage } from './pages/UploadPage';
 import { TrendsPage } from './pages/TrendsPage';
 import { TerrorPage } from './pages/TerrorPage';
 import { TerrorDetailPage } from './pages/TerrorDetailPage';
@@ -18,16 +17,13 @@ export default function App() {
         <span className="brand">Hunt History Analyser</span>
         <nav className="nav">
           <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>
-            Dashboard
+            Visão Geral
           </NavLink>
           <NavLink to="/hunts" className={({ isActive }) => (isActive ? 'active' : '')}>
-            Histórico
+            Hunts
           </NavLink>
           <NavLink to="/trends" className={({ isActive }) => (isActive ? 'active' : '')}>
             Tendências
-          </NavLink>
-          <NavLink to="/upload" className={({ isActive }) => (isActive ? 'active' : '')}>
-            Importar hunt
           </NavLink>
           <NavLink to="/terror" className={({ isActive }) => (isActive ? 'active' : '')}>
             Terror
@@ -41,11 +37,10 @@ export default function App() {
       </header>
       <main className="main">
         <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/hunts" element={<HuntsHistoryPage />} />
+          <Route path="/" element={<OverviewPage />} />
+          <Route path="/hunts" element={<HuntPage />} />
           <Route path="/hunts/:id" element={<HuntDetailPage />} />
           <Route path="/trends" element={<TrendsPage />} />
-          <Route path="/upload" element={<UploadPage />} />
           <Route path="/terror" element={<TerrorPage />} />
           <Route path="/terror/:id" element={<TerrorDetailPage />} />
           <Route path="/md" element={<MdPage />} />

@@ -1,18 +1,22 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
 import { usePreferences } from '../PreferencesContext';
-import type { HuntListItem, OverviewStats, PlayerTrendPoint, RareKillRow, TrendPoint } from '../api/types';
+import { parseHuntJson } from '../jsonParse';
+import { ConfirmHuntModal } from '../components/ConfirmHuntModal';
+import { HuntCard } from '../components/HuntCard';
+import { CardSettingsPanel } from '../components/CardSettingsPanel';
 import { StatTile } from '../components/StatTile';
 import { PeriodNavigator } from '../components/PeriodNavigator';
 import { TrendChart } from '../components/charts/TrendChart';
 import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChart';
 import { PlayerLegend } from '../components/PlayerLegend';
-import { HuntCard } from '../components/HuntCard';
+import type { HuntListItem, OverviewStats, PlayerTrendPoint, RareKillRow, TrendPoint } from '../api/types';
 import { formatBucketLabel, formatCompact, formatDateTime, formatHours, formatInt } from '../format';
 import { bucketRange, periodRangeForDate } from '../dates';
 
+type Tab = 'dashboard' | 'history' | 'upload';
 type Bucket = 'day' | 'week' | 'month' | 'hunt';
 
 const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
@@ -22,23 +26,62 @@ const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
   { value: 'hunt', label: 'Por hunt' },
 ];
 
-// Reserves room for 2 lines so the highlight cards don't change height
-// depending on whether their text wraps (a long hunt name/date) or is a
-// short one-liner (the "Sem hunts no período" placeholder) - that height
-// change was shoving the chart section (and its nav buttons) around.
-const highlightTextStyle: CSSProperties = { margin: 0, fontSize: 14, minHeight: 40, lineHeight: '20px' };
-
-const CHART_BUCKET_LABEL: Record<'day' | 'week' | 'month' | 'hunt', string> = {
+const CHART_BUCKET_LABEL: Record<Bucket, string> = {
   day: 'dia',
   week: 'semana',
   month: 'mês',
   hunt: 'hunt',
 };
 
-export function DashboardPage() {
-  const { player, sessionType, from, to, months, setDateRange } = useFilters();
+// Reserves room for 2 lines so the highlight cards don't change height
+// depending on whether their text wraps (a long hunt name/date) or is a
+// short one-liner (the "Sem hunts no período" placeholder) - that height
+// change was shoving the chart section (and its nav buttons) around.
+const highlightTextStyle: CSSProperties = { margin: 0, fontSize: 14, minHeight: 40, lineHeight: '20px' };
+
+const SORT_OPTIONS: { key: string; label: string }[] = [
+  { key: 'start_time', label: 'Data' },
+  { key: 'hunt_name', label: 'Hunt' },
+  { key: 'duration_seconds', label: 'Duração' },
+  { key: 'profit', label: 'Profit' },
+  { key: 'profit_per_hour', label: 'Profit/h' },
+  { key: 'kills_per_hour', label: 'Kills/h' },
+  { key: 'rare_kills_per_hour', label: 'Raros/h' },
+];
+
+export function HuntPage() {
+  const [tab, setTab] = useState<Tab>('dashboard');
+
+  return (
+    <div>
+      <h1 className="page-title">Hunts</h1>
+      <div className="bucket-toggle" style={{ marginBottom: 16 }}>
+        <button className={tab === 'dashboard' ? '' : 'secondary'} onClick={() => setTab('dashboard')}>
+          Dashboard
+        </button>
+        <button className={tab === 'history' ? '' : 'secondary'} onClick={() => setTab('history')}>
+          Histórico
+        </button>
+        <button className={tab === 'upload' ? '' : 'secondary'} onClick={() => setTab('upload')}>
+          Importar hunt
+        </button>
+      </div>
+
+      {tab === 'dashboard' && <HuntDashboardTab />}
+      {tab === 'history' && <HuntHistoryTab />}
+      {tab === 'upload' && <HuntUploadTab onImported={() => setTab('history')} />}
+    </div>
+  );
+}
+
+function HuntDashboardTab() {
+  const { player, sessionType, from, to, setDateRange } = useFilters();
   const { rareDropThreshold, getPlayerColor } = usePreferences();
   const [overview, setOverview] = useState<OverviewStats | null>(null);
+  // Unaffected by the from/to period filter, unlike `overview` - so
+  // navigating to a period with zero hunts (e.g. an empty week) doesn't get
+  // mistaken for "nothing imported yet" and blank out the whole page.
+  const [totalHuntCount, setTotalHuntCount] = useState<number | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [playerTrend, setPlayerTrend] = useState<PlayerTrendPoint[]>([]);
   const [bucket, setBucket] = useState<Bucket>('week');
@@ -67,8 +110,7 @@ export function DashboardPage() {
   // that: a week shows its days, a month shows its weeks, a day shows its
   // individual hunts. "Por hunt" has no coarser period around it, so it just
   // shows hunts across whatever the outer date filter is.
-  const chartBucket: 'day' | 'week' | 'month' | 'hunt' =
-    bucket === 'day' ? 'hunt' : bucket === 'week' ? 'day' : bucket === 'month' ? 'week' : 'hunt';
+  const chartBucket: Bucket = bucket === 'day' ? 'hunt' : bucket === 'week' ? 'day' : bucket === 'month' ? 'week' : 'hunt';
 
   // Switching the bucket toggle pins the outer date filter to a single
   // concrete day/week/month (defaulting to whichever one is already in view,
@@ -116,10 +158,6 @@ export function DashboardPage() {
     };
   }, [showRareKills, player, sessionType, overviewRange.from, overviewRange.to]);
 
-  // Requests can resolve out of order (e.g. picking "Este mês" then quickly
-  // "Mês passado" - the first response can land after the second one and
-  // silently overwrite it with stale data). `ignore` discards a response
-  // that arrives after its own effect run has been superseded.
   useEffect(() => {
     let ignore = false;
     api.getOverview({ player, sessionType, from: overviewRange.from, to: overviewRange.to }).then((res) => {
@@ -129,6 +167,16 @@ export function DashboardPage() {
       ignore = true;
     };
   }, [player, sessionType, overviewRange.from, overviewRange.to]);
+
+  useEffect(() => {
+    let ignore = false;
+    api.getOverview({ player, sessionType }).then((res) => {
+      if (!ignore) setTotalHuntCount(res.huntCount);
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [player, sessionType]);
 
   useEffect(() => {
     let ignore = false;
@@ -218,28 +266,18 @@ export function DashboardPage() {
       })
     : undefined;
 
-  if (!overview) return <div className="empty-state">Carregando...</div>;
+  if (!overview || totalHuntCount === null) return <div className="empty-state">Carregando...</div>;
 
-  // Only show the "nothing imported yet" onboarding screen when there is truly
-  // no hunt for this player/session anywhere (months is unaffected by the
-  // from/to period filter) - an empty *selected* period, e.g. after navigating
-  // to a week with no hunts, should still show the chart and period nav so the
-  // user can navigate back out, not lose the whole page.
-  if (overview.huntCount === 0 && months.length === 0) {
+  if (totalHuntCount === 0) {
     return (
-      <div>
-        <h1 className="page-title">Dashboard</h1>
-        <div className="empty-state">
-          Nenhuma hunt registrada ainda. <Link to="/upload">Importe sua primeira hunt</Link> para começar a ver os
-          dashboards.
-        </div>
+      <div className="empty-state">
+        Nenhuma hunt registrada ainda. Use a aba "Importar hunt" para começar a ver os dashboards.
       </div>
     );
   }
 
   return (
     <div>
-      <h1 className="page-title">Dashboard</h1>
       <p className="page-subtitle">
         {overview.huntCount} hunt{overview.huntCount === 1 ? '' : 's'} no período selecionado.
         {pointFilter && selectedBucketStart && <> · {formatBucketLabel(selectedBucketStart, chartBucket)}</>}
@@ -333,10 +371,7 @@ export function DashboardPage() {
 
       {/* Always rendered, even with placeholders, so navigating to an empty
           period doesn't collapse this block and shove the rest of the page
-          up - only the text inside changes, not the layout around it.
-          highlightTextStyle reserves room for 2 lines so that going from a
-          long wrapped line (real hunt data) to a short one-liner ("Sem hunts
-          no período") doesn't itself shift everything below it either. */}
+          up - only the text inside changes, not the layout around it. */}
       <div className="highlight-grid section" style={{ marginBottom: 24 }}>
         <div className="card">
           <h2 className="section-title">Hunt mais lucrativa</h2>
@@ -345,7 +380,8 @@ export function DashboardPage() {
               <Link to={`/hunts/${overview.mostProfitableHunt.id}`}>
                 {overview.mostProfitableHunt.huntName ?? 'Hunt'}
               </Link>{' '}
-              em {formatDateTime(overview.mostProfitableHunt.startTime)} — profit de{' '}
+              ({overview.mostProfitableHunt.players.join(', ') || '—'}) em{' '}
+              {formatDateTime(overview.mostProfitableHunt.startTime)} — profit de{' '}
               {formatCompact(overview.mostProfitableHunt.profit)} (
               {formatCompact(overview.mostProfitableHunt.profitPerHour)}/h)
             </p>
@@ -360,7 +396,8 @@ export function DashboardPage() {
               <Link to={`/hunts/${overview.leastProfitableHunt.id}`}>
                 {overview.leastProfitableHunt.huntName ?? 'Hunt'}
               </Link>{' '}
-              em {formatDateTime(overview.leastProfitableHunt.startTime)} — profit de{' '}
+              ({overview.leastProfitableHunt.players.join(', ') || '—'}) em{' '}
+              {formatDateTime(overview.leastProfitableHunt.startTime)} — profit de{' '}
               {formatCompact(overview.leastProfitableHunt.profit)} (
               {formatCompact(overview.leastProfitableHunt.profitPerHour)}/h)
             </p>
@@ -467,6 +504,209 @@ export function DashboardPage() {
             </>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+function HuntHistoryTab() {
+  const { player, sessionType, from, to } = useFilters();
+  const [items, setItems] = useState<HuntListItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [sort, setSort] = useState('start_time');
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc');
+  const [loading, setLoading] = useState(true);
+  const pageSize = 25;
+
+  useEffect(() => {
+    setLoading(true);
+    api
+      .getHunts({ player, sessionType, from, to, sort, order, page, pageSize })
+      .then((res) => {
+        setItems(res.items);
+        setTotal(res.total);
+      })
+      .finally(() => setLoading(false));
+  }, [player, sessionType, from, to, sort, order, page]);
+
+  useEffect(() => setPage(1), [player, sessionType, from, to]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+        <div>
+          <p className="page-subtitle">
+            {total} hunt{total === 1 ? '' : 's'} registrada{total === 1 ? '' : 's'}. Clique num card para ver os
+            raros e drops raros dessa hunt.
+          </p>
+        </div>
+        <CardSettingsPanel />
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+        <label htmlFor="sort-select" style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
+          Ordenar por
+        </label>
+        <select id="sort-select" value={sort} onChange={(e) => setSort(e.target.value)}>
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.key} value={opt.key}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <button className="secondary" onClick={() => setOrder((o) => (o === 'asc' ? 'desc' : 'asc'))}>
+          {order === 'asc' ? '▲ Asc' : '▼ Desc'}
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="empty-state">Carregando...</div>
+      ) : items.length === 0 ? (
+        <div className="empty-state">Nenhuma hunt encontrada. Use a aba "Importar hunt" para começar.</div>
+      ) : (
+        <div className="hunt-card-grid">
+          {items.map((hunt) => (
+            <HuntCard key={hunt.id} hunt={hunt} />
+          ))}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 16, alignItems: 'center' }}>
+          <button className="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            Anterior
+          </button>
+          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+            Página {page} de {totalPages}
+          </span>
+          <button className="secondary" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+            Próxima
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type UploadStatus =
+  | { kind: 'idle' }
+  | { kind: 'error'; message: string }
+  | { kind: 'duplicate'; huntId: number }
+  | { kind: 'success'; huntId: number; players: string[]; huntName: string | null };
+
+function HuntUploadTab({ onImported }: { onImported: () => void }) {
+  const [text, setText] = useState('');
+  const [dragging, setDragging] = useState(false);
+  const [status, setStatus] = useState<UploadStatus>({ kind: 'idle' });
+  const [pendingHunt, setPendingHunt] = useState<any | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
+  const { refreshPlayers } = useFilters();
+
+  function parseAndPreview(raw: string) {
+    setStatus({ kind: 'idle' });
+    const parsed = parseHuntJson(raw);
+    if (!parsed.ok) {
+      setStatus({ kind: 'error', message: parsed.message! });
+      return;
+    }
+    setModalError(null);
+    setPendingHunt(parsed.data);
+  }
+
+  async function confirmUpload(huntName: string, nightmareCrystalSelections: string[]) {
+    setSubmitting(true);
+    setModalError(null);
+    try {
+      const res = await api.uploadHunt({ hunt: pendingHunt, huntName, nightmareCrystalSelections });
+      if (res.status === 409) {
+        setPendingHunt(null);
+        setStatus({ kind: 'duplicate', huntId: res.body.existingHuntId });
+      } else if (!res.ok) {
+        const issues = res.body.issues?.map((i: any) => `${i.path.join('.')}: ${i.message}`).join('\n');
+        setModalError(issues || res.body.error || 'Falha ao importar a hunt.');
+      } else {
+        setPendingHunt(null);
+        setStatus({ kind: 'success', huntId: res.body.id, players: res.body.players, huntName: res.body.huntName });
+        setText('');
+        refreshPlayers();
+        onImported();
+      }
+    } catch (err) {
+      setModalError(`Falha ao enviar a hunt para o servidor: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    file.text().then((content) => {
+      setText(content);
+      parseAndPreview(content);
+    });
+  }
+
+  return (
+    <div>
+      <p className="page-subtitle">Cole o JSON exportado do analyzer ou arraste o arquivo .json aqui.</p>
+
+      {status.kind === 'error' && <div className="error-box">{status.message}</div>}
+      {status.kind === 'duplicate' && (
+        <div className="error-box">
+          Essa hunt já foi importada antes. <Link to={`/hunts/${status.huntId}`}>Ver hunt existente</Link>
+        </div>
+      )}
+      {status.kind === 'success' && (
+        <div className="success-box">
+          Hunt {status.huntName ? `de ${status.huntName} ` : ''}importada com sucesso ({status.players.join(', ')}).{' '}
+          <Link to={`/hunts/${status.huntId}`}>Ver detalhes</Link>
+        </div>
+      )}
+
+      <div
+        className={`upload-drop ${dragging ? 'dragging' : ''}`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+      >
+        Arraste o arquivo .json da hunt aqui
+      </div>
+
+      <textarea
+        rows={16}
+        style={{ width: '100%', fontFamily: 'monospace', fontSize: 12.5 }}
+        placeholder="Cole aqui o JSON exportado da hunt..."
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+
+      <div style={{ marginTop: 12 }}>
+        <button disabled={!text.trim()} onClick={() => parseAndPreview(text)}>
+          Importar hunt
+        </button>
+      </div>
+
+      {pendingHunt && (
+        <ConfirmHuntModal
+          hunt={pendingHunt}
+          submitting={submitting}
+          errorMessage={modalError}
+          onConfirm={confirmUpload}
+          onCancel={() => {
+            setPendingHunt(null);
+            setModalError(null);
+          }}
+        />
       )}
     </div>
   );

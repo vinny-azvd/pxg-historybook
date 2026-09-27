@@ -7,6 +7,7 @@ export interface MdOverviewStats {
   avgProfit: number | null;
   maxProfit: number | null;
   avgExperience: number | null;
+  totalExperience: number;
   mostProfitableMd: { id: number; mdName: string | null; profit: number; profitPerHour: number; startTime: string; players: string[] } | null;
   leastProfitableMd: { id: number; mdName: string | null; profit: number; profitPerHour: number; startTime: string; players: string[] } | null;
   mostFrequentMd: { mdName: string; count: number } | null;
@@ -26,7 +27,8 @@ export function computeMdOverview(filter: MdFilterQuery): MdOverviewStats {
          COALESCE(SUM(t.profit), 0) AS totalProfit,
          AVG(t.profit) AS avgProfit,
          MAX(t.profit) AS maxProfit,
-         AVG(t.experience) AS avgExperience
+         AVG(t.experience) AS avgExperience,
+         COALESCE(SUM(t.experience), 0) AS totalExperience
        FROM mds t
        ${whereClause}`
     )

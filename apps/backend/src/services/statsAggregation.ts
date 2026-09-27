@@ -19,8 +19,9 @@ export interface OverviewStats {
   avgSuppliesPerHour: number | null;
   avgDamageDealtPerSecond: number | null;
   avgDamageTakenPerSecond: number | null;
-  mostProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
-  leastProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string } | null;
+  totalExperience: number;
+  mostProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string; players: string[] } | null;
+  leastProfitableHunt: { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string; players: string[] } | null;
   mostFrequentHunt: { huntName: string; count: number } | null;
 }
 
@@ -46,34 +47,39 @@ export function computeOverview(filter: HuntFilterQuery): OverviewStats {
          AVG(h.experience_per_hour) AS avgExperiencePerHour,
          AVG(h.supplies_per_hour) AS avgSuppliesPerHour,
          AVG(h.damage_dealt_per_second) AS avgDamageDealtPerSecond,
-         AVG(h.damage_taken_per_second) AS avgDamageTakenPerSecond
+         AVG(h.damage_taken_per_second) AS avgDamageTakenPerSecond,
+         COALESCE(SUM(h.experience), 0) AS totalExperience
        FROM hunts h
        ${whereClause}`
     )
     .get(params) as any;
 
+  const playersSubquery = `(SELECT GROUP_CONCAT(p.name, '||') FROM hunt_players hp JOIN players p ON p.id = hp.player_id WHERE hp.hunt_id = h.id)`;
+
   const mostProfitable = db
     .prepare(
-      `SELECT h.id, h.hunt_name AS huntName, h.profit, h.profit_per_hour AS profitPerHour, h.start_time AS startTime
+      `SELECT h.id, h.hunt_name AS huntName, h.profit, h.profit_per_hour AS profitPerHour, h.start_time AS startTime,
+              ${playersSubquery} AS playersRaw
        FROM hunts h
        ${whereClause}
        ORDER BY h.profit DESC
        LIMIT 1`
     )
     .get(params) as
-    | { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string }
+    | { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string; playersRaw: string | null }
     | undefined;
 
   const leastProfitable = db
     .prepare(
-      `SELECT h.id, h.hunt_name AS huntName, h.profit, h.profit_per_hour AS profitPerHour, h.start_time AS startTime
+      `SELECT h.id, h.hunt_name AS huntName, h.profit, h.profit_per_hour AS profitPerHour, h.start_time AS startTime,
+              ${playersSubquery} AS playersRaw
        FROM hunts h
        ${whereClause}
        ORDER BY h.profit ASC
        LIMIT 1`
     )
     .get(params) as
-    | { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string }
+    | { id: number; huntName: string | null; profit: number; profitPerHour: number; startTime: string; playersRaw: string | null }
     | undefined;
 
   const nameWhereClause = whereClause
@@ -93,8 +99,26 @@ export function computeOverview(filter: HuntFilterQuery): OverviewStats {
 
   return {
     ...aggregates,
-    mostProfitableHunt: mostProfitable ?? null,
-    leastProfitableHunt: leastProfitable ?? null,
+    mostProfitableHunt: mostProfitable
+      ? {
+          id: mostProfitable.id,
+          huntName: mostProfitable.huntName,
+          profit: mostProfitable.profit,
+          profitPerHour: mostProfitable.profitPerHour,
+          startTime: mostProfitable.startTime,
+          players: mostProfitable.playersRaw ? mostProfitable.playersRaw.split('||') : [],
+        }
+      : null,
+    leastProfitableHunt: leastProfitable
+      ? {
+          id: leastProfitable.id,
+          huntName: leastProfitable.huntName,
+          profit: leastProfitable.profit,
+          profitPerHour: leastProfitable.profitPerHour,
+          startTime: leastProfitable.startTime,
+          players: leastProfitable.playersRaw ? leastProfitable.playersRaw.split('||') : [],
+        }
+      : null,
     mostFrequentHunt: mostFrequent ?? null,
   };
 }
