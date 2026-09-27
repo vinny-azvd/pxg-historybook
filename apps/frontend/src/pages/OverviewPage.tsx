@@ -63,6 +63,19 @@ export function OverviewPage() {
   // Same pattern the Hunts/Terror/MD dashboards already use.
   const chartBucket: Bucket = bucket === 'month' ? 'week' : 'day';
 
+  // Switching the bucket toggle pins the outer date filter to a single
+  // concrete day/week/month (defaulting to whichever one is already in
+  // view, or today) - otherwise the toggle changed which granularity the
+  // chart *would* draw at, but the date range stayed whatever it was
+  // before, so nothing visibly changed until the range was touched some
+  // other way (e.g. the period navigator).
+  function selectBucket(next: Bucket) {
+    setBucket(next);
+    const referenceIso = to || from;
+    const referenceDate = referenceIso ? new Date(`${referenceIso}T00:00:00`) : new Date();
+    setDateRange(periodRangeForDate(referenceDate, next));
+  }
+
   // Pin to the current week on first render, same pattern as the 3
   // content-specific dashboards - only if the filter hasn't been touched yet.
   useEffect(() => {
@@ -267,7 +280,7 @@ export function OverviewPage() {
                 <button
                   key={opt.value}
                   className={bucket === opt.value ? '' : 'secondary'}
-                  onClick={() => setBucket(opt.value)}
+                  onClick={() => selectBucket(opt.value)}
                 >
                   {opt.label}
                 </button>
