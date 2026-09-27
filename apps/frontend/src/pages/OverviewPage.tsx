@@ -40,6 +40,14 @@ export function OverviewPage() {
   const [mdTrend, setMdTrend] = useState<PlayerTrendPoint[]>([]);
   const [bucket, setBucket] = useState<Bucket>('week');
 
+  // The bucket toggle picks which single period the outer date filter is
+  // pinned to (a day, a week, a month), but the chart itself always drills
+  // one level finer than that - otherwise, with the filter already narrowed
+  // to exactly one week, every point in the week collapses into a single
+  // "week" bucket (that week's Monday) and the chart shows nothing useful.
+  // Same pattern the Hunts/Terror/MD dashboards already use.
+  const chartBucket: Bucket = bucket === 'month' ? 'week' : 'day';
+
   // Pin to the current week on first render, same pattern as the 3
   // content-specific dashboards - only if the filter hasn't been touched yet.
   useEffect(() => {
@@ -83,9 +91,9 @@ export function OverviewPage() {
   useEffect(() => {
     let ignore = false;
     Promise.all([
-      api.getTrendsByPlayer({ player, sessionType, from, to, bucket }),
-      api.getTerrorTrendsByPlayer({ player, sessionType, from, to, bucket }),
-      api.getMdTrendsByPlayer({ player, sessionType, from, to, bucket }),
+      api.getTrendsByPlayer({ player, sessionType, from, to, bucket: chartBucket }),
+      api.getTerrorTrendsByPlayer({ player, sessionType, from, to, bucket: chartBucket }),
+      api.getMdTrendsByPlayer({ player, sessionType, from, to, bucket: chartBucket }),
     ]).then(([h, t, m]) => {
       if (ignore) return;
       setHuntTrend(h);
@@ -95,7 +103,7 @@ export function OverviewPage() {
     return () => {
       ignore = true;
     };
-  }, [player, sessionType, from, to, bucket]);
+  }, [player, sessionType, from, to, chartBucket]);
 
   // Hunts, Terror and MD are measured in incompatible units (profit/hour vs.
   // profit per rotation), so the only metric that can be combined into one
@@ -230,7 +238,7 @@ export function OverviewPage() {
           }}
         >
           <h2 className="section-title" style={{ margin: 0 }}>
-            Profit total por {CHART_BUCKET_LABEL[bucket]}
+            Profit total por {CHART_BUCKET_LABEL[chartBucket]}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <PeriodNavigator bucket={bucket} />
@@ -249,7 +257,7 @@ export function OverviewPage() {
         </div>
         <div className="card">
           <PlayerLegend entries={playerSeries.map((s) => ({ id: s.playerId, name: s.playerName, color: s.color }))} />
-          <MultiSeriesTrendChart series={playerSeries} bucket={bucket} metricKey="totalProfit" />
+          <MultiSeriesTrendChart series={playerSeries} bucket={chartBucket} metricKey="totalProfit" />
         </div>
       </div>
     </div>
