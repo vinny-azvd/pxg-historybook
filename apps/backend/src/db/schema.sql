@@ -218,6 +218,112 @@ CREATE TABLE IF NOT EXISTS terror_enemies_defeated (
 
 CREATE INDEX IF NOT EXISTS idx_terror_enemies_terror ON terror_enemies_defeated(terror_id);
 
+CREATE TABLE IF NOT EXISTS mds (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER,
+  md_name TEXT,
+  content_hash TEXT NOT NULL UNIQUE,
+  session_type TEXT NOT NULL CHECK (session_type IN ('player', 'party')),
+  status TEXT,
+  start_time TEXT NOT NULL,
+  duration_seconds INTEGER NOT NULL DEFAULT 0,
+  paused_seconds INTEGER NOT NULL DEFAULT 0,
+  kills INTEGER NOT NULL DEFAULT 0,
+  kills_per_hour INTEGER NOT NULL DEFAULT 0,
+  rare_kills INTEGER NOT NULL DEFAULT 0,
+  rare_kills_per_hour INTEGER NOT NULL DEFAULT 0,
+  experience INTEGER NOT NULL DEFAULT 0,
+  experience_per_hour INTEGER NOT NULL DEFAULT 0,
+  damage_dealt INTEGER NOT NULL DEFAULT 0,
+  damage_dealt_per_second INTEGER NOT NULL DEFAULT 0,
+  damage_taken INTEGER NOT NULL DEFAULT 0,
+  damage_taken_per_second INTEGER NOT NULL DEFAULT 0,
+  supplies_cost INTEGER NOT NULL DEFAULT 0,
+  supplies_per_hour INTEGER NOT NULL DEFAULT 0,
+  raw_gains INTEGER NOT NULL DEFAULT 0,
+  raw_gains_per_hour INTEGER NOT NULL DEFAULT 0,
+  profit INTEGER NOT NULL DEFAULT 0,
+  profit_per_hour INTEGER NOT NULL DEFAULT 0,
+  time_to_next_level_seconds INTEGER,
+  primary_player_id INTEGER REFERENCES players(id),
+  raw_json TEXT NOT NULL,
+  imported_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_mds_start_time ON mds(start_time);
+CREATE INDEX IF NOT EXISTS idx_mds_profit_per_hour ON mds(profit_per_hour);
+
+CREATE TABLE IF NOT EXISTS md_players (
+  md_id INTEGER NOT NULL REFERENCES mds(id) ON DELETE CASCADE,
+  player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  PRIMARY KEY (md_id, player_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_md_players_player ON md_players(player_id);
+
+CREATE TABLE IF NOT EXISTS md_damage (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  md_id INTEGER NOT NULL REFERENCES mds(id) ON DELETE CASCADE,
+  player_id INTEGER REFERENCES players(id),
+  enemy TEXT NOT NULL,
+  element TEXT,
+  damage_dealt INTEGER NOT NULL DEFAULT 0,
+  damage_taken INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_md_damage_md ON md_damage(md_id);
+
+CREATE TABLE IF NOT EXISTS md_supplies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  md_id INTEGER NOT NULL REFERENCES mds(id) ON DELETE CASCADE,
+  player_id INTEGER REFERENCES players(id),
+  item TEXT NOT NULL,
+  item_normalized TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  unit_price INTEGER NOT NULL DEFAULT 0,
+  total_price INTEGER NOT NULL DEFAULT 0,
+  ignored INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_md_supplies_md ON md_supplies(md_id);
+CREATE INDEX IF NOT EXISTS idx_md_supplies_item ON md_supplies(item_normalized);
+
+CREATE TABLE IF NOT EXISTS md_drops (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  md_id INTEGER NOT NULL REFERENCES mds(id) ON DELETE CASCADE,
+  player_id INTEGER REFERENCES players(id),
+  item TEXT NOT NULL,
+  item_normalized TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  unit_price INTEGER NOT NULL DEFAULT 0,
+  total_price INTEGER NOT NULL DEFAULT 0,
+  ignored INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_md_drops_md ON md_drops(md_id);
+CREATE INDEX IF NOT EXISTS idx_md_drops_item ON md_drops(item_normalized);
+
+CREATE TABLE IF NOT EXISTS md_experience (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  md_id INTEGER NOT NULL REFERENCES mds(id) ON DELETE CASCADE,
+  player_id INTEGER REFERENCES players(id),
+  experience INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_md_experience_md ON md_experience(md_id);
+
+CREATE TABLE IF NOT EXISTS md_enemies_defeated (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  md_id INTEGER NOT NULL REFERENCES mds(id) ON DELETE CASCADE,
+  player_id INTEGER REFERENCES players(id),
+  enemy TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  rare INTEGER NOT NULL DEFAULT 0,
+  ignored INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_md_enemies_md ON md_enemies_defeated(md_id);
+
 CREATE TABLE IF NOT EXISTS item_icons (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,

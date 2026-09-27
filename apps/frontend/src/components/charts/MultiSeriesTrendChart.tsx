@@ -17,7 +17,7 @@ export interface PlayerSeries {
 
 interface MultiSeriesTrendChartProps {
   series: PlayerSeries[];
-  bucket: 'day' | 'week' | 'month' | 'hunt' | 'terror';
+  bucket: 'day' | 'week' | 'month' | 'hunt' | 'terror' | 'md';
   metricKey?: PlayerTrendMetric;
   onPointClick?: (bucketStart: string) => void;
   selectedBucketStart?: string | null;
@@ -40,7 +40,7 @@ export function MultiSeriesTrendChart({
     return <div className="chart-empty-state">Sem dados suficientes para o gráfico.</div>;
   }
 
-  const isEntryBucket = bucket === 'hunt' || bucket === 'terror';
+  const isEntryBucket = bucket === 'hunt' || bucket === 'terror' || bucket === 'md';
 
   const rows = bucketStarts.map((bucketStart) => {
     const row: Record<string, string | number | null> = { bucketStart };

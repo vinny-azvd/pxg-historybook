@@ -12,6 +12,8 @@ import { playersRouter } from './routes/players.js';
 import { itemsRouter } from './routes/items.js';
 import { terrorsRouter } from './routes/terrors.js';
 import { terrorStatsRouter } from './routes/terrorStats.js';
+import { mdsRouter } from './routes/mds.js';
+import { mdStatsRouter } from './routes/mdStats.js';
 
 export function createApp() {
   const app = express();
@@ -29,6 +31,8 @@ export function createApp() {
   app.use('/api/items', itemsRouter);
   app.use('/api/terrors', terrorsRouter);
   app.use('/api/terror-stats', terrorStatsRouter);
+  app.use('/api/mds', mdsRouter);
+  app.use('/api/md-stats', mdStatsRouter);
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
 

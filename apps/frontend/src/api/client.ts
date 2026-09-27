@@ -13,6 +13,10 @@ import type {
   TerrorListResponse,
   TerrorOverviewStats,
   TerrorWeeklyResponse,
+  MdDetail,
+  MdListResponse,
+  MdOverviewStats,
+  MdWeeklyResponse,
   TrendPoint,
 } from './types';
 
@@ -150,4 +154,45 @@ export const api = {
 
   getTerrorsWeekly: (filters: Filters & { page?: number; pageSize?: number }) =>
     request<TerrorWeeklyResponse>(`/api/terror-stats/weekly${toQuery(filters)}`),
+
+  getMds: (filters: Filters & { sort?: string; order?: string; page?: number; pageSize?: number }) =>
+    request<MdListResponse>(`/api/mds${toQuery(filters)}`),
+
+  getMd: (id: number) => request<MdDetail>(`/api/mds/${id}`),
+
+  renameMd: async (id: number, mdName: string) => {
+    const res = await fetch(`/api/mds/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mdName }),
+    });
+    if (!res.ok) throw new Error('Falha ao renomear a MD');
+    return res.json();
+  },
+
+  deleteMd: async (id: number) => {
+    const res = await fetch(`/api/mds/${id}`, { method: 'DELETE' });
+    if (!res.ok && res.status !== 204) throw new Error('Falha ao remover MD');
+  },
+
+  uploadMd: async (payload: unknown) => {
+    const res = await fetch('/api/mds', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, body };
+  },
+
+  getMdOverview: (filters: Filters) => request<MdOverviewStats>(`/api/md-stats/overview${toQuery(filters)}`),
+
+  getMdTrends: (filters: Filters & { bucket: string }) =>
+    request<TrendPoint[]>(`/api/md-stats/trends${toQuery(filters)}`),
+
+  getMdTrendsByPlayer: (filters: Filters & { bucket: string }) =>
+    request<PlayerTrendPoint[]>(`/api/md-stats/trends-by-player${toQuery(filters)}`),
+
+  getMdsWeekly: (filters: Filters & { page?: number; pageSize?: number }) =>
+    request<MdWeeklyResponse>(`/api/md-stats/weekly${toQuery(filters)}`),
 };

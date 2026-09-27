@@ -26,6 +26,7 @@ export function migrate() {
 
   backfillHuntNames();
   backfillTerrorNames();
+  backfillMdNames();
   recomputeJadeTotemCounts();
 }
 
@@ -58,6 +59,25 @@ function backfillTerrorNames() {
     const damage = damageStmt.all(id) as { Enemy: string }[];
     const terrorName = deriveTerrorName(damage);
     if (terrorName) updateStmt.run(terrorName, id);
+  }
+}
+
+// Unlike Terror (named from the Damage log's bosses), MD has no known
+// boss-naming convention, so it's named the same way Hunts is: from its
+// Enemies Defeated list.
+function backfillMdNames() {
+  const missing = db
+    .prepare('SELECT id FROM mds WHERE md_name IS NULL')
+    .all() as { id: number }[];
+  if (missing.length === 0) return;
+
+  const enemiesStmt = db.prepare('SELECT enemy, count FROM md_enemies_defeated WHERE md_id = ?');
+  const updateStmt = db.prepare('UPDATE mds SET md_name = ? WHERE id = ?');
+
+  for (const { id } of missing) {
+    const enemies = enemiesStmt.all(id) as { enemy: string; count: number }[];
+    const mdName = deriveHuntName(enemies);
+    if (mdName) updateStmt.run(mdName, id);
   }
 }
 

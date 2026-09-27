@@ -43,8 +43,8 @@ function shortDate(date: Date): string {
 
 /** Formats a trend bucket's start date for display, according to its granularity:
  * a single day as "dd/mm", a week as its "dd/mm–dd/mm" range, a month as "mmm/aaaa". */
-export function formatBucketLabel(bucketStart: string, bucket: 'day' | 'week' | 'month' | 'hunt' | 'terror'): string {
-  if (bucket === 'hunt' || bucket === 'terror') {
+export function formatBucketLabel(bucketStart: string, bucket: 'day' | 'week' | 'month' | 'hunt' | 'terror' | 'md'): string {
+  if (bucket === 'hunt' || bucket === 'terror' || bucket === 'md') {
     return formatDateTime(bucketStart);
   }
   if (bucket === 'month') {

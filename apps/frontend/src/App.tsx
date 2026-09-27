@@ -8,6 +8,8 @@ import { UploadPage } from './pages/UploadPage';
 import { TrendsPage } from './pages/TrendsPage';
 import { TerrorPage } from './pages/TerrorPage';
 import { TerrorDetailPage } from './pages/TerrorDetailPage';
+import { MdPage } from './pages/MdPage';
+import { MdDetailPage } from './pages/MdDetailPage';
 
 export default function App() {
   return (
@@ -30,6 +32,9 @@ export default function App() {
           <NavLink to="/terror" className={({ isActive }) => (isActive ? 'active' : '')}>
             Terror
           </NavLink>
+          <NavLink to="/md" className={({ isActive }) => (isActive ? 'active' : '')}>
+            MD
+          </NavLink>
         </nav>
         <PlayerFilter />
         <PeriodFilter />
@@ -43,6 +48,8 @@ export default function App() {
           <Route path="/upload" element={<UploadPage />} />
           <Route path="/terror" element={<TerrorPage />} />
           <Route path="/terror/:id" element={<TerrorDetailPage />} />
+          <Route path="/md" element={<MdPage />} />
+          <Route path="/md/:id" element={<MdDetailPage />} />
         </Routes>
       </main>
     </div>

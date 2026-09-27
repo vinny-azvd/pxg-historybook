@@ -8,7 +8,7 @@ interface TrendChartProps {
   metricKey: keyof TrendPoint;
   seriesLabel: string;
   seriesColor: string;
-  bucket?: 'day' | 'week' | 'month' | 'hunt' | 'terror';
+  bucket?: 'day' | 'week' | 'month' | 'hunt' | 'terror' | 'md';
   formatValue?: (value: number) => string;
   onPointClick?: (bucketStart: string) => void;
   selectedBucketStart?: string | null;
@@ -74,7 +74,7 @@ export function TrendChart({
               if (!active || !payload || payload.length === 0) return null;
               const row = payload[0].payload as TrendPoint;
               const value = row[metricKey] as number | null;
-              const isEntryBucket = bucket === 'hunt' || bucket === 'terror';
+              const isEntryBucket = bucket === 'hunt' || bucket === 'terror' || bucket === 'md';
               return (
                 <div
                   style={{
