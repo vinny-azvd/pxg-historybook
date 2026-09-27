@@ -21,6 +21,14 @@ const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
 
 const CHART_BUCKET_LABEL: Record<Bucket, string> = { day: 'dia', week: 'semana', month: 'mês' };
 
+type ContentKey = 'hunts' | 'terror' | 'md';
+
+const CONTENT_OPTIONS: { key: ContentKey; label: string }[] = [
+  { key: 'hunts', label: 'Hunts' },
+  { key: 'terror', label: 'Terror' },
+  { key: 'md', label: 'MD' },
+];
+
 // Reserves room for 2 lines so the highlight cards don't change height
 // depending on whether their text wraps or is a short one-liner.
 const highlightTextStyle: CSSProperties = { margin: 0, fontSize: 14, minHeight: 40, lineHeight: '20px' };
@@ -39,6 +47,13 @@ export function OverviewPage() {
   const [terrorTrend, setTerrorTrend] = useState<PlayerTrendPoint[]>([]);
   const [mdTrend, setMdTrend] = useState<PlayerTrendPoint[]>([]);
   const [bucket, setBucket] = useState<Bucket>('week');
+  // Lets the chart be narrowed to just one or two content types (e.g. "only
+  // Terror") without leaving the page, instead of always blending all three.
+  const [contentFilter, setContentFilter] = useState<Record<ContentKey, boolean>>({
+    hunts: true,
+    terror: true,
+    md: true,
+  });
 
   // The bucket toggle picks which single period the outer date filter is
   // pinned to (a day, a week, a month), but the chart itself always drills
@@ -112,8 +127,13 @@ export function OverviewPage() {
   // returns a real summed `totalProfit` per (player, bucket), so this is a
   // pure client-side merge, no new backend endpoint needed.
   const playerSeries = useMemo(() => {
+    const activeSources = [
+      contentFilter.hunts ? huntTrend : [],
+      contentFilter.terror ? terrorTrend : [],
+      contentFilter.md ? mdTrend : [],
+    ];
     const totals = new Map<string, { playerId: number; playerName: string; bucketStart: string; totalProfit: number }>();
-    for (const rows of [huntTrend, terrorTrend, mdTrend]) {
+    for (const rows of activeSources) {
       for (const row of rows) {
         const key = `${row.playerId}::${row.bucketStart}`;
         const existing = totals.get(key);
@@ -131,7 +151,7 @@ export function OverviewPage() {
     return [...byPlayer.values()]
       .sort((a, b) => a.playerId - b.playerId)
       .map((entry, index) => ({ ...entry, color: getPlayerColor(String(entry.playerId), index) }));
-  }, [huntTrend, terrorTrend, mdTrend, getPlayerColor]);
+  }, [huntTrend, terrorTrend, mdTrend, contentFilter, getPlayerColor]);
 
   if (!huntsOverview || !terrorOverview || !mdOverview || !totalCounts) {
     return <div className="empty-state">Carregando...</div>;
@@ -253,6 +273,20 @@ export function OverviewPage() {
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>Conteúdos:</span>
+          <div className="bucket-toggle">
+            {CONTENT_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                className={contentFilter[opt.key] ? '' : 'secondary'}
+                onClick={() => setContentFilter((prev) => ({ ...prev, [opt.key]: !prev[opt.key] }))}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
         <div className="card">
