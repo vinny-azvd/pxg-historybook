@@ -5,12 +5,12 @@ export interface PlayerSeries {
   playerId: number;
   playerName: string;
   color: string;
-  points: { bucketStart: string; avgProfitPerHour: number | null }[];
+  points: { bucketStart: string; avgProfitPerHour: number | null; huntName?: string | null }[];
 }
 
 interface MultiSeriesTrendChartProps {
   series: PlayerSeries[];
-  bucket: 'day' | 'week' | 'month';
+  bucket: 'day' | 'week' | 'month' | 'hunt';
   onPointClick?: (bucketStart: string) => void;
   selectedBucketStart?: string | null;
 }
@@ -34,6 +34,15 @@ export function MultiSeriesTrendChart({ series, bucket, onPointClick, selectedBu
     }
     return row;
   });
+
+  const huntNameByBucket = new Map<string, string | null>();
+  if (bucket === 'hunt') {
+    for (const s of series) {
+      for (const p of s.points) {
+        if (p.huntName) huntNameByBucket.set(p.bucketStart, p.huntName);
+      }
+    }
+  }
 
   return (
     <ResponsiveContainer width="100%" height={280}>
@@ -82,6 +91,7 @@ export function MultiSeriesTrendChart({ series, bucket, onPointClick, selectedBu
               >
                 <div style={{ color: 'var(--text-secondary)', marginBottom: 4 }}>
                   {bucket === 'week' ? 'Semana de ' : ''}
+                  {bucket === 'hunt' && huntNameByBucket.get(String(label)) ? `${huntNameByBucket.get(String(label))} · ` : ''}
                   {formatBucketLabel(String(label), bucket)}
                 </div>
                 {visible.map((s) => {

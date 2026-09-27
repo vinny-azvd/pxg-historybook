@@ -156,6 +156,8 @@ export interface PlayerTrendPoint {
   avgRareKillsPerHour: number | null;
   avgExperiencePerHour: number | null;
   avgSuppliesPerHour: number | null;
+  huntId?: number;
+  huntName?: string | null;
 }
 
 export interface TrendPoint {

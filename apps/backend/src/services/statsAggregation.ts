@@ -211,6 +211,45 @@ export function computeTrends(filter: HuntFilterQuery, bucket: string) {
 // blended line. A party hunt counts toward every player in it.
 export function computeTrendsByPlayer(filter: HuntFilterQuery, bucket: string) {
   const { whereClause, params } = buildHuntFilter(filter);
+
+  if (bucket === 'hunt') {
+    return db
+      .prepare(
+        `SELECT
+           p.id AS playerId,
+           p.name AS playerName,
+           h.id AS huntId,
+           h.hunt_name AS huntName,
+           h.start_time AS bucketStart,
+           1 AS huntCount,
+           h.profit AS totalProfit,
+           h.profit_per_hour AS avgProfitPerHour,
+           h.kills_per_hour AS avgKillsPerHour,
+           h.rare_kills_per_hour AS avgRareKillsPerHour,
+           h.experience_per_hour AS avgExperiencePerHour,
+           h.supplies_per_hour AS avgSuppliesPerHour
+         FROM hunts h
+         JOIN hunt_players hp ON hp.hunt_id = h.id
+         JOIN players p ON p.id = hp.player_id
+         ${whereClause}
+         ORDER BY p.id, h.start_time ASC`
+      )
+      .all(params) as {
+      playerId: number;
+      playerName: string;
+      huntId: number;
+      huntName: string | null;
+      bucketStart: string;
+      huntCount: number;
+      totalProfit: number;
+      avgProfitPerHour: number | null;
+      avgKillsPerHour: number | null;
+      avgRareKillsPerHour: number | null;
+      avgExperiencePerHour: number | null;
+      avgSuppliesPerHour: number | null;
+    }[];
+  }
+
   const bucketExpr = BUCKET_EXPRESSIONS[bucket] ?? BUCKET_EXPRESSIONS.week;
 
   return db

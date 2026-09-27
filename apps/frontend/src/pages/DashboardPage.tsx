@@ -11,7 +11,7 @@ import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChar
 import { PlayerLegend } from '../components/PlayerLegend';
 import { HuntCard } from '../components/HuntCard';
 import { formatBucketLabel, formatCompact, formatDateTime, formatHours, formatInt } from '../format';
-import { bucketRange } from '../dates';
+import { bucketRange, periodRangeForDate } from '../dates';
 
 type Bucket = 'day' | 'week' | 'month' | 'hunt';
 
@@ -27,6 +27,13 @@ const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
 // short one-liner (the "Sem hunts no período" placeholder) - that height
 // change was shoving the chart section (and its nav buttons) around.
 const highlightTextStyle: CSSProperties = { margin: 0, fontSize: 14, minHeight: 40, lineHeight: '20px' };
+
+const CHART_BUCKET_LABEL: Record<'day' | 'week' | 'month' | 'hunt', string> = {
+  day: 'dia',
+  week: 'semana',
+  month: 'mês',
+  hunt: 'hunt',
+};
 
 export function DashboardPage() {
   const { player, sessionType, from, to, months, setDateRange } = useFilters();
@@ -54,6 +61,37 @@ export function DashboardPage() {
   // granularity already colors its points by jade/rare-drop, so it keeps its
   // own single line rather than layering both signals into one chart.
   const showPlayerBreakdown = !player && bucket !== 'hunt';
+
+  // The bucket toggle picks which single period you're browsing (a day, a
+  // week, a month), but the chart itself always drills one level finer than
+  // that: a week shows its days, a month shows its weeks, a day shows its
+  // individual hunts. "Por hunt" has no coarser period around it, so it just
+  // shows hunts across whatever the outer date filter is.
+  const chartBucket: 'day' | 'week' | 'month' | 'hunt' =
+    bucket === 'day' ? 'hunt' : bucket === 'week' ? 'day' : bucket === 'month' ? 'week' : 'hunt';
+
+  // Switching the bucket toggle pins the outer date filter to a single
+  // concrete day/week/month (defaulting to whichever one is already in view,
+  // or today) - otherwise "Semana" over an unrestricted "Todo o período"
+  // filter would still show every week ever recorded instead of just one.
+  function selectBucket(next: Bucket) {
+    setBucket(next);
+    if (next === 'hunt') return;
+    const referenceIso = to || from;
+    const referenceDate = referenceIso ? new Date(`${referenceIso}T00:00:00`) : new Date();
+    setDateRange(periodRangeForDate(referenceDate, next));
+  }
+
+  // Same pinning, but only for the very first render, and only if the date
+  // filter hasn't been touched yet (from/to still empty) - respects a filter
+  // the user already had set (e.g. arriving from another page) instead of
+  // silently overriding it.
+  useEffect(() => {
+    if (bucket !== 'hunt' && !from && !to) {
+      setDateRange(periodRangeForDate(new Date(), bucket));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     setPointFilter(null);
@@ -95,18 +133,18 @@ export function DashboardPage() {
   useEffect(() => {
     let ignore = false;
     if (showPlayerBreakdown) {
-      api.getTrendsByPlayer({ player, sessionType, from, to, bucket }).then((res) => {
+      api.getTrendsByPlayer({ player, sessionType, from, to, bucket: chartBucket }).then((res) => {
         if (!ignore) setPlayerTrend(res);
       });
     } else {
-      api.getTrends({ player, sessionType, from, to, bucket }).then((res) => {
+      api.getTrends({ player, sessionType, from, to, bucket: chartBucket }).then((res) => {
         if (!ignore) setTrend(res);
       });
     }
     return () => {
       ignore = true;
     };
-  }, [player, sessionType, from, to, bucket, showPlayerBreakdown]);
+  }, [player, sessionType, from, to, chartBucket, showPlayerBreakdown]);
 
   const playerSeries = useMemo(() => {
     const byPlayer = new Map<number, { playerId: number; playerName: string; points: PlayerTrendPoint[] }>();
@@ -167,15 +205,15 @@ export function DashboardPage() {
   }, [player, sessionType, pointFilter?.from, pointFilter?.to]);
 
   function handlePointClick(bucketStart: string) {
-    if (bucket === 'hunt') return;
-    const range = bucketRange(bucketStart, bucket);
+    if (chartBucket === 'hunt') return;
+    const range = bucketRange(bucketStart, chartBucket);
     setPointFilter((prev) => (prev && prev.from === range.from && prev.to === range.to ? null : range));
   }
 
   const knownBucketStarts = showPlayerBreakdown ? playerTrend.map((p) => p.bucketStart) : trend.map((p) => p.bucketStart);
-  const selectedBucketStart = pointFilter && bucket !== 'hunt'
+  const selectedBucketStart = pointFilter && chartBucket !== 'hunt'
     ? knownBucketStarts.find((bucketStart) => {
-        const range = bucketRange(bucketStart, bucket);
+        const range = bucketRange(bucketStart, chartBucket);
         return range.from === pointFilter.from && range.to === pointFilter.to;
       })
     : undefined;
@@ -204,7 +242,7 @@ export function DashboardPage() {
       <h1 className="page-title">Dashboard</h1>
       <p className="page-subtitle">
         {overview.huntCount} hunt{overview.huntCount === 1 ? '' : 's'} no período selecionado.
-        {pointFilter && selectedBucketStart && <> · {formatBucketLabel(selectedBucketStart, bucket)}</>}
+        {pointFilter && selectedBucketStart && <> · {formatBucketLabel(selectedBucketStart, chartBucket)}</>}
         {(pointFilter || from || to) && (
           <>
             {' '}
@@ -356,8 +394,7 @@ export function DashboardPage() {
           }}
         >
           <h2 className="section-title" style={{ margin: 0 }}>
-            Profit/h por{' '}
-            {bucket === 'day' ? 'dia' : bucket === 'week' ? 'semana' : bucket === 'month' ? 'mês' : 'hunt'}
+            Profit/h por {CHART_BUCKET_LABEL[chartBucket]}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             {bucket !== 'hunt' && <PeriodNavigator bucket={bucket} />}
@@ -366,7 +403,7 @@ export function DashboardPage() {
                 <button
                   key={opt.value}
                   className={bucket === opt.value ? '' : 'secondary'}
-                  onClick={() => setBucket(opt.value)}
+                  onClick={() => selectBucket(opt.value)}
                 >
                   {opt.label}
                 </button>
@@ -380,8 +417,8 @@ export function DashboardPage() {
               <PlayerLegend entries={playerSeries.map((s) => ({ id: s.playerId, name: s.playerName, color: s.color }))} />
               <MultiSeriesTrendChart
                 series={playerSeries}
-                bucket={bucket as 'day' | 'week' | 'month'}
-                onPointClick={handlePointClick}
+                bucket={chartBucket}
+                onPointClick={chartBucket === 'hunt' ? undefined : handlePointClick}
                 selectedBucketStart={selectedBucketStart}
               />
             </>
@@ -389,10 +426,10 @@ export function DashboardPage() {
             <TrendChart
               data={trend}
               metricKey="avgProfitPerHour"
-              seriesLabel={bucket === 'hunt' ? 'Profit/h' : 'Profit/h médio'}
+              seriesLabel={chartBucket === 'hunt' ? 'Profit/h' : 'Profit/h médio'}
               seriesColor="var(--series-1)"
-              bucket={bucket}
-              onPointClick={bucket === 'hunt' ? undefined : handlePointClick}
+              bucket={chartBucket}
+              onPointClick={chartBucket === 'hunt' ? undefined : handlePointClick}
               selectedBucketStart={selectedBucketStart}
               rareDropThreshold={rareDropThreshold}
             />
@@ -403,7 +440,7 @@ export function DashboardPage() {
       {pointFilter && (
         <div className="section" ref={drillDownRef} style={{ scrollMarginTop: 96 }}>
           <h2 className="section-title">
-            Hunts em {selectedBucketStart ? formatBucketLabel(selectedBucketStart, bucket) : ''}
+            Hunts em {selectedBucketStart ? formatBucketLabel(selectedBucketStart, chartBucket) : ''}
             {!dayHuntsLoading && <> ({dayHunts.length})</>}
           </h2>
           {dayHuntsLoading ? (
