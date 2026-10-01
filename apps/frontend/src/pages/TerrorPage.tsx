@@ -13,7 +13,7 @@ import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChar
 import { PlayerLegend } from '../components/PlayerLegend';
 import type { PlayerTrendPoint, TerrorListItem, TerrorOverviewStats, TerrorWeeklySummary } from '../api/types';
 import { formatBucketLabel, formatCompact, formatDateTime, formatInt } from '../format';
-import { bucketRange, periodRangeForDate } from '../dates';
+import { bucketRange, periodRangeForDate, referenceDateFromRange } from '../dates';
 import { TerrorWeekCard } from '../components/TerrorWeekCard';
 
 type Tab = 'dashboard' | 'history' | 'upload';
@@ -100,9 +100,7 @@ function TerrorDashboardTab() {
   function selectBucket(next: Bucket) {
     setBucket(next);
     if (next === 'terror') return;
-    const referenceIso = to || from;
-    const referenceDate = referenceIso ? new Date(`${referenceIso}T00:00:00`) : new Date();
-    setDateRange(periodRangeForDate(referenceDate, next));
+    setDateRange(periodRangeForDate(referenceDateFromRange(from, to), next));
   }
 
   // Same pinning, but only for the very first render, and only if the date

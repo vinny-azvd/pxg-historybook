@@ -1,5 +1,8 @@
 export function toISODate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export function monthKey(date: Date): string {
@@ -42,6 +45,19 @@ export function bucketRange(bucketStart: string, bucket: 'day' | 'week' | 'month
     return { from: toISODate(start), to: toISODate(end) };
   }
   return { from: bucketStart, to: bucketStart };
+}
+
+/** The date to anchor a bucket switch (day/week/month) on, given the
+ * currently active [from, to] filter: today's date when it falls inside that
+ * range (the common case, e.g. the default "this week" view), since that's
+ * what the user actually means by "this month" - otherwise `to` could land
+ * in the next month from `from` (a week spanning a month boundary) and flip
+ * "Mês" forward a month. Falls back to the range's start, then today. */
+export function referenceDateFromRange(from: string, to: string): Date {
+  const todayIso = toISODate(new Date());
+  if (from && to && todayIso >= from && todayIso <= to) return new Date(`${todayIso}T00:00:00`);
+  const anchor = from || to;
+  return anchor ? new Date(`${anchor}T00:00:00`) : new Date();
 }
 
 export function startOfWeek(date: Date): Date {

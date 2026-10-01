@@ -13,7 +13,7 @@ import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChar
 import { PlayerLegend } from '../components/PlayerLegend';
 import type { PlayerTrendPoint, MdDifficulty, MdListItem, MdOverviewStats, MdWeeklySummary } from '../api/types';
 import { formatBucketLabel, formatCompact, formatDateTime, formatInt } from '../format';
-import { bucketRange, periodRangeForDate } from '../dates';
+import { bucketRange, periodRangeForDate, referenceDateFromRange } from '../dates';
 import { MdWeekCard } from '../components/MdWeekCard';
 
 type Tab = 'dashboard' | 'history' | 'upload';
@@ -100,9 +100,7 @@ function MdDashboardTab() {
   function selectBucket(next: Bucket) {
     setBucket(next);
     if (next === 'md') return;
-    const referenceIso = to || from;
-    const referenceDate = referenceIso ? new Date(`${referenceIso}T00:00:00`) : new Date();
-    setDateRange(periodRangeForDate(referenceDate, next));
+    setDateRange(periodRangeForDate(referenceDateFromRange(from, to), next));
   }
 
   // Same pinning, but only for the very first render, and only if the date

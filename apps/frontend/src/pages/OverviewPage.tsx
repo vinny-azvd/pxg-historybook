@@ -9,7 +9,7 @@ import { PlayerLegend } from '../components/PlayerLegend';
 import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChart';
 import type { MdOverviewStats, OverviewStats, PlayerTrendPoint, TerrorOverviewStats } from '../api/types';
 import { formatCompact, formatDateTime, formatHours, formatInt } from '../format';
-import { periodRangeForDate } from '../dates';
+import { periodRangeForDate, referenceDateFromRange } from '../dates';
 
 type Bucket = 'day' | 'week' | 'month';
 
@@ -71,9 +71,7 @@ export function OverviewPage() {
   // other way (e.g. the period navigator).
   function selectBucket(next: Bucket) {
     setBucket(next);
-    const referenceIso = to || from;
-    const referenceDate = referenceIso ? new Date(`${referenceIso}T00:00:00`) : new Date();
-    setDateRange(periodRangeForDate(referenceDate, next));
+    setDateRange(periodRangeForDate(referenceDateFromRange(from, to), next));
   }
 
   // Pin to the current week on first render, same pattern as the 3
