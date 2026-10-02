@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  base: '/pxg-hunts/',
+  base: '/pxg-historybook/',
   plugins: [react()],
   server: {
     proxy: {
