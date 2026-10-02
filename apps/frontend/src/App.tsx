@@ -9,6 +9,9 @@ import { TerrorPage } from './pages/TerrorPage';
 import { TerrorDetailPage } from './pages/TerrorDetailPage';
 import { MdPage } from './pages/MdPage';
 import { MdDetailPage } from './pages/MdDetailPage';
+import { DataPage } from './pages/DataPage';
+
+const isLocalDataMode = import.meta.env.VITE_DATA_MODE === 'local';
 
 export default function App() {
   return (
@@ -31,6 +34,11 @@ export default function App() {
           <NavLink to="/md" className={({ isActive }) => (isActive ? 'active' : '')}>
             MD
           </NavLink>
+          {isLocalDataMode && (
+            <NavLink to="/data" className={({ isActive }) => (isActive ? 'active' : '')}>
+              Dados
+            </NavLink>
+          )}
         </nav>
         <PlayerFilter />
         <PeriodFilter />
@@ -45,6 +53,7 @@ export default function App() {
           <Route path="/terror/:id" element={<TerrorDetailPage />} />
           <Route path="/md" element={<MdPage />} />
           <Route path="/md/:id" element={<MdDetailPage />} />
+          {isLocalDataMode && <Route path="/data" element={<DataPage />} />}
         </Routes>
       </main>
     </div>

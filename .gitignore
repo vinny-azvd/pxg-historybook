@@ -5,3 +5,5 @@ dist/
 *.sqlite3-shm
 *.sqlite3-journal
 .env
+backups/
+apps/frontend/public/static/

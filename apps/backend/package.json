@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "backup": "tsx src/scripts/backupDb.ts",
+    "export": "tsx src/scripts/exportAll.ts",
     "build": "tsc -p tsconfig.json && node -e \"import('node:fs').then(fs=>fs.cpSync('src/db/schema.sql','dist/db/schema.sql'))\"",
     "start": "node dist/server.js"
   },
