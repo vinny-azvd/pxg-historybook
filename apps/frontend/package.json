@@ -8,6 +8,7 @@
     "copy-icons": "node scripts/copy-icons.mjs",
     "prebuild": "node scripts/copy-icons.mjs",
     "build": "tsc -b && vite build",
+    "postbuild": "node -e \"import('node:fs').then(fs=>fs.copyFileSync('dist/index.html','dist/404.html'))\"",
     "preview": "vite preview"
   },
   "dependencies": {
