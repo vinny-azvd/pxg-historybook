@@ -1,5 +1,8 @@
 import { db } from '../db/connection.js';
+import { bucketTopDrops, parseTopDropsRaw } from './bucketDrops.js';
+import { namesConcat, withNameCounts } from './nameCounts.js';
 import { buildMdFilter, type MdFilterQuery } from './mdFilters.js';
+import type { NameBreakdownRow } from './statsAggregation.js';
 
 export interface MdOverviewStats {
   mdCount: number;
@@ -131,7 +134,8 @@ export function computeMdWeeklyGroups(
          ${weekExpr} AS weekStart,
          COUNT(*) AS mdCount,
          COALESCE(SUM(t.profit), 0) AS totalProfit,
-         AVG(t.profit) AS avgProfit
+         AVG(t.profit) AS avgProfit,
+         SUM(t.rare_kills) * 3600.0 / NULLIF(SUM(t.duration_seconds), 0) AS avgRareKillsPerHour
        FROM mds t
        ${whereClause}
        GROUP BY weekStart
@@ -150,7 +154,7 @@ export function computeMdTrendsByPlayer(filter: MdFilterQuery, bucket: string) {
   const { whereClause, params } = buildMdFilter(filter);
 
   if (bucket === 'md') {
-    return db
+    const rows = db
       .prepare(
         `SELECT
            p.id AS playerId,
@@ -162,19 +166,23 @@ export function computeMdTrendsByPlayer(filter: MdFilterQuery, bucket: string) {
            t.profit AS totalProfit,
            t.profit AS avgProfit,
            t.experience AS avgExperience,
-           t.supplies_cost AS avgSupplies
+           t.supplies_cost AS avgSupplies,
+           (SELECT GROUP_CONCAT(td.item || '::' || td.unit_price, '||')
+              FROM (SELECT item, unit_price FROM md_drops WHERE md_id = t.id AND (ignored IS NULL OR ignored = 0)
+                    ORDER BY unit_price DESC LIMIT 5) td) AS topDropsRaw
          FROM mds t
          JOIN md_players tp ON tp.md_id = t.id
          JOIN players p ON p.id = tp.player_id
          ${whereClause}
          ORDER BY p.id, t.start_time ASC`
       )
-      .all(params);
+      .all(params) as { topDropsRaw: string | null }[];
+    return rows.map(({ topDropsRaw, ...row }) => ({ ...row, topDrops: parseTopDropsRaw(topDropsRaw) }));
   }
 
   const bucketExpr = BUCKET_EXPRESSIONS[bucket] ?? BUCKET_EXPRESSIONS.week;
 
-  return db
+  const rows = db
     .prepare(
       `SELECT
          p.id AS playerId,
@@ -184,7 +192,8 @@ export function computeMdTrendsByPlayer(filter: MdFilterQuery, bucket: string) {
          COALESCE(SUM(t.profit), 0) AS totalProfit,
          AVG(t.profit) AS avgProfit,
          AVG(t.experience) AS avgExperience,
-         AVG(t.supplies_cost) AS avgSupplies
+         AVG(t.supplies_cost) AS avgSupplies,
+         ${namesConcat('t.md_name')}
        FROM mds t
        JOIN md_players tp ON tp.md_id = t.id
        JOIN players p ON p.id = tp.player_id
@@ -192,7 +201,20 @@ export function computeMdTrendsByPlayer(filter: MdFilterQuery, bucket: string) {
        GROUP BY p.id, bucketStart
        ORDER BY p.id, bucketStart ASC`
     )
-    .all(params);
+    .all(params) as unknown as { playerId: number; bucketStart: string; namesRaw: string | null }[];
+
+  const drops = bucketTopDrops({
+    table: 'mds',
+    alias: 't',
+    dropsTable: 'md_drops',
+    playersTable: 'md_players',
+    foreignKey: 'md_id',
+    bucketExpr,
+    whereClause,
+    params,
+    byPlayer: true,
+  });
+  return withNameCounts(rows).map((row) => ({ ...row, topDrops: drops.get(`${row.playerId}::${row.bucketStart}`) ?? [] }));
 }
 
 const BUCKET_EXPRESSIONS: Record<string, string> = {
@@ -233,7 +255,7 @@ export function computeMdTrends(filter: MdFilterQuery, bucket: string) {
 
   const bucketExpr = BUCKET_EXPRESSIONS[bucket] ?? BUCKET_EXPRESSIONS.week;
 
-  return db
+  const rows = db
     .prepare(
       `SELECT
          ${bucketExpr} AS bucketStart,
@@ -243,11 +265,46 @@ export function computeMdTrends(filter: MdFilterQuery, bucket: string) {
          AVG(t.kills) AS avgKills,
          AVG(t.rare_kills) AS avgRareKills,
          AVG(t.experience) AS avgExperience,
-         AVG(t.supplies_cost) AS avgSupplies
+         AVG(t.supplies_cost) AS avgSupplies,
+         ${namesConcat('t.md_name')}
        FROM mds t
        ${whereClause}
        GROUP BY bucketStart
        ORDER BY bucketStart ASC`
     )
-    .all(params);
+    .all(params) as unknown as { bucketStart: string; namesRaw: string | null }[];
+
+  const drops = bucketTopDrops({
+    table: 'mds',
+    alias: 't',
+    dropsTable: 'md_drops',
+    playersTable: 'md_players',
+    foreignKey: 'md_id',
+    bucketExpr,
+    whereClause,
+    params,
+    byPlayer: false,
+  });
+  return withNameCounts(rows).map((row) => ({ ...row, topDrops: drops.get(`::${row.bucketStart}`) ?? [] }));
+}
+
+// One row per distinct MD name, comparing the average profit of a single run
+// of each MD against the others - MD is framed per run, not per hour.
+export function computeMdByName(filter: MdFilterQuery): NameBreakdownRow[] {
+  const { whereClause, params } = buildMdFilter(filter);
+  return db
+    .prepare(
+      `SELECT
+         COALESCE(t.md_name, 'Sem nome') AS name,
+         COUNT(*) AS count,
+         COALESCE(SUM(t.duration_seconds), 0) AS totalDurationSeconds,
+         COALESCE(SUM(t.profit), 0) AS totalProfit,
+         SUM(t.profit_per_hour * t.duration_seconds) * 1.0 / NULLIF(SUM(t.duration_seconds), 0) AS avgProfitPerHour,
+         AVG(t.profit) AS avgProfit
+       FROM mds t
+       ${whereClause}
+       GROUP BY name
+       ORDER BY avgProfit DESC`
+    )
+    .all(params) as unknown as NameBreakdownRow[];
 }

@@ -1,4 +1,6 @@
 import { db } from '../db/connection.js';
+import { bucketTopDrops, parseTopDropsRaw } from './bucketDrops.js';
+import { namesConcat, withNameCounts } from './nameCounts.js';
 import { buildHuntFilter, type HuntFilterQuery } from './huntFilters.js';
 
 export interface OverviewStats {
@@ -210,7 +212,7 @@ export function computeTrends(filter: HuntFilterQuery, bucket: string) {
 
   const bucketExpr = BUCKET_EXPRESSIONS[bucket] ?? BUCKET_EXPRESSIONS.week;
 
-  return db
+  const rows = db
     .prepare(
       `SELECT
          ${bucketExpr} AS bucketStart,
@@ -220,13 +222,27 @@ export function computeTrends(filter: HuntFilterQuery, bucket: string) {
          AVG(h.kills_per_hour) AS avgKillsPerHour,
          AVG(h.rare_kills_per_hour) AS avgRareKillsPerHour,
          AVG(h.experience_per_hour) AS avgExperiencePerHour,
-         AVG(h.supplies_per_hour) AS avgSuppliesPerHour
+         AVG(h.supplies_per_hour) AS avgSuppliesPerHour,
+         ${namesConcat('h.hunt_name')}
        FROM hunts h
        ${whereClause}
        GROUP BY bucketStart
        ORDER BY bucketStart ASC`
     )
-    .all(params);
+    .all(params) as unknown as { bucketStart: string; namesRaw: string | null }[];
+
+  const drops = bucketTopDrops({
+    table: 'hunts',
+    alias: 'h',
+    dropsTable: 'hunt_drops',
+    playersTable: 'hunt_players',
+    foreignKey: 'hunt_id',
+    bucketExpr,
+    whereClause,
+    params,
+    byPlayer: false,
+  });
+  return withNameCounts(rows).map((row) => ({ ...row, topDrops: drops.get(`::${row.bucketStart}`) ?? [] }));
 }
 
 // Same shape as computeTrends' day/week/month rows, but broken out one series
@@ -237,7 +253,7 @@ export function computeTrendsByPlayer(filter: HuntFilterQuery, bucket: string) {
   const { whereClause, params } = buildHuntFilter(filter);
 
   if (bucket === 'hunt') {
-    return db
+    const rows = db
       .prepare(
         `SELECT
            p.id AS playerId,
@@ -251,7 +267,10 @@ export function computeTrendsByPlayer(filter: HuntFilterQuery, bucket: string) {
            h.kills_per_hour AS avgKillsPerHour,
            h.rare_kills_per_hour AS avgRareKillsPerHour,
            h.experience_per_hour AS avgExperiencePerHour,
-           h.supplies_per_hour AS avgSuppliesPerHour
+           h.supplies_per_hour AS avgSuppliesPerHour,
+           (SELECT GROUP_CONCAT(td.item || '::' || td.unit_price, '||')
+              FROM (SELECT item, unit_price FROM hunt_drops WHERE hunt_id = h.id AND (ignored IS NULL OR ignored = 0)
+                    ORDER BY unit_price DESC LIMIT 5) td) AS topDropsRaw
          FROM hunts h
          JOIN hunt_players hp ON hp.hunt_id = h.id
          JOIN players p ON p.id = hp.player_id
@@ -271,12 +290,14 @@ export function computeTrendsByPlayer(filter: HuntFilterQuery, bucket: string) {
       avgRareKillsPerHour: number | null;
       avgExperiencePerHour: number | null;
       avgSuppliesPerHour: number | null;
+      topDropsRaw: string | null;
     }[];
+    return rows.map(({ topDropsRaw, ...row }) => ({ ...row, topDrops: parseTopDropsRaw(topDropsRaw) }));
   }
 
   const bucketExpr = BUCKET_EXPRESSIONS[bucket] ?? BUCKET_EXPRESSIONS.week;
 
-  return db
+  const rows = db
     .prepare(
       `SELECT
          p.id AS playerId,
@@ -288,7 +309,8 @@ export function computeTrendsByPlayer(filter: HuntFilterQuery, bucket: string) {
          AVG(h.kills_per_hour) AS avgKillsPerHour,
          AVG(h.rare_kills_per_hour) AS avgRareKillsPerHour,
          AVG(h.experience_per_hour) AS avgExperiencePerHour,
-         AVG(h.supplies_per_hour) AS avgSuppliesPerHour
+         AVG(h.supplies_per_hour) AS avgSuppliesPerHour,
+         ${namesConcat('h.hunt_name')}
        FROM hunts h
        JOIN hunt_players hp ON hp.hunt_id = h.id
        JOIN players p ON p.id = hp.player_id
@@ -296,7 +318,7 @@ export function computeTrendsByPlayer(filter: HuntFilterQuery, bucket: string) {
        GROUP BY p.id, bucketStart
        ORDER BY p.id, bucketStart ASC`
     )
-    .all(params) as {
+    .all(params) as unknown as {
     playerId: number;
     playerName: string;
     bucketStart: string;
@@ -307,5 +329,53 @@ export function computeTrendsByPlayer(filter: HuntFilterQuery, bucket: string) {
     avgRareKillsPerHour: number | null;
     avgExperiencePerHour: number | null;
     avgSuppliesPerHour: number | null;
+    namesRaw: string | null;
   }[];
+
+  const drops = bucketTopDrops({
+    table: 'hunts',
+    alias: 'h',
+    dropsTable: 'hunt_drops',
+    playersTable: 'hunt_players',
+    foreignKey: 'hunt_id',
+    bucketExpr,
+    whereClause,
+    params,
+    byPlayer: true,
+  });
+  return withNameCounts(rows).map((row) => ({ ...row, topDrops: drops.get(`${row.playerId}::${row.bucketStart}`) ?? [] }));
+}
+
+export interface NameBreakdownRow {
+  name: string;
+  count: number;
+  totalDurationSeconds: number;
+  totalProfit: number;
+  avgProfitPerHour: number | null;
+  avgProfit: number | null;
+  avgRareKillsPerHour: number | null;
+}
+
+// One row per distinct hunt name (Sudowoodo, Raichu, ...) so the "Por hunt"
+// chart compares spots against each other instead of plotting every single
+// session. Profit/h is weighted by duration, so a 10-minute outlier doesn't
+// weigh as much as a 3-hour session of the same spot.
+export function computeByName(filter: HuntFilterQuery): NameBreakdownRow[] {
+  const { whereClause, params } = buildHuntFilter(filter);
+  return db
+    .prepare(
+      `SELECT
+         COALESCE(h.hunt_name, 'Sem nome') AS name,
+         COUNT(*) AS count,
+         COALESCE(SUM(h.duration_seconds), 0) AS totalDurationSeconds,
+         COALESCE(SUM(h.profit), 0) AS totalProfit,
+         SUM(h.profit_per_hour * h.duration_seconds) * 1.0 / NULLIF(SUM(h.duration_seconds), 0) AS avgProfitPerHour,
+         AVG(h.profit) AS avgProfit,
+         SUM(h.rare_kills) * 3600.0 / NULLIF(SUM(h.duration_seconds), 0) AS avgRareKillsPerHour
+       FROM hunts h
+       ${whereClause}
+       GROUP BY name
+       ORDER BY avgProfitPerHour DESC`
+    )
+    .all(params) as unknown as NameBreakdownRow[];
 }

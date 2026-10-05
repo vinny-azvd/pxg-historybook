@@ -11,22 +11,64 @@ import { StatTile } from '../components/StatTile';
 import { PeriodNavigator } from '../components/PeriodNavigator';
 import { TrendChart } from '../components/charts/TrendChart';
 import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChart';
+import { NameBreakdownChart, type NameBreakdownMetric } from '../components/charts/NameBreakdownChart';
 import { PlayerLegend } from '../components/PlayerLegend';
-import type { HuntListItem, OverviewStats, PlayerTrendPoint, RareKillRow, TrendPoint } from '../api/types';
+import type { HuntListItem, NameBreakdownRow, OverviewStats, PlayerTrendPoint, RareKillRow, TrendPoint } from '../api/types';
 import { formatBucketLabel, formatCompact, formatDateTime, formatHours, formatInt } from '../format';
 import { bucketRange, periodRangeForDate, referenceDateFromRange } from '../dates';
 
 type Tab = 'dashboard' | 'history' | 'upload';
-type Bucket = 'day' | 'week' | 'month' | 'hunt';
+type Bucket = 'all' | 'day' | 'week' | 'month' | 'hunt';
 
 const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
+  { value: 'all', label: 'Tudo' },
   { value: 'day', label: 'Dia' },
   { value: 'week', label: 'Semana' },
   { value: 'month', label: 'Mês' },
   { value: 'hunt', label: 'Por hunt' },
 ];
 
-const CHART_BUCKET_LABEL: Record<Bucket, string> = {
+type NameRange = 'all' | 'day' | 'week' | 'month' | 'custom';
+
+const NAME_RANGE_OPTIONS: { value: NameRange; label: string }[] = [
+  { value: 'all', label: 'Tudo' },
+  { value: 'day', label: 'Dia' },
+  { value: 'week', label: 'Semana' },
+  { value: 'month', label: 'Mês' },
+  { value: 'custom', label: 'Personalizado' },
+];
+
+type HuntNameMetric = Extract<NameBreakdownMetric, 'avgProfitPerHour' | 'avgRareKillsPerHour' | 'totalDurationSeconds'>;
+
+function formatRatePerHour(value: number): string {
+  return value.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+}
+
+const NAME_METRIC_OPTIONS: {
+  value: HuntNameMetric;
+  label: string;
+  title: string;
+  formatValue: (value: number) => string;
+}[] = [
+  { value: 'avgProfitPerHour', label: 'Profit/h médio', title: 'Profit/h médio por hunt', formatValue: formatCompact },
+  { value: 'avgRareKillsPerHour', label: 'Raros/h médio', title: 'Raros/h médio por hunt', formatValue: formatRatePerHour },
+  { value: 'totalDurationSeconds', label: 'Horas caçadas', title: 'Horas caçadas por hunt', formatValue: formatHours },
+];
+
+// Which "Por hunt" range button a from/to pair corresponds to, so the toggle
+// stays in sync when the range is changed elsewhere (header filter, another
+// page) instead of trusting local state.
+function inferNameRange(from: string, to: string): NameRange {
+  if (!from && !to) return 'all';
+  const reference = referenceDateFromRange(from, to);
+  for (const scope of ['day', 'week', 'month'] as const) {
+    const range = periodRangeForDate(reference, scope);
+    if (range.from === from && range.to === to) return scope;
+  }
+  return 'custom';
+}
+
+const CHART_BUCKET_LABEL: Record<Exclude<Bucket, 'all'>, string> = {
   day: 'dia',
   week: 'semana',
   month: 'mês',
@@ -84,6 +126,11 @@ function HuntDashboardTab() {
   const [totalHuntCount, setTotalHuntCount] = useState<number | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [playerTrend, setPlayerTrend] = useState<PlayerTrendPoint[]>([]);
+  const [byName, setByName] = useState<NameBreakdownRow[]>([]);
+  const [nameMetric, setNameMetric] = useState<HuntNameMetric>('avgProfitPerHour');
+  // "Personalizado" can line up with a whole day/week/month by coincidence
+  // while the user is still typing dates - keep the inputs open regardless.
+  const [nameRangeCustomOpen, setNameRangeCustomOpen] = useState(false);
   const [bucket, setBucket] = useState<Bucket>('week');
   // A click on the chart drills the stat cards into that single point without
   // touching the chart's own (wider) range - otherwise the chart would be
@@ -104,22 +151,28 @@ function HuntDashboardTab() {
   // granularity already colors its points by jade/rare-drop, so it keeps its
   // own single line rather than layering both signals into one chart.
   const showPlayerBreakdown = !player && bucket !== 'hunt';
+  const showNameBreakdown = bucket === 'hunt';
 
   // The bucket toggle picks which single period you're browsing (a day, a
   // week, a month), but the chart itself always drills one level finer than
   // that: a week shows its days, a month shows its weeks, a day shows its
-  // individual hunts. "Por hunt" has no coarser period around it, so it just
-  // shows hunts across whatever the outer date filter is.
-  const chartBucket: Bucket = bucket === 'day' ? 'hunt' : bucket === 'week' ? 'day' : bucket === 'month' ? 'week' : 'hunt';
+  // individual hunts, and "Tudo" shows every month on record. "Por hunt"
+  // isn't a time axis at all - it groups by hunt name (Sudowoodo, Raichu, ...)
+  // across whatever the outer date filter is, comparing each spot's average
+  // against the others.
+  const chartBucket: Exclude<Bucket, 'all'> =
+    bucket === 'all' ? 'month' : bucket === 'day' ? 'hunt' : bucket === 'week' ? 'day' : bucket === 'month' ? 'week' : 'hunt';
 
-  // Switching the bucket toggle pins the outer date filter to a single
-  // concrete day/week/month (defaulting to whichever one is already in view,
-  // or today) - otherwise "Semana" over an unrestricted "Todo o período"
-  // filter would still show every week ever recorded instead of just one.
+  // Switching the bucket toggle always lands on the current day/week/month
+  // (or clears the range for "Tudo") rather than one derived from the range
+  // already in view - deriving it from a past month dropped "Semana" onto
+  // that month's first week, often an empty one.
   function selectBucket(next: Bucket) {
     setBucket(next);
+    setNameRangeCustomOpen(false);
     if (next === 'hunt') return;
-    setDateRange(periodRangeForDate(referenceDateFromRange(from, to), next));
+    if (next === 'all') setDateRange({ from: '', to: '' });
+    else setDateRange(periodRangeForDate(new Date(), next));
   }
 
   // Same pinning, but only for the very first render, and only if the date
@@ -127,15 +180,33 @@ function HuntDashboardTab() {
   // the user already had set (e.g. arriving from another page) instead of
   // silently overriding it.
   useEffect(() => {
-    if (bucket !== 'hunt' && !from && !to) {
+    if (bucket !== 'hunt' && bucket !== 'all' && !from && !to) {
       setDateRange(periodRangeForDate(new Date(), bucket));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Clearing the range from elsewhere ("Limpar filtro de período", the
+  // header's "Todo o período") leaves no single day/week/month to browse, so
+  // follow it to "Tudo" instead of labelling an all-time chart as one week.
+  // Only reacts to a set range becoming empty, so the initial empty range
+  // (before the mount effect above pins the default one) doesn't count.
+  const prevRangeRef = useRef({ from, to });
+  useEffect(() => {
+    const prev = prevRangeRef.current;
+    prevRangeRef.current = { from, to };
+    const wasSet = Boolean(prev.from || prev.to);
+    if (wasSet && !from && !to && (bucket === 'day' || bucket === 'week' || bucket === 'month')) setBucket('all');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to]);
+
   useEffect(() => {
     setPointFilter(null);
   }, [player, sessionType, from, to, bucket]);
+
+  useEffect(() => {
+    if (!from && !to) setNameRangeCustomOpen(false);
+  }, [from, to]);
 
   const overviewRange = pointFilter ?? { from, to };
 
@@ -178,7 +249,11 @@ function HuntDashboardTab() {
 
   useEffect(() => {
     let ignore = false;
-    if (showPlayerBreakdown) {
+    if (showNameBreakdown) {
+      api.getByName({ player, sessionType, from, to }).then((res) => {
+        if (!ignore) setByName(res);
+      });
+    } else if (showPlayerBreakdown) {
       api.getTrendsByPlayer({ player, sessionType, from, to, bucket: chartBucket }).then((res) => {
         if (!ignore) setPlayerTrend(res);
       });
@@ -190,7 +265,20 @@ function HuntDashboardTab() {
     return () => {
       ignore = true;
     };
-  }, [player, sessionType, from, to, chartBucket, showPlayerBreakdown]);
+  }, [player, sessionType, from, to, chartBucket, showPlayerBreakdown, showNameBreakdown]);
+
+  const nameRange: NameRange = nameRangeCustomOpen ? 'custom' : inferNameRange(from, to);
+  const nameMetricOption = NAME_METRIC_OPTIONS.find((opt) => opt.value === nameMetric)!;
+  const sortedByName = useMemo(
+    () => [...byName].sort((a, b) => (b[nameMetric] ?? -Infinity) - (a[nameMetric] ?? -Infinity)),
+    [byName, nameMetric]
+  );
+
+  function selectNameRange(next: NameRange) {
+    setNameRangeCustomOpen(next === 'custom');
+    if (next === 'all') setDateRange({ from: '', to: '' });
+    else if (next !== 'custom') setDateRange(periodRangeForDate(new Date(), next));
+  }
 
   const playerSeries = useMemo(() => {
     const byPlayer = new Map<number, { playerId: number; playerName: string; points: PlayerTrendPoint[] }>();
@@ -429,10 +517,10 @@ function HuntDashboardTab() {
           }}
         >
           <h2 className="section-title" style={{ margin: 0 }}>
-            Profit/h por {CHART_BUCKET_LABEL[chartBucket]}
+            {showNameBreakdown ? nameMetricOption.title : `Profit/h por ${CHART_BUCKET_LABEL[chartBucket]}`}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            {bucket !== 'hunt' && <PeriodNavigator bucket={bucket} />}
+            {(bucket === 'day' || bucket === 'week' || bucket === 'month') && <PeriodNavigator bucket={bucket} />}
             <div className="bucket-toggle">
               {BUCKET_OPTIONS.map((opt) => (
                 <button
@@ -446,11 +534,72 @@ function HuntDashboardTab() {
             </div>
           </div>
         </div>
+        {showNameBreakdown && (
+          <div className="chart-toolbar">
+            <div className="chart-toolbar-group">
+              <span className="chart-toolbar-label">Período</span>
+              <div className="bucket-toggle">
+                {NAME_RANGE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    className={nameRange === opt.value ? '' : 'secondary'}
+                    onClick={() => selectNameRange(opt.value)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {(nameRange === 'day' || nameRange === 'week' || nameRange === 'month') && (
+                <PeriodNavigator bucket={nameRange} />
+              )}
+              {nameRange === 'custom' && (
+                <div className="period-nav">
+                  <input
+                    type="date"
+                    value={from}
+                    onChange={(e) => setDateRange({ from: e.target.value, to })}
+                    aria-label="Data inicial"
+                  />
+                  <span style={{ color: 'var(--text-muted)' }}>até</span>
+                  <input
+                    type="date"
+                    value={to}
+                    onChange={(e) => setDateRange({ from, to: e.target.value })}
+                    aria-label="Data final"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="chart-toolbar-group">
+              <span className="chart-toolbar-label">Métrica</span>
+              <div className="bucket-toggle">
+                {NAME_METRIC_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    className={nameMetric === opt.value ? '' : 'secondary'}
+                    onClick={() => setNameMetric(opt.value)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         <div className="card">
-          {showPlayerBreakdown ? (
+          {showNameBreakdown ? (
+            <NameBreakdownChart
+              data={sortedByName}
+              metricKey={nameMetric}
+              seriesLabel={nameMetricOption.label}
+              unitLabel="hunt"
+              formatValue={nameMetricOption.formatValue}
+            />
+          ) : showPlayerBreakdown ? (
             <>
               <PlayerLegend entries={playerSeries.map((s) => ({ id: s.playerId, name: s.playerName, color: s.color }))} />
               <MultiSeriesTrendChart
+                rareDropThreshold={rareDropThreshold}
                 series={playerSeries}
                 bucket={chartBucket}
                 onPointClick={chartBucket === 'hunt' ? undefined : handlePointClick}

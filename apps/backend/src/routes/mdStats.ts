@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  computeMdByName,
   computeMdOverview,
   computeMdTrends,
   computeMdTrendsByPlayer,
@@ -28,4 +29,9 @@ mdStatsRouter.get('/weekly', (req, res) => {
   const pageNum = Math.max(1, Number(page) || 1);
   const pageSizeNum = Math.min(50, Math.max(1, Number(pageSize) || 10));
   res.json(computeMdWeeklyGroups({ player, from, to, sessionType }, pageNum, pageSizeNum));
+});
+
+mdStatsRouter.get('/by-name', (req, res) => {
+  const { player, from, to, sessionType } = req.query as Record<string, string>;
+  res.json(computeMdByName({ player, from, to, sessionType }));
 });

@@ -10,23 +10,25 @@ import { CardSettingsPanel } from '../components/CardSettingsPanel';
 import { PeriodNavigator } from '../components/PeriodNavigator';
 import { TrendChart } from '../components/charts/TrendChart';
 import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChart';
+import { NameBreakdownChart } from '../components/charts/NameBreakdownChart';
 import { PlayerLegend } from '../components/PlayerLegend';
-import type { PlayerTrendPoint, MdDifficulty, MdListItem, MdOverviewStats, MdWeeklySummary } from '../api/types';
+import type { PlayerTrendPoint, MdDifficulty, MdListItem, MdOverviewStats, MdWeeklySummary, NameBreakdownRow } from '../api/types';
 import { formatBucketLabel, formatCompact, formatDateTime, formatInt } from '../format';
-import { bucketRange, periodRangeForDate, referenceDateFromRange } from '../dates';
+import { bucketRange, periodRangeForDate } from '../dates';
 import { MdWeekCard } from '../components/MdWeekCard';
 
 type Tab = 'dashboard' | 'history' | 'upload';
-type Bucket = 'day' | 'week' | 'month' | 'md';
+type Bucket = 'all' | 'day' | 'week' | 'month' | 'md';
 
 const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
+  { value: 'all', label: 'Tudo' },
   { value: 'day', label: 'Dia' },
   { value: 'week', label: 'Semana' },
   { value: 'month', label: 'Mês' },
   { value: 'md', label: 'Por MD' },
 ];
 
-const CHART_BUCKET_LABEL: Record<Bucket, string> = {
+const CHART_BUCKET_LABEL: Record<Exclude<Bucket, 'all'>, string> = {
   day: 'dia',
   week: 'semana',
   month: 'mês',
@@ -73,6 +75,7 @@ function MdDashboardTab() {
   const [totalMdCount, setTotalMdCount] = useState<number | null>(null);
   const [trend, setTrend] = useState<any[]>([]);
   const [playerTrend, setPlayerTrend] = useState<PlayerTrendPoint[]>([]);
+  const [byName, setByName] = useState<NameBreakdownRow[]>([]);
   const [bucket, setBucket] = useState<Bucket>('week');
   const [pointFilter, setPointFilter] = useState<{ from: string; to: string } | null>(null);
   const [dayTrend, setDayTrend] = useState<any[]>([]);
@@ -85,22 +88,26 @@ function MdDashboardTab() {
   // dashboard. The per-md granularity already colors by top drop, so it
   // keeps its own single line rather than layering both signals into one chart.
   const showPlayerBreakdown = !player && bucket !== 'md';
+  const showNameBreakdown = bucket === 'md';
 
   // The bucket toggle picks which single period you're browsing (a day, a
   // week, a month), but the chart itself always drills one level finer than
   // that: a week shows its days, a month shows its weeks, a day shows its
-  // individual mds. "Por md" has no coarser period around it, so it
-  // just shows mds across whatever the outer date filter is.
-  const chartBucket: Bucket = bucket === 'day' ? 'md' : bucket === 'week' ? 'day' : bucket === 'month' ? 'week' : 'md';
+  // individual mds, and "Tudo" shows every month on record. "Por MD" isn't a
+  // time axis at all - it groups by MD name across whatever the outer date
+  // filter is, comparing each MD's average profit per run against the others.
+  const chartBucket: Exclude<Bucket, 'all'> =
+    bucket === 'all' ? 'month' : bucket === 'day' ? 'md' : bucket === 'week' ? 'day' : bucket === 'month' ? 'week' : 'md';
 
-  // Switching the bucket toggle pins the outer date filter to a single
-  // concrete day/week/month (defaulting to whichever one is already in view,
-  // or today) - otherwise "Semana" over an unrestricted "Todo o período"
-  // filter would still show every week ever recorded instead of just one.
+  // Switching the bucket toggle always lands on the current day/week/month
+  // (or clears the range for "Tudo") rather than one derived from the range
+  // already in view - deriving it from a past month dropped "Semana" onto
+  // that month's first week, often an empty one.
   function selectBucket(next: Bucket) {
     setBucket(next);
     if (next === 'md') return;
-    setDateRange(periodRangeForDate(referenceDateFromRange(from, to), next));
+    if (next === 'all') setDateRange({ from: '', to: '' });
+    else setDateRange(periodRangeForDate(new Date(), next));
   }
 
   // Same pinning, but only for the very first render, and only if the date
@@ -108,11 +115,25 @@ function MdDashboardTab() {
   // the user already had set (e.g. arriving from another page) instead of
   // silently overriding it.
   useEffect(() => {
-    if (bucket !== 'md' && !from && !to) {
+    if (bucket !== 'md' && bucket !== 'all' && !from && !to) {
       setDateRange(periodRangeForDate(new Date(), bucket));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Clearing the range from elsewhere ("Limpar filtro de período", the
+  // header's "Todo o período") leaves no single day/week/month to browse, so
+  // follow it to "Tudo" instead of labelling an all-time chart as one week.
+  // Only reacts to a set range becoming empty, so the initial empty range
+  // (before the mount effect above pins the default one) doesn't count.
+  const prevRangeRef = useRef({ from, to });
+  useEffect(() => {
+    const prev = prevRangeRef.current;
+    prevRangeRef.current = { from, to };
+    const wasSet = Boolean(prev.from || prev.to);
+    if (wasSet && !from && !to && (bucket === 'day' || bucket === 'week' || bucket === 'month')) setBucket('all');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to]);
 
   useEffect(() => {
     setPointFilter(null);
@@ -142,7 +163,11 @@ function MdDashboardTab() {
 
   useEffect(() => {
     let ignore = false;
-    if (showPlayerBreakdown) {
+    if (showNameBreakdown) {
+      api.getMdByName({ player, sessionType, from, to }).then((res) => {
+        if (!ignore) setByName(res);
+      });
+    } else if (showPlayerBreakdown) {
       api.getMdTrendsByPlayer({ player, sessionType, from, to, bucket: chartBucket }).then((res) => {
         if (!ignore) setPlayerTrend(res);
       });
@@ -154,7 +179,7 @@ function MdDashboardTab() {
     return () => {
       ignore = true;
     };
-  }, [player, sessionType, from, to, chartBucket, showPlayerBreakdown]);
+  }, [player, sessionType, from, to, chartBucket, showPlayerBreakdown, showNameBreakdown]);
 
   const playerSeries = useMemo(() => {
     const byPlayer = new Map<number, { playerId: number; playerName: string; points: PlayerTrendPoint[] }>();
@@ -321,10 +346,10 @@ function MdDashboardTab() {
           }}
         >
           <h2 className="section-title" style={{ margin: 0 }}>
-            Profit por {CHART_BUCKET_LABEL[chartBucket]}
+            {showNameBreakdown ? 'Profit médio por MD' : `Profit por ${CHART_BUCKET_LABEL[chartBucket]}`}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            {bucket !== 'md' && <PeriodNavigator bucket={bucket} />}
+            {(bucket === 'day' || bucket === 'week' || bucket === 'month') && <PeriodNavigator bucket={bucket} />}
             <div className="bucket-toggle">
               {BUCKET_OPTIONS.map((opt) => (
                 <button
@@ -339,10 +364,13 @@ function MdDashboardTab() {
           </div>
         </div>
         <div className="card">
-          {showPlayerBreakdown ? (
+          {showNameBreakdown ? (
+            <NameBreakdownChart data={byName} metricKey="avgProfit" seriesLabel="Profit médio" unitLabel="MD" />
+          ) : showPlayerBreakdown ? (
             <>
               <PlayerLegend entries={playerSeries.map((s) => ({ id: s.playerId, name: s.playerName, color: s.color }))} />
               <MultiSeriesTrendChart
+                rareDropThreshold={rareDropThreshold}
                 series={playerSeries}
                 bucket={chartBucket}
                 metricKey="avgProfit"

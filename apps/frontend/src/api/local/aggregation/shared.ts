@@ -1,4 +1,4 @@
-import type { Filters, TopDrop } from '../../types';
+import type { Filters, NameBreakdownRow, NameCount, TopDrop } from '../../types';
 
 export type FilterQuery = Filters;
 
@@ -106,6 +106,26 @@ export function topDrops(drops: { item: string; unit_price: number; ignored: num
     .map((d) => ({ item: d.item, unitPrice: d.unit_price }));
 }
 
+/** Mirrors the backend's bucketTopDrops: the highest-unit-price drops across
+ * every doc in one day/week/month bucket (each item once, at its best price),
+ * keeping a few more than an entry's top 5. */
+export function bucketTopDrops(
+  docs: { drops: { item: string; unit_price: number; ignored: number | null }[] }[],
+  n = 10
+): TopDrop[] {
+  const best = new Map<string, number>();
+  for (const doc of docs) {
+    for (const d of doc.drops) {
+      if (!(d.ignored === null || d.ignored === undefined || d.ignored === 0)) continue;
+      best.set(d.item, Math.max(best.get(d.item) ?? 0, d.unit_price));
+    }
+  }
+  return [...best.entries()]
+    .map(([item, unitPrice]) => ({ item, unitPrice }))
+    .sort((a, b) => b.unitPrice - a.unitPrice)
+    .slice(0, n);
+}
+
 /** Picks the doc with the highest ('max') or lowest ('min') `profit`. Ties
  * are resolved by keeping the first one encountered (array order), which is
  * an approximation of SQLite's tie-break for `ORDER BY profit {ASC,DESC}
@@ -148,4 +168,51 @@ export function mostFrequentName<T extends { start_time: string }>(
     }
   }
   return best ? { name: best.name, count: best.count } : null;
+}
+
+/** Mirrors the backend's computeByName/computeMdByName: groups by name
+ * (NULL -> "Sem nome"), weights profit/h by duration, sorts by `sortKey` DESC
+ * with NULLs last (SQLite's DESC ordering). */
+export function nameBreakdown<
+  T extends { duration_seconds: number; profit: number; profit_per_hour: number; rare_kills: number },
+>(
+  docs: T[],
+  nameOf: (doc: T) => string | null,
+  sortKey: 'avgProfitPerHour' | 'avgProfit'
+): NameBreakdownRow[] {
+  const groups = new Map<string, T[]>();
+  for (const doc of docs) {
+    const name = nameOf(doc) ?? 'Sem nome';
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name)!.push(doc);
+  }
+  return [...groups.entries()]
+    .map(([name, group]) => {
+      const totalDurationSeconds = sum(group, (d) => d.duration_seconds);
+      return {
+        name,
+        count: group.length,
+        totalDurationSeconds,
+        totalProfit: sum(group, (d) => d.profit),
+        avgProfitPerHour:
+          totalDurationSeconds === 0 ? null : sum(group, (d) => d.profit_per_hour * d.duration_seconds) / totalDurationSeconds,
+        avgProfit: avg(group, (d) => d.profit),
+        avgRareKillsPerHour:
+          totalDurationSeconds === 0 ? null : (sum(group, (d) => d.rare_kills) * 3600) / totalDurationSeconds,
+      };
+    })
+    .sort((a, b) => (b[sortKey] ?? -Infinity) - (a[sortKey] ?? -Infinity));
+}
+
+/** Mirrors the backend's withNameCounts: tallies entry names in one bucket
+ * (NULL -> "Sem nome"), most frequent first, then alphabetical. */
+export function nameCounts<T>(docs: T[], nameOf: (doc: T) => string | null): NameCount[] {
+  const counts = new Map<string, number>();
+  for (const doc of docs) {
+    const name = nameOf(doc) ?? 'Sem nome';
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'pt-BR'));
 }

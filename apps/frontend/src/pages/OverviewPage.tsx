@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
@@ -6,20 +6,21 @@ import { usePreferences } from '../PreferencesContext';
 import { StatTile } from '../components/StatTile';
 import { PeriodNavigator } from '../components/PeriodNavigator';
 import { PlayerLegend } from '../components/PlayerLegend';
-import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChart';
+import { MultiSeriesTrendChart, type PointDetail } from '../components/charts/MultiSeriesTrendChart';
 import type { MdOverviewStats, OverviewStats, PlayerTrendPoint, TerrorOverviewStats } from '../api/types';
 import { formatCompact, formatDateTime, formatHours, formatInt } from '../format';
-import { periodRangeForDate, referenceDateFromRange } from '../dates';
+import { periodRangeForDate } from '../dates';
 
-type Bucket = 'day' | 'week' | 'month';
+type Bucket = 'all' | 'day' | 'week' | 'month';
 
 const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
+  { value: 'all', label: 'Tudo' },
   { value: 'day', label: 'Dia' },
   { value: 'week', label: 'Semana' },
   { value: 'month', label: 'Mês' },
 ];
 
-const CHART_BUCKET_LABEL: Record<Bucket, string> = { day: 'dia', week: 'semana', month: 'mês' };
+const CHART_BUCKET_LABEL: Record<Exclude<Bucket, 'all'>, string> = { day: 'dia', week: 'semana', month: 'mês' };
 
 type ContentKey = 'hunts' | 'terror' | 'md';
 
@@ -35,7 +36,7 @@ const highlightTextStyle: CSSProperties = { margin: 0, fontSize: 14, minHeight: 
 
 export function OverviewPage() {
   const { player, sessionType, from, to, setDateRange } = useFilters();
-  const { getPlayerColor } = usePreferences();
+  const { getPlayerColor, rareDropThreshold } = usePreferences();
   const [huntsOverview, setHuntsOverview] = useState<OverviewStats | null>(null);
   const [terrorOverview, setTerrorOverview] = useState<TerrorOverviewStats | null>(null);
   const [mdOverview, setMdOverview] = useState<MdOverviewStats | null>(null);
@@ -60,28 +61,41 @@ export function OverviewPage() {
   // one level finer than that - otherwise, with the filter already narrowed
   // to exactly one week, every point in the week collapses into a single
   // "week" bucket (that week's Monday) and the chart shows nothing useful.
-  // Same pattern the Hunts/Terror/MD dashboards already use.
-  const chartBucket: Bucket = bucket === 'month' ? 'week' : 'day';
+  // "Tudo" shows every month on record. Same pattern the Hunts/Terror/MD
+  // dashboards already use.
+  const chartBucket: Exclude<Bucket, 'all'> = bucket === 'all' ? 'month' : bucket === 'month' ? 'week' : 'day';
 
-  // Switching the bucket toggle pins the outer date filter to a single
-  // concrete day/week/month (defaulting to whichever one is already in
-  // view, or today) - otherwise the toggle changed which granularity the
-  // chart *would* draw at, but the date range stayed whatever it was
-  // before, so nothing visibly changed until the range was touched some
-  // other way (e.g. the period navigator).
+  // Switching the bucket toggle always lands on the current day/week/month
+  // (or clears the range for "Tudo") - deriving it from the range already in
+  // view drifted to unrelated periods when hopping between granularities.
   function selectBucket(next: Bucket) {
     setBucket(next);
-    setDateRange(periodRangeForDate(referenceDateFromRange(from, to), next));
+    if (next === 'all') setDateRange({ from: '', to: '' });
+    else setDateRange(periodRangeForDate(new Date(), next));
   }
 
   // Pin to the current week on first render, same pattern as the 3
   // content-specific dashboards - only if the filter hasn't been touched yet.
   useEffect(() => {
-    if (!from && !to) {
+    if (bucket !== 'all' && !from && !to) {
       setDateRange(periodRangeForDate(new Date(), bucket));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Clearing the range from elsewhere ("Limpar filtro de período", the
+  // header's "Todo o período") leaves no single day/week/month to browse, so
+  // follow it to "Tudo" instead of labelling an all-time chart as one week.
+  // Only reacts to a set range becoming empty, so the initial empty range
+  // (before the mount effect above pins the default one) doesn't count.
+  const prevRangeRef = useRef({ from, to });
+  useEffect(() => {
+    const prev = prevRangeRef.current;
+    prevRangeRef.current = { from, to };
+    const wasSet = Boolean(prev.from || prev.to);
+    if (wasSet && !from && !to && bucket !== 'all') setBucket('all');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to]);
 
   useEffect(() => {
     let ignore = false;
@@ -136,26 +150,44 @@ export function OverviewPage() {
   // line per character is the straight summed profit for the period - not
   // an average/rate. Each of the 3 by-player trend endpoints already
   // returns a real summed `totalProfit` per (player, bucket), so this is a
-  // pure client-side merge, no new backend endpoint needed.
+  // pure client-side merge, no new backend endpoint needed. Each content's
+  // share (and the names behind it) is kept as a detail line for the tooltip.
   const playerSeries = useMemo(() => {
     const activeSources = [
-      contentFilter.hunts ? huntTrend : [],
-      contentFilter.terror ? terrorTrend : [],
-      contentFilter.md ? mdTrend : [],
+      { label: 'Hunts', rows: contentFilter.hunts ? huntTrend : [] },
+      { label: 'Terror', rows: contentFilter.terror ? terrorTrend : [] },
+      { label: 'MD', rows: contentFilter.md ? mdTrend : [] },
     ];
-    const totals = new Map<string, { playerId: number; playerName: string; bucketStart: string; totalProfit: number }>();
-    for (const rows of activeSources) {
+    const totals = new Map<
+      string,
+      { playerId: number; playerName: string; bucketStart: string; totalProfit: number; details: PointDetail[] }
+    >();
+    for (const { label, rows } of activeSources) {
       for (const row of rows) {
         const key = `${row.playerId}::${row.bucketStart}`;
+        const detail = { label, value: row.totalProfit, names: row.names, topDrops: row.topDrops };
         const existing = totals.get(key);
-        if (existing) existing.totalProfit += row.totalProfit;
-        else totals.set(key, { playerId: row.playerId, playerName: row.playerName, bucketStart: row.bucketStart, totalProfit: row.totalProfit });
+        if (existing) {
+          existing.totalProfit += row.totalProfit;
+          existing.details.push(detail);
+        } else {
+          totals.set(key, {
+            playerId: row.playerId,
+            playerName: row.playerName,
+            bucketStart: row.bucketStart,
+            totalProfit: row.totalProfit,
+            details: [detail],
+          });
+        }
       }
     }
-    const byPlayer = new Map<number, { playerId: number; playerName: string; points: { bucketStart: string; totalProfit: number }[] }>();
+    const byPlayer = new Map<
+      number,
+      { playerId: number; playerName: string; points: { bucketStart: string; totalProfit: number; details: PointDetail[] }[] }
+    >();
     for (const t of totals.values()) {
       const existing = byPlayer.get(t.playerId);
-      const point = { bucketStart: t.bucketStart, totalProfit: t.totalProfit };
+      const point = { bucketStart: t.bucketStart, totalProfit: t.totalProfit, details: t.details };
       if (existing) existing.points.push(point);
       else byPlayer.set(t.playerId, { playerId: t.playerId, playerName: t.playerName, points: [point] });
     }
@@ -272,7 +304,7 @@ export function OverviewPage() {
             Profit total por {CHART_BUCKET_LABEL[chartBucket]}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <PeriodNavigator bucket={bucket} />
+            {bucket !== 'all' && <PeriodNavigator bucket={bucket} />}
             <div className="bucket-toggle">
               {BUCKET_OPTIONS.map((opt) => (
                 <button
@@ -302,7 +334,12 @@ export function OverviewPage() {
         </div>
         <div className="card">
           <PlayerLegend entries={playerSeries.map((s) => ({ id: s.playerId, name: s.playerName, color: s.color }))} />
-          <MultiSeriesTrendChart series={playerSeries} bucket={chartBucket} metricKey="totalProfit" />
+          <MultiSeriesTrendChart
+            series={playerSeries}
+            bucket={chartBucket}
+            metricKey="totalProfit"
+            rareDropThreshold={rareDropThreshold}
+          />
         </div>
       </div>
     </div>

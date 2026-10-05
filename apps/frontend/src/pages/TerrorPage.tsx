@@ -13,20 +13,21 @@ import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChar
 import { PlayerLegend } from '../components/PlayerLegend';
 import type { PlayerTrendPoint, TerrorListItem, TerrorOverviewStats, TerrorWeeklySummary } from '../api/types';
 import { formatBucketLabel, formatCompact, formatDateTime, formatInt } from '../format';
-import { bucketRange, periodRangeForDate, referenceDateFromRange } from '../dates';
+import { bucketRange, periodRangeForDate } from '../dates';
 import { TerrorWeekCard } from '../components/TerrorWeekCard';
 
 type Tab = 'dashboard' | 'history' | 'upload';
-type Bucket = 'day' | 'week' | 'month' | 'terror';
+type Bucket = 'all' | 'day' | 'week' | 'month' | 'terror';
 
 const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
+  { value: 'all', label: 'Tudo' },
   { value: 'day', label: 'Dia' },
   { value: 'week', label: 'Semana' },
   { value: 'month', label: 'Mês' },
   { value: 'terror', label: 'Por terror' },
 ];
 
-const CHART_BUCKET_LABEL: Record<Bucket, string> = {
+const CHART_BUCKET_LABEL: Record<Exclude<Bucket, 'all'>, string> = {
   day: 'dia',
   week: 'semana',
   month: 'mês',
@@ -89,18 +90,21 @@ function TerrorDashboardTab() {
   // The bucket toggle picks which single period you're browsing (a day, a
   // week, a month), but the chart itself always drills one level finer than
   // that: a week shows its days, a month shows its weeks, a day shows its
-  // individual terrors. "Por terror" has no coarser period around it, so it
-  // just shows terrors across whatever the outer date filter is.
-  const chartBucket: Bucket = bucket === 'day' ? 'terror' : bucket === 'week' ? 'day' : bucket === 'month' ? 'week' : 'terror';
+  // individual terrors, and "Tudo" shows every month on record. "Por terror"
+  // has no coarser period around it, so it just shows terrors across
+  // whatever the outer date filter is.
+  const chartBucket: Exclude<Bucket, 'all'> =
+    bucket === 'all' ? 'month' : bucket === 'day' ? 'terror' : bucket === 'week' ? 'day' : bucket === 'month' ? 'week' : 'terror';
 
-  // Switching the bucket toggle pins the outer date filter to a single
-  // concrete day/week/month (defaulting to whichever one is already in view,
-  // or today) - otherwise "Semana" over an unrestricted "Todo o período"
-  // filter would still show every week ever recorded instead of just one.
+  // Switching the bucket toggle always lands on the current day/week/month
+  // (or clears the range for "Tudo") rather than one derived from the range
+  // already in view - deriving it from a past month dropped "Semana" onto
+  // that month's first week, often an empty one.
   function selectBucket(next: Bucket) {
     setBucket(next);
     if (next === 'terror') return;
-    setDateRange(periodRangeForDate(referenceDateFromRange(from, to), next));
+    if (next === 'all') setDateRange({ from: '', to: '' });
+    else setDateRange(periodRangeForDate(new Date(), next));
   }
 
   // Same pinning, but only for the very first render, and only if the date
@@ -108,11 +112,25 @@ function TerrorDashboardTab() {
   // the user already had set (e.g. arriving from another page) instead of
   // silently overriding it.
   useEffect(() => {
-    if (bucket !== 'terror' && !from && !to) {
+    if (bucket !== 'terror' && bucket !== 'all' && !from && !to) {
       setDateRange(periodRangeForDate(new Date(), bucket));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Clearing the range from elsewhere ("Limpar filtro de período", the
+  // header's "Todo o período") leaves no single day/week/month to browse, so
+  // follow it to "Tudo" instead of labelling an all-time chart as one week.
+  // Only reacts to a set range becoming empty, so the initial empty range
+  // (before the mount effect above pins the default one) doesn't count.
+  const prevRangeRef = useRef({ from, to });
+  useEffect(() => {
+    const prev = prevRangeRef.current;
+    prevRangeRef.current = { from, to };
+    const wasSet = Boolean(prev.from || prev.to);
+    if (wasSet && !from && !to && (bucket === 'day' || bucket === 'week' || bucket === 'month')) setBucket('all');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to]);
 
   useEffect(() => {
     setPointFilter(null);
@@ -329,7 +347,7 @@ function TerrorDashboardTab() {
             Profit por {CHART_BUCKET_LABEL[chartBucket]}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            {bucket !== 'terror' && <PeriodNavigator bucket={bucket} />}
+            {(bucket === 'day' || bucket === 'week' || bucket === 'month') && <PeriodNavigator bucket={bucket} />}
             <div className="bucket-toggle">
               {BUCKET_OPTIONS.map((opt) => (
                 <button
@@ -348,6 +366,7 @@ function TerrorDashboardTab() {
             <>
               <PlayerLegend entries={playerSeries.map((s) => ({ id: s.playerId, name: s.playerName, color: s.color }))} />
               <MultiSeriesTrendChart
+                rareDropThreshold={rareDropThreshold}
                 series={playerSeries}
                 bucket={chartBucket}
                 metricKey="avgProfit"

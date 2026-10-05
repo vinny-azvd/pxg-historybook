@@ -1,5 +1,8 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import type { NameCount, TopDrop } from '../../api/types';
 import { formatBucketLabel, formatCompact } from '../../format';
+import { getRareDrops } from '../HuntBadges';
+import { TooltipNames, tooltipDetailStyle } from './TooltipNames';
 
 type PlayerTrendMetric = 'avgProfitPerHour' | 'avgProfit' | 'totalProfit';
 
@@ -13,7 +16,34 @@ export interface PlayerSeries {
     avgProfit?: number | null;
     totalProfit?: number | null;
     huntName?: string | null;
+    names?: NameCount[];
+    topDrops?: TopDrop[];
+    // Overview only: one line per content type (Hunts/Terror/MD) blended
+    // into this point, so the tooltip can still say what made up the total.
+    details?: PointDetail[];
   }[];
+}
+
+export interface PointDetail {
+  label: string;
+  value: number;
+  names?: NameCount[];
+  topDrops?: TopDrop[];
+}
+
+type SeriesPoint = PlayerSeries['points'][number];
+
+// An Overview point carries its drops per content type - pool them, keeping
+// each item once, so the tooltip lists every rare drop behind the total.
+function pointRareDrops(point: SeriesPoint | undefined, threshold: number): TopDrop[] {
+  if (!point) return [];
+  const drops = point.details ? point.details.flatMap((d) => d.topDrops ?? []) : point.topDrops ?? [];
+  const byItem = new Map<string, TopDrop>();
+  for (const drop of getRareDrops(drops, threshold)) {
+    const existing = byItem.get(drop.item);
+    if (!existing || drop.unitPrice > existing.unitPrice) byItem.set(drop.item, drop);
+  }
+  return [...byItem.values()].sort((a, b) => b.unitPrice - a.unitPrice);
 }
 
 interface MultiSeriesTrendChartProps {
@@ -22,6 +52,7 @@ interface MultiSeriesTrendChartProps {
   metricKey?: PlayerTrendMetric;
   onPointClick?: (bucketStart: string) => void;
   selectedBucketStart?: string | null;
+  rareDropThreshold?: number;
 }
 
 function fieldFor(playerId: number) {
@@ -34,11 +65,12 @@ export function MultiSeriesTrendChart({
   metricKey = 'avgProfitPerHour',
   onPointClick,
   selectedBucketStart,
+  rareDropThreshold = 1_000_000,
 }: MultiSeriesTrendChartProps) {
   const bucketStarts = [...new Set(series.flatMap((s) => s.points.map((p) => p.bucketStart)))].sort();
 
   if (bucketStarts.length === 0) {
-    return <div className="chart-empty-state">Sem dados suficientes para o gráfico.</div>;
+    return <div className="chart-empty-state">Sem registros para o período selecionado.</div>;
   }
 
   const isEntryBucket = bucket === 'hunt' || bucket === 'terror' || bucket === 'md';
@@ -51,6 +83,11 @@ export function MultiSeriesTrendChart({
     }
     return row;
   });
+
+  const pointByPlayerBucket = new Map<string, SeriesPoint>();
+  for (const s of series) {
+    for (const p of s.points) pointByPlayerBucket.set(`${s.playerId}::${p.bucketStart}`, p);
+  }
 
   const huntNameByBucket = new Map<string, string | null>();
   if (isEntryBucket) {
@@ -111,14 +148,38 @@ export function MultiSeriesTrendChart({
                   {isEntryBucket && huntNameByBucket.get(String(label)) ? `${huntNameByBucket.get(String(label))} · ` : ''}
                   {formatBucketLabel(String(label), bucket)}
                 </div>
-                {visible.map((s) => {
+                {visible.map((s, index) => {
                   const entry = payload.find((p: any) => p.dataKey === fieldFor(s.playerId));
+                  const point = pointByPlayerBucket.get(`${s.playerId}::${String(label)}`);
+                  const rareDrops = pointRareDrops(point, rareDropThreshold);
                   return (
-                    <div key={s.playerId} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span
-                        style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, display: 'inline-block' }}
-                      />
-                      {s.playerName}: <strong>{formatCompact(Number(entry?.value))}</strong>
+                    <div key={s.playerId} style={{ marginTop: index > 0 && !isEntryBucket ? 4 : 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span
+                          style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, display: 'inline-block' }}
+                        />
+                        {s.playerName}: <strong>{formatCompact(Number(entry?.value))}</strong>
+                      </div>
+                      {!isEntryBucket && (
+                        <div style={{ paddingLeft: 14 }}>
+                          {point?.details
+                            ? point.details.map((d) =>
+                                d.names && d.names.length > 0 ? (
+                                  <TooltipNames key={d.label} prefix={`${d.label} ${formatCompact(d.value)} —`} names={d.names} />
+                                ) : (
+                                  <div key={d.label} style={tooltipDetailStyle}>
+                                    {d.label} {formatCompact(d.value)}
+                                  </div>
+                                )
+                              )
+                            : <TooltipNames names={point?.names} />}
+                        </div>
+                      )}
+                      {rareDrops.map((drop) => (
+                        <div key={drop.item} style={{ paddingLeft: 14, color: 'var(--rare-drop-badge-text)' }}>
+                          💎 {drop.item} ({formatCompact(drop.unitPrice)}/un.)
+                        </div>
+                      ))}
                     </div>
                   );
                 })}
@@ -141,15 +202,19 @@ export function MultiSeriesTrendChart({
               const value = props.payload?.[fieldFor(s.playerId)];
               if (value === null || value === undefined) return <g key={props.key} />;
               const isSelected = props.payload?.bucketStart === selectedBucketStart;
+              // A ring in the rare-drop color keeps the player's own fill, so
+              // the dot still says whose it is while flagging the lucky drop.
+              const hasRareDrop =
+                pointRareDrops(pointByPlayerBucket.get(`${s.playerId}::${props.payload?.bucketStart}`), rareDropThreshold).length > 0;
               return (
                 <circle
                   key={props.key}
                   cx={props.cx}
                   cy={props.cy}
-                  r={isSelected ? 6 : 3.5}
+                  r={isSelected || hasRareDrop ? 6 : 3.5}
                   fill={isSelected ? 'var(--series-2)' : s.color}
-                  stroke="var(--surface-1)"
-                  strokeWidth={1.5}
+                  stroke={hasRareDrop ? 'var(--rare-drop)' : 'var(--surface-1)'}
+                  strokeWidth={hasRareDrop ? 2.5 : 1.5}
                 />
               );
             }}

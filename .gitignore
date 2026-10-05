@@ -7,3 +7,5 @@ dist/
 .env
 backups/
 apps/frontend/public/static/
+*.tsbuildinfo
+RUNBOOK.md

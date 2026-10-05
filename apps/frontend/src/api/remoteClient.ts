@@ -5,6 +5,7 @@ import type {
   HuntDetail,
   HuntListResponse,
   MonthBucket,
+  NameBreakdownRow,
   OverviewStats,
   Player,
   PlayerTrendPoint,
@@ -93,6 +94,8 @@ export const api = {
 
   getTrendsByPlayer: (filters: Filters & { bucket: string }) =>
     request<PlayerTrendPoint[]>(`/api/stats/trends-by-player${toQuery(filters)}`),
+
+  getByName: (filters: Filters) => request<NameBreakdownRow[]>(`/api/stats/by-name${toQuery(filters)}`),
 
   getCompare: (params: {
     player?: string;
@@ -192,6 +195,8 @@ export const api = {
 
   getMdTrendsByPlayer: (filters: Filters & { bucket: string }) =>
     request<PlayerTrendPoint[]>(`/api/md-stats/trends-by-player${toQuery(filters)}`),
+
+  getMdByName: (filters: Filters) => request<NameBreakdownRow[]>(`/api/md-stats/by-name${toQuery(filters)}`),
 
   getMdsWeekly: (filters: Filters & { page?: number; pageSize?: number }) =>
     request<MdWeeklyResponse>(`/api/md-stats/weekly${toQuery(filters)}`),

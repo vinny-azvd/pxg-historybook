@@ -1,4 +1,6 @@
 import { db } from '../db/connection.js';
+import { bucketTopDrops, parseTopDropsRaw } from './bucketDrops.js';
+import { namesConcat, withNameCounts } from './nameCounts.js';
 import { buildTerrorFilter, type TerrorFilterQuery } from './terrorFilters.js';
 
 export interface TerrorOverviewStats {
@@ -161,7 +163,7 @@ export function computeTerrorTrendsByPlayer(filter: TerrorFilterQuery, bucket: s
   const { whereClause, params } = buildTerrorFilter(filter);
 
   if (bucket === 'terror') {
-    return db
+    const rows = db
       .prepare(
         `SELECT
            p.id AS playerId,
@@ -173,19 +175,23 @@ export function computeTerrorTrendsByPlayer(filter: TerrorFilterQuery, bucket: s
            t.profit AS totalProfit,
            t.profit AS avgProfit,
            t.experience AS avgExperience,
-           t.supplies_cost AS avgSupplies
+           t.supplies_cost AS avgSupplies,
+           (SELECT GROUP_CONCAT(td.item || '::' || td.unit_price, '||')
+              FROM (SELECT item, unit_price FROM terror_drops WHERE terror_id = t.id AND (ignored IS NULL OR ignored = 0)
+                    ORDER BY unit_price DESC LIMIT 5) td) AS topDropsRaw
          FROM terrors t
          JOIN terror_players tp ON tp.terror_id = t.id
          JOIN players p ON p.id = tp.player_id
          ${whereClause}
          ORDER BY p.id, t.start_time ASC`
       )
-      .all(params);
+      .all(params) as { topDropsRaw: string | null }[];
+    return rows.map(({ topDropsRaw, ...row }) => ({ ...row, topDrops: parseTopDropsRaw(topDropsRaw) }));
   }
 
   const bucketExpr = BUCKET_EXPRESSIONS[bucket] ?? BUCKET_EXPRESSIONS.week;
 
-  return db
+  const rows = db
     .prepare(
       `SELECT
          p.id AS playerId,
@@ -195,7 +201,8 @@ export function computeTerrorTrendsByPlayer(filter: TerrorFilterQuery, bucket: s
          COALESCE(SUM(t.profit), 0) AS totalProfit,
          AVG(t.profit) AS avgProfit,
          AVG(t.experience) AS avgExperience,
-         AVG(t.supplies_cost) AS avgSupplies
+         AVG(t.supplies_cost) AS avgSupplies,
+         ${namesConcat('t.terror_name')}
        FROM terrors t
        JOIN terror_players tp ON tp.terror_id = t.id
        JOIN players p ON p.id = tp.player_id
@@ -203,7 +210,20 @@ export function computeTerrorTrendsByPlayer(filter: TerrorFilterQuery, bucket: s
        GROUP BY p.id, bucketStart
        ORDER BY p.id, bucketStart ASC`
     )
-    .all(params);
+    .all(params) as unknown as { playerId: number; bucketStart: string; namesRaw: string | null }[];
+
+  const drops = bucketTopDrops({
+    table: 'terrors',
+    alias: 't',
+    dropsTable: 'terror_drops',
+    playersTable: 'terror_players',
+    foreignKey: 'terror_id',
+    bucketExpr,
+    whereClause,
+    params,
+    byPlayer: true,
+  });
+  return withNameCounts(rows).map((row) => ({ ...row, topDrops: drops.get(`${row.playerId}::${row.bucketStart}`) ?? [] }));
 }
 
 const BUCKET_EXPRESSIONS: Record<string, string> = {
@@ -244,7 +264,7 @@ export function computeTerrorTrends(filter: TerrorFilterQuery, bucket: string) {
 
   const bucketExpr = BUCKET_EXPRESSIONS[bucket] ?? BUCKET_EXPRESSIONS.week;
 
-  return db
+  const rows = db
     .prepare(
       `SELECT
          ${bucketExpr} AS bucketStart,
@@ -254,11 +274,25 @@ export function computeTerrorTrends(filter: TerrorFilterQuery, bucket: string) {
          AVG(t.kills) AS avgKills,
          AVG(t.rare_kills) AS avgRareKills,
          AVG(t.experience) AS avgExperience,
-         AVG(t.supplies_cost) AS avgSupplies
+         AVG(t.supplies_cost) AS avgSupplies,
+         ${namesConcat('t.terror_name')}
        FROM terrors t
        ${whereClause}
        GROUP BY bucketStart
        ORDER BY bucketStart ASC`
     )
-    .all(params);
+    .all(params) as unknown as { bucketStart: string; namesRaw: string | null }[];
+
+  const drops = bucketTopDrops({
+    table: 'terrors',
+    alias: 't',
+    dropsTable: 'terror_drops',
+    playersTable: 'terror_players',
+    foreignKey: 'terror_id',
+    bucketExpr,
+    whereClause,
+    params,
+    byPlayer: false,
+  });
+  return withNameCounts(rows).map((row) => ({ ...row, topDrops: drops.get(`::${row.bucketStart}`) ?? [] }));
 }

@@ -18,6 +18,7 @@ import type {
   MdRecord,
   MdWeeklyResponse,
   MonthBucket,
+  NameBreakdownRow,
   OverviewStats,
   Player,
   PlayerTrendPoint,
@@ -50,7 +51,7 @@ import type { StoredHunt, StoredMd, StoredTerror } from './storedTypes';
 import * as huntsAgg from './aggregation/hunts';
 import * as terrorsAgg from './aggregation/terrors';
 import * as mdsAgg from './aggregation/mds';
-import { buildFilterPredicate, jadeSevere, topDrops } from './aggregation/shared';
+import { buildFilterPredicate, jadeSevere, nameBreakdown, topDrops } from './aggregation/shared';
 
 const MD_DIFFICULTIES = ['Grand Master', 'Master', 'Hyper', 'Ultra', 'Platinum'] as const;
 
@@ -414,6 +415,13 @@ export const api = {
   getTrendsByPlayer: async (filters: Filters & { bucket: string }): Promise<PlayerTrendPoint[]> =>
     huntsAgg.computeTrendsByPlayer(await huntsRepo.list(), filters, filters.bucket),
 
+  getByName: async (filters: Filters): Promise<NameBreakdownRow[]> =>
+    nameBreakdown(
+      (await huntsRepo.list()).filter(buildFilterPredicate<StoredHunt>(filters)),
+      (h) => h.hunt_name,
+      'avgProfitPerHour'
+    ),
+
   getCompare: async (params: {
     player?: string;
     sessionType?: string;
@@ -589,6 +597,13 @@ export const api = {
 
   getMdTrendsByPlayer: async (filters: Filters & { bucket: string }): Promise<PlayerTrendPoint[]> =>
     mdsAgg.computeTrendsByPlayer(await mdsRepo.list(), filters, filters.bucket),
+
+  getMdByName: async (filters: Filters): Promise<NameBreakdownRow[]> =>
+    nameBreakdown(
+      (await mdsRepo.list()).filter(buildFilterPredicate<StoredMd>(filters)),
+      (m) => m.md_name,
+      'avgProfit'
+    ),
 
   getMdsWeekly: async (filters: Filters & { page?: number; pageSize?: number }): Promise<MdWeeklyResponse> => {
     const pageNum = Math.max(1, Number(filters.page) || 1);

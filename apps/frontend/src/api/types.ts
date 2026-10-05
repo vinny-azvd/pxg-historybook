@@ -146,6 +146,13 @@ export interface MonthBucket {
   huntCount: number;
 }
 
+// How many entries of each name (hunt spot, MD, terror rotation) fell into
+// one day/week/month bucket - shown in chart tooltips, most frequent first.
+export interface NameCount {
+  name: string;
+  count: number;
+}
+
 export interface PlayerTrendPoint {
   playerId: number;
   playerName: string;
@@ -159,6 +166,9 @@ export interface PlayerTrendPoint {
   avgSuppliesPerHour: number | null;
   huntId?: number;
   huntName?: string | null;
+  // Day/week/month buckets only - entry buckets carry huntName instead.
+  names?: NameCount[];
+  topDrops?: TopDrop[];
   // Terror-only: per-rotation totals/averages instead of Hunts' per-hour rates.
   avgProfit?: number | null;
   avgExperience?: number | null;
@@ -176,6 +186,8 @@ export interface TrendPoint {
   avgSuppliesPerHour: number | null;
   huntId?: number;
   huntName?: string | null;
+  // Day/week/month buckets only - entry buckets carry huntName instead.
+  names?: NameCount[];
   jadeTotemCount?: number;
   jadeSevere?: boolean;
   topDrops?: TopDrop[];
@@ -412,4 +424,17 @@ export interface MdWeeklySummary {
 export interface MdWeeklyResponse {
   items: MdWeeklySummary[];
   total: number;
+}
+
+// One row per distinct hunt/MD name - the "Por hunt"/"Por MD" comparison
+// chart. avgProfitPerHour and avgRareKillsPerHour are weighted by duration
+// (hours hunted), avgProfit is the plain per-run average.
+export interface NameBreakdownRow {
+  name: string;
+  count: number;
+  totalDurationSeconds: number;
+  totalProfit: number;
+  avgProfitPerHour: number | null;
+  avgProfit: number | null;
+  avgRareKillsPerHour: number | null;
 }

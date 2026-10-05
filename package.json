@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev -w apps/backend\" \"npm run dev -w apps/frontend\"",
     "build": "npm run build -w apps/frontend && npm run build -w apps/backend",
-    "start": "npm run start -w apps/backend"
+    "start": "npm run start -w apps/backend",
+    "dev:pages": "npm run dev -w apps/frontend -- --mode production",
+    "preview:pages": "npm run build -w apps/frontend && npm run preview -w apps/frontend"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

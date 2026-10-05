@@ -2,6 +2,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import type { TrendPoint } from '../../api/types';
 import { formatBucketLabel, formatCompact } from '../../format';
 import { getRareDrops } from '../HuntBadges';
+import { TooltipNames } from './TooltipNames';
 
 interface TrendChartProps {
   data: TrendPoint[];
@@ -41,7 +42,7 @@ export function TrendChart({
   return (
     <div>
       {isEmpty ? (
-        <div className="chart-empty-state">Sem dados suficientes para o gráfico.</div>
+        <div className="chart-empty-state">Sem registros para o período selecionado.</div>
       ) : (
       <ResponsiveContainer width="100%" height={280}>
         <LineChart
@@ -99,6 +100,7 @@ export function TrendChart({
                       {row.huntCount} {unitLabel}{row.huntCount === 1 ? '' : 's'}
                     </div>
                   )}
+                  {!isEntryBucket && <TooltipNames names={row.names} />}
                   {isEntryBucket && (row.jadeTotemCount ?? 0) > 0 && (
                     // --jade/--jade-soft are tuned as chart-marker fills, not
                     // text-on-surface colors (the soft variant fails WCAG
@@ -108,12 +110,11 @@ export function TrendChart({
                       🟢 Jade Totem × {row.jadeTotemCount}
                     </div>
                   )}
-                  {isEntryBucket &&
-                    getRareDrops(row.topDrops ?? [], rareDropThreshold).map((drop) => (
-                      <div key={drop.item} style={{ color: 'var(--rare-drop-badge-text)' }}>
-                        💎 {drop.item} ({formatCompact(drop.unitPrice)}/un.)
-                      </div>
-                    ))}
+                  {getRareDrops(row.topDrops ?? [], rareDropThreshold).map((drop) => (
+                    <div key={drop.item} style={{ color: 'var(--rare-drop-badge-text)' }}>
+                      💎 {drop.item} ({formatCompact(drop.unitPrice)}/un.)
+                    </div>
+                  ))}
                   {onPointClick && (
                     <div style={{ color: 'var(--series-1)', marginTop: 4 }}>Clique para filtrar por este período</div>
                   )}

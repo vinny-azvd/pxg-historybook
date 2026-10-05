@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   computeAvailableMonths,
+  computeByName,
   computeOverview,
   computeRareKills,
   computeTrends,
@@ -61,4 +62,9 @@ statsRouter.get('/compare', (req, res) => {
       totalProfit: delta(statsA.totalProfit, statsB.totalProfit),
     },
   });
+});
+
+statsRouter.get('/by-name', (req, res) => {
+  const { player, from, to, sessionType } = req.query as Record<string, string>;
+  res.json(computeByName({ player, from, to, sessionType }));
 });
