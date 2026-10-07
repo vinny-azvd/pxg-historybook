@@ -6,6 +6,7 @@ import { FiltersProvider } from './FiltersContext';
 import { PreferencesProvider } from './PreferencesContext';
 import { ErrorBoundary } from './ErrorBoundary';
 import './styles.css';
+import './themes/types.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

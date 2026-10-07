@@ -25,14 +25,16 @@ export default function App() {
           <NavLink to="/hunts" className={({ isActive }) => (isActive ? 'active' : '')}>
             Hunts
           </NavLink>
-          <NavLink to="/trends" className={({ isActive }) => (isActive ? 'active' : '')}>
-            Tendências
-          </NavLink>
           <NavLink to="/terror" className={({ isActive }) => (isActive ? 'active' : '')}>
             Terror
           </NavLink>
           <NavLink to="/md" className={({ isActive }) => (isActive ? 'active' : '')}>
             MD
+          </NavLink>
+          {/* "Raros" goes here, between MD and Tendências. Tendências stays
+              second to last so "Dados" (import/export) closes the menu. */}
+          <NavLink to="/trends" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Tendências
           </NavLink>
           {isLocalDataMode && (
             <NavLink to="/data" className={({ isActive }) => (isActive ? 'active' : '')}>

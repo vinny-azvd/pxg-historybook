@@ -1,4 +1,5 @@
 import { usePreferences } from '../PreferencesContext';
+import { toHexColor } from '../playerColors';
 
 export interface PlayerLegendEntry {
   id: number;
@@ -23,7 +24,7 @@ export function PlayerLegend({ entries }: { entries: PlayerLegendEntry[] }) {
           <span style={{ position: 'relative', width: 14, height: 14, display: 'inline-block', flexShrink: 0 }}>
             <input
               type="color"
-              value={e.color}
+              value={toHexColor(e.color)}
               onChange={(ev) => setPlayerColor(String(e.id), ev.target.value)}
               style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%', border: 0, padding: 0 }}
               aria-label={`Cor de ${e.name}`}

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { MdDetail, MdListItem } from '../api/types';
 import { usePreferences } from '../PreferencesContext';
-import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
+import { formatCompact, formatDateTime, formatDuration, formatInt, formatRate } from '../format';
 import { ItemIcon } from './ItemIcon';
 import { RareDropBadge } from './HuntBadges';
 
@@ -72,7 +72,7 @@ export function MdCard({ md }: MdCardProps) {
         </div>
         <div>
           <dt>Raros/h</dt>
-          <dd>{formatInt(md.rare_kills_per_hour)}</dd>
+          <dd>{formatRate(md.rare_kills_per_hour)}</dd>
         </div>
         {visibleFields.experience && (
           <div>

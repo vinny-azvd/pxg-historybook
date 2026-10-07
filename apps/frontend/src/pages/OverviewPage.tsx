@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
 import { usePreferences } from '../PreferencesContext';
+import { usePlayerColor } from '../playerColors';
 import { StatTile } from '../components/StatTile';
 import { PeriodNavigator } from '../components/PeriodNavigator';
 import { PlayerLegend } from '../components/PlayerLegend';
@@ -36,7 +37,8 @@ const highlightTextStyle: CSSProperties = { margin: 0, fontSize: 14, minHeight: 
 
 export function OverviewPage() {
   const { player, sessionType, from, to, setDateRange } = useFilters();
-  const { getPlayerColor, rareDropThreshold } = usePreferences();
+  const { rareDropThreshold } = usePreferences();
+  const getPlayerColor = usePlayerColor();
   const [huntsOverview, setHuntsOverview] = useState<OverviewStats | null>(null);
   const [terrorOverview, setTerrorOverview] = useState<TerrorOverviewStats | null>(null);
   const [mdOverview, setMdOverview] = useState<MdOverviewStats | null>(null);
@@ -193,7 +195,7 @@ export function OverviewPage() {
     }
     return [...byPlayer.values()]
       .sort((a, b) => a.playerId - b.playerId)
-      .map((entry, index) => ({ ...entry, color: getPlayerColor(String(entry.playerId), index) }));
+      .map((entry) => ({ ...entry, color: getPlayerColor(entry.playerId) }));
   }, [huntTrend, terrorTrend, mdTrend, contentFilter, getPlayerColor]);
 
   if (!huntsOverview || !terrorOverview || !mdOverview || !totalCounts) {
@@ -337,6 +339,7 @@ export function OverviewPage() {
           <MultiSeriesTrendChart
             series={playerSeries}
             bucket={chartBucket}
+            range={{ from, to }}
             metricKey="totalProfit"
             rareDropThreshold={rareDropThreshold}
           />

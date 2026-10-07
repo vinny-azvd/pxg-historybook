@@ -51,7 +51,7 @@ import type { StoredHunt, StoredMd, StoredTerror } from './storedTypes';
 import * as huntsAgg from './aggregation/hunts';
 import * as terrorsAgg from './aggregation/terrors';
 import * as mdsAgg from './aggregation/mds';
-import { buildFilterPredicate, jadeSevere, nameBreakdown, topDrops } from './aggregation/shared';
+import { buildFilterPredicate, jadeSevere, nameBreakdown, rareKillsPerHour, topDrops } from './aggregation/shared';
 
 const MD_DIFFICULTIES = ['Grand Master', 'Master', 'Hyper', 'Ultra', 'Platinum'] as const;
 
@@ -74,6 +74,13 @@ function normalizeListParams(filters: { sort?: string; order?: string; page?: nu
   return { pageNum, pageSizeNum, order };
 }
 
+/** Same value as the backend's rareKillsPerHourOrZeroSql/withRareKillsPerHour:
+ * lists, records and the history sort all use the rate recomputed from
+ * rare_kills (the export floors its own field), 0 for a zero-length session. */
+function rareKillsPerHourOrZero(doc: { rare_kills: number; duration_seconds: number }): number {
+  return rareKillsPerHour(doc) ?? 0;
+}
+
 // --- Hunts ----------------------------------------------------------------
 
 const HUNT_SORT_SELECTORS: Record<string, (h: StoredHunt) => unknown> = {
@@ -83,7 +90,7 @@ const HUNT_SORT_SELECTORS: Record<string, (h: StoredHunt) => unknown> = {
   profit_per_hour: (h) => h.profit_per_hour,
   kills: (h) => h.kills,
   kills_per_hour: (h) => h.kills_per_hour,
-  rare_kills_per_hour: (h) => h.rare_kills_per_hour,
+  rare_kills_per_hour: (h) => rareKillsPerHourOrZero(h),
   duration_seconds: (h) => h.duration_seconds,
 };
 
@@ -100,7 +107,7 @@ function toHuntRecord(h: StoredHunt): HuntRecord {
     kills: h.kills,
     kills_per_hour: h.kills_per_hour,
     rare_kills: h.rare_kills,
-    rare_kills_per_hour: h.rare_kills_per_hour,
+    rare_kills_per_hour: rareKillsPerHourOrZero(h),
     experience: h.experience,
     experience_per_hour: h.experience_per_hour,
     damage_dealt: h.damage_dealt,
@@ -129,7 +136,7 @@ function toHuntListItem(h: StoredHunt): HuntListItem {
     kills: h.kills,
     kills_per_hour: h.kills_per_hour,
     rare_kills: h.rare_kills,
-    rare_kills_per_hour: h.rare_kills_per_hour,
+    rare_kills_per_hour: rareKillsPerHourOrZero(h),
     experience_per_hour: h.experience_per_hour,
     supplies_cost: h.supplies_cost,
     supplies_per_hour: h.supplies_per_hour,
@@ -165,7 +172,7 @@ const TERROR_SORT_SELECTORS: Record<string, (t: StoredTerror) => unknown> = {
   profit_per_hour: (t) => t.profit_per_hour,
   kills: (t) => t.kills,
   kills_per_hour: (t) => t.kills_per_hour,
-  rare_kills_per_hour: (t) => t.rare_kills_per_hour,
+  rare_kills_per_hour: (t) => rareKillsPerHourOrZero(t),
   duration_seconds: (t) => t.duration_seconds,
 };
 
@@ -182,7 +189,7 @@ function toTerrorRecord(t: StoredTerror): TerrorRecord {
     kills: t.kills,
     kills_per_hour: t.kills_per_hour,
     rare_kills: t.rare_kills,
-    rare_kills_per_hour: t.rare_kills_per_hour,
+    rare_kills_per_hour: rareKillsPerHourOrZero(t),
     experience: t.experience,
     experience_per_hour: t.experience_per_hour,
     damage_dealt: t.damage_dealt,
@@ -210,7 +217,7 @@ function toTerrorListItem(t: StoredTerror): TerrorListItem {
     kills: t.kills,
     kills_per_hour: t.kills_per_hour,
     rare_kills: t.rare_kills,
-    rare_kills_per_hour: t.rare_kills_per_hour,
+    rare_kills_per_hour: rareKillsPerHourOrZero(t),
     experience_per_hour: t.experience_per_hour,
     supplies_cost: t.supplies_cost,
     supplies_per_hour: t.supplies_per_hour,
@@ -244,7 +251,7 @@ const MD_SORT_SELECTORS: Record<string, (m: StoredMd) => unknown> = {
   profit_per_hour: (m) => m.profit_per_hour,
   kills: (m) => m.kills,
   kills_per_hour: (m) => m.kills_per_hour,
-  rare_kills_per_hour: (m) => m.rare_kills_per_hour,
+  rare_kills_per_hour: (m) => rareKillsPerHourOrZero(m),
   duration_seconds: (m) => m.duration_seconds,
 };
 
@@ -262,7 +269,7 @@ function toMdRecord(m: StoredMd): MdRecord {
     kills: m.kills,
     kills_per_hour: m.kills_per_hour,
     rare_kills: m.rare_kills,
-    rare_kills_per_hour: m.rare_kills_per_hour,
+    rare_kills_per_hour: rareKillsPerHourOrZero(m),
     experience: m.experience,
     experience_per_hour: m.experience_per_hour,
     damage_dealt: m.damage_dealt,
@@ -291,7 +298,7 @@ function toMdListItem(m: StoredMd): MdListItem {
     kills: m.kills,
     kills_per_hour: m.kills_per_hour,
     rare_kills: m.rare_kills,
-    rare_kills_per_hour: m.rare_kills_per_hour,
+    rare_kills_per_hour: rareKillsPerHourOrZero(m),
     experience_per_hour: m.experience_per_hour,
     supplies_cost: m.supplies_cost,
     supplies_per_hour: m.supplies_per_hour,
@@ -390,7 +397,8 @@ export const api = {
       await loadIcons();
       const rawJson = JSON.stringify(huntPayload);
       const result = await ingestHunt(rawJson, parsed.data, huntNameOverride, nightmareCrystalSelections);
-      const summary = await huntsRepo.get(result.id);
+      const stored = await huntsRepo.get(result.id);
+      const summary = stored && { ...stored, rare_kills_per_hour: rareKillsPerHourOrZero(stored) };
       return { ok: true, status: 201, body: { ...result, summary } };
     } catch (err) {
       if (err instanceof DuplicateHuntError) {
@@ -496,7 +504,8 @@ export const api = {
       await loadIcons();
       const rawJson = JSON.stringify(terrorPayload);
       const result = await ingestTerror(rawJson, parsed.data, terrorNameOverride);
-      const summary = await terrorsRepo.get(result.id);
+      const stored = await terrorsRepo.get(result.id);
+      const summary = stored && { ...stored, rare_kills_per_hour: rareKillsPerHourOrZero(stored) };
       return { ok: true, status: 201, body: { ...result, summary } };
     } catch (err) {
       if (err instanceof DuplicateTerrorError) {
@@ -579,7 +588,8 @@ export const api = {
       await loadIcons();
       const rawJson = JSON.stringify(mdPayload);
       const result = await ingestMd(rawJson, parsed.data, mdNameOverride, difficulty);
-      const summary = await mdsRepo.get(result.id);
+      const stored = await mdsRepo.get(result.id);
+      const summary = stored && { ...stored, rare_kills_per_hour: rareKillsPerHourOrZero(stored) };
       return { ok: true, status: 201, body: { ...result, summary } };
     } catch (err) {
       if (err instanceof DuplicateMdError) {

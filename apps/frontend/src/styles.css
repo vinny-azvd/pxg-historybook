@@ -4,7 +4,8 @@
   --page: #f9f9f7;
   --text-primary: #0b0b0b;
   --text-secondary: #52514e;
-  --text-muted: #898781;
+  --text-muted: #6b6a65;
+  --selection: #0b0b0b;
   --gridline: #e1e0d9;
   --baseline: #c3c2b7;
   --border: rgba(11, 11, 11, 0.1);
@@ -41,6 +42,7 @@
     --text-primary: #ffffff;
     --text-secondary: #c3c2b7;
     --text-muted: #898781;
+    --selection: #ffffff;
     --gridline: #2c2c2a;
     --baseline: #383835;
     --border: rgba(255, 255, 255, 0.1);
@@ -77,6 +79,7 @@
   --text-primary: #ffffff;
   --text-secondary: #c3c2b7;
   --text-muted: #898781;
+  --selection: #ffffff;
   --gridline: #2c2c2a;
   --baseline: #383835;
   --border: rgba(255, 255, 255, 0.1);
@@ -672,4 +675,55 @@ button:disabled {
   border-radius: 2px;
   margin-right: 5px;
   vertical-align: middle;
+}
+
+/* ---------- chart frame: table toggle, marker key ---------- */
+.chart-frame-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin: -4px 0 4px;
+}
+
+.chart-table-toggle {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+.chart-table-wrap {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.chart-table td.num,
+.chart-table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-marker-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: center;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.chart-marker-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }

@@ -5,13 +5,13 @@ import type { CompareResponse, TrendPoint } from '../api/types';
 import { TrendChart } from '../components/charts/TrendChart';
 import { DateRangePicker } from '../components/DateRangePicker';
 import { StatTile } from '../components/StatTile';
-import { formatCompact, formatInt } from '../format';
+import { formatCompact, formatInt, formatRate } from '../format';
 import { defaultPeriods } from '../dates';
 
 const METRICS: { key: keyof TrendPoint; label: string; format: (v: number) => string }[] = [
   { key: 'avgProfitPerHour', label: 'Profit/h médio', format: formatCompact },
   { key: 'avgKillsPerHour', label: 'Kills/h médio', format: formatInt },
-  { key: 'avgRareKillsPerHour', label: 'Raros/h médio', format: formatInt },
+  { key: 'avgRareKillsPerHour', label: 'Raros/h médio', format: formatRate },
   { key: 'avgExperiencePerHour', label: 'Exp/h médio', format: formatCompact },
   { key: 'avgSuppliesPerHour', label: 'Suprimentos/h médio', format: formatCompact },
 ];
@@ -98,7 +98,7 @@ export function TrendsPage() {
                 <div className="stat-grid" style={{ marginBottom: 0 }}>
                   <StatTile label="Profit/h médio" value={formatCompact(compare.periodA.stats.avgProfitPerHour)} />
                   <StatTile label="Kills/h médio" value={formatInt(compare.periodA.stats.avgKillsPerHour)} />
-                  <StatTile label="Raros/h médio" value={formatInt(compare.periodA.stats.avgRareKillsPerHour)} />
+                  <StatTile label="Raros/h médio" value={formatRate(compare.periodA.stats.avgRareKillsPerHour)} />
                   <StatTile label="Profit total" value={formatCompact(compare.periodA.stats.totalProfit)} />
                 </div>
               </div>
@@ -119,7 +119,7 @@ export function TrendsPage() {
                   />
                   <StatTile
                     label="Raros/h médio"
-                    value={formatInt(compare.periodB.stats.avgRareKillsPerHour)}
+                    value={formatRate(compare.periodB.stats.avgRareKillsPerHour)}
                     delta={compare.delta.avgRareKillsPerHour?.percent}
                   />
                   <StatTile

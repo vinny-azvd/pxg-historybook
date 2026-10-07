@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
 import { usePreferences } from '../PreferencesContext';
+import { usePlayerColor } from '../playerColors';
 import { parseHuntJson } from '../jsonParse';
 import { ConfirmMdModal } from '../components/ConfirmMdModal';
 import { MdCard } from '../components/MdCard';
@@ -67,7 +68,8 @@ export function MdPage() {
 
 function MdDashboardTab() {
   const { player, sessionType, from, to, setDateRange } = useFilters();
-  const { rareDropThreshold, getPlayerColor } = usePreferences();
+  const { rareDropThreshold } = usePreferences();
+  const getPlayerColor = usePlayerColor();
   const [overview, setOverview] = useState<MdOverviewStats | null>(null);
   // Unaffected by the from/to period filter, unlike `overview` - so
   // navigating to a period with zero mds (e.g. an empty week) doesn't
@@ -190,7 +192,7 @@ function MdDashboardTab() {
     }
     return [...byPlayer.values()]
       .sort((a, b) => a.playerId - b.playerId)
-      .map((entry, index) => ({ ...entry, color: getPlayerColor(String(entry.playerId), index) }));
+      .map((entry) => ({ ...entry, color: getPlayerColor(entry.playerId) }));
   }, [playerTrend, getPlayerColor]);
 
   useEffect(() => {
@@ -373,6 +375,7 @@ function MdDashboardTab() {
                 rareDropThreshold={rareDropThreshold}
                 series={playerSeries}
                 bucket={chartBucket}
+                range={{ from, to }}
                 metricKey="avgProfit"
                 onPointClick={chartBucket === 'md' ? undefined : handlePointClick}
                 selectedBucketStart={selectedBucketStart}
@@ -385,6 +388,7 @@ function MdDashboardTab() {
               seriesLabel={chartBucket === 'md' ? 'Profit' : 'Profit médio'}
               seriesColor="var(--series-1)"
               bucket={chartBucket}
+              range={{ from, to }}
               unitLabel="md"
               onPointClick={chartBucket === 'md' ? undefined : handlePointClick}
               selectedBucketStart={selectedBucketStart}

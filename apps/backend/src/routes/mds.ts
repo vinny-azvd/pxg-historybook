@@ -3,6 +3,7 @@ import { db } from '../db/connection.js';
 import { validateMdExport } from '../services/mdValidation.js';
 import { DuplicateMdError, ingestMd, MD_DIFFICULTIES, type MdDifficulty } from '../services/mdIngestion.js';
 import { buildMdFilter } from '../services/mdFilters.js';
+import { rareKillsPerHourOrZeroSql, withRareKillsPerHour } from '../services/rates.js';
 
 export const mdsRouter = Router();
 
@@ -13,7 +14,7 @@ const SORTABLE_COLUMNS: Record<string, string> = {
   profit_per_hour: 't.profit_per_hour',
   kills: 't.kills',
   kills_per_hour: 't.kills_per_hour',
-  rare_kills_per_hour: 't.rare_kills_per_hour',
+  rare_kills_per_hour: rareKillsPerHourOrZeroSql('t'),
   duration_seconds: 't.duration_seconds',
 };
 
@@ -42,7 +43,7 @@ mdsRouter.post('/', (req, res) => {
   const rawJson = JSON.stringify(mdPayload);
   try {
     const result = ingestMd(rawJson, parsed.data, mdNameOverride, difficulty);
-    const summary = db.prepare('SELECT * FROM mds WHERE id = ?').get(result.id);
+    const summary = withRareKillsPerHour(db.prepare('SELECT * FROM mds WHERE id = ?').get(result.id));
     res.status(201).json({ ...result, summary });
   } catch (err) {
     if (err instanceof DuplicateMdError) {
@@ -71,7 +72,7 @@ mdsRouter.get('/', (req, res) => {
   const rows = db
     .prepare(
       `SELECT t.id, t.md_name, t.difficulty, t.session_type, t.status, t.start_time, t.duration_seconds, t.kills, t.kills_per_hour,
-              t.rare_kills, t.rare_kills_per_hour, t.experience_per_hour, t.supplies_cost, t.supplies_per_hour,
+              t.rare_kills, ${rareKillsPerHourOrZeroSql('t')} AS rare_kills_per_hour, t.experience_per_hour, t.supplies_cost, t.supplies_per_hour,
               t.profit, t.profit_per_hour,
               t.damage_dealt_per_second, t.damage_taken_per_second,
               (SELECT GROUP_CONCAT(p.name, '||') FROM md_players tp JOIN players p ON p.id = tp.player_id WHERE tp.md_id = t.id) AS players,
@@ -101,7 +102,7 @@ mdsRouter.get('/', (req, res) => {
 
 mdsRouter.get('/:id', (req, res) => {
   const id = Number(req.params.id);
-  const md = db.prepare('SELECT * FROM mds WHERE id = ?').get(id);
+  const md = withRareKillsPerHour(db.prepare('SELECT * FROM mds WHERE id = ?').get(id));
   if (!md) return res.status(404).json({ error: 'not_found' });
 
   const players = db
@@ -161,7 +162,7 @@ mdsRouter.patch('/:id', (req, res) => {
   }
   const result = db.prepare('UPDATE mds SET md_name = ? WHERE id = ?').run(mdName, id);
   if (result.changes === 0) return res.status(404).json({ error: 'not_found' });
-  const md = db.prepare('SELECT * FROM mds WHERE id = ?').get(id);
+  const md = withRareKillsPerHour(db.prepare('SELECT * FROM mds WHERE id = ?').get(id));
   res.json({ md });
 });
 

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { TerrorDetail, TerrorListItem } from '../api/types';
 import { usePreferences } from '../PreferencesContext';
-import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
+import { formatCompact, formatDateTime, formatDuration, formatInt, formatRate } from '../format';
 import { ItemIcon } from './ItemIcon';
 import { RareDropBadge } from './HuntBadges';
 
@@ -66,7 +66,7 @@ export function TerrorCard({ terror }: TerrorCardProps) {
         </div>
         <div>
           <dt>Raros/h</dt>
-          <dd>{formatInt(terror.rare_kills_per_hour)}</dd>
+          <dd>{formatRate(terror.rare_kills_per_hour)}</dd>
         </div>
         {visibleFields.experience && (
           <div>

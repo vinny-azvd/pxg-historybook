@@ -3,6 +3,7 @@ import { db } from '../db/connection.js';
 import { validateTerrorExport } from '../services/terrorValidation.js';
 import { DuplicateTerrorError, ingestTerror } from '../services/terrorIngestion.js';
 import { buildTerrorFilter } from '../services/terrorFilters.js';
+import { rareKillsPerHourOrZeroSql, withRareKillsPerHour } from '../services/rates.js';
 
 export const terrorsRouter = Router();
 
@@ -13,7 +14,7 @@ const SORTABLE_COLUMNS: Record<string, string> = {
   profit_per_hour: 't.profit_per_hour',
   kills: 't.kills',
   kills_per_hour: 't.kills_per_hour',
-  rare_kills_per_hour: 't.rare_kills_per_hour',
+  rare_kills_per_hour: rareKillsPerHourOrZeroSql('t'),
   duration_seconds: 't.duration_seconds',
 };
 
@@ -37,7 +38,7 @@ terrorsRouter.post('/', (req, res) => {
   const rawJson = JSON.stringify(terrorPayload);
   try {
     const result = ingestTerror(rawJson, parsed.data, terrorNameOverride);
-    const summary = db.prepare('SELECT * FROM terrors WHERE id = ?').get(result.id);
+    const summary = withRareKillsPerHour(db.prepare('SELECT * FROM terrors WHERE id = ?').get(result.id));
     res.status(201).json({ ...result, summary });
   } catch (err) {
     if (err instanceof DuplicateTerrorError) {
@@ -66,7 +67,7 @@ terrorsRouter.get('/', (req, res) => {
   const rows = db
     .prepare(
       `SELECT t.id, t.terror_name, t.session_type, t.status, t.start_time, t.duration_seconds, t.kills, t.kills_per_hour,
-              t.rare_kills, t.rare_kills_per_hour, t.experience_per_hour, t.supplies_cost, t.supplies_per_hour,
+              t.rare_kills, ${rareKillsPerHourOrZeroSql('t')} AS rare_kills_per_hour, t.experience_per_hour, t.supplies_cost, t.supplies_per_hour,
               t.profit, t.profit_per_hour,
               t.damage_dealt_per_second, t.damage_taken_per_second,
               (SELECT GROUP_CONCAT(p.name, '||') FROM terror_players tp JOIN players p ON p.id = tp.player_id WHERE tp.terror_id = t.id) AS players,
@@ -96,7 +97,7 @@ terrorsRouter.get('/', (req, res) => {
 
 terrorsRouter.get('/:id', (req, res) => {
   const id = Number(req.params.id);
-  const terror = db.prepare('SELECT * FROM terrors WHERE id = ?').get(id);
+  const terror = withRareKillsPerHour(db.prepare('SELECT * FROM terrors WHERE id = ?').get(id));
   if (!terror) return res.status(404).json({ error: 'not_found' });
 
   const players = db
@@ -156,7 +157,7 @@ terrorsRouter.patch('/:id', (req, res) => {
   }
   const result = db.prepare('UPDATE terrors SET terror_name = ? WHERE id = ?').run(terrorName, id);
   if (result.changes === 0) return res.status(404).json({ error: 'not_found' });
-  const terror = db.prepare('SELECT * FROM terrors WHERE id = ?').get(id);
+  const terror = withRareKillsPerHour(db.prepare('SELECT * FROM terrors WHERE id = ?').get(id));
   res.json({ terror });
 });
 

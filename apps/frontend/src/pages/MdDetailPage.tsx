@@ -6,7 +6,7 @@ import { ItemIcon } from '../components/ItemIcon';
 import { StatTile } from '../components/StatTile';
 import { RareDropBadge } from '../components/HuntBadges';
 import { usePreferences } from '../PreferencesContext';
-import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
+import { formatClock, formatCompact, formatDateTime, formatInt, formatRate } from '../format';
 
 export function MdDetailPage() {
   const { id } = useParams();
@@ -105,7 +105,7 @@ export function MdDetailPage() {
           )}
           <p className="page-subtitle">
             {formatDateTime(md.start_time)} · {players.map((p) => p.name).join(', ')} · Duração{' '}
-            {formatDuration(md.duration_seconds)}
+            {formatClock(md.duration_seconds)}
           </p>
         </div>
         <button className="secondary" onClick={handleDelete}>
@@ -120,7 +120,7 @@ export function MdDetailPage() {
         <StatTile
           label="Raros"
           value={formatInt(md.rare_kills)}
-          sub={`${formatInt(md.rare_kills_per_hour)}/h`}
+          sub={`${formatRate(md.rare_kills_per_hour)}/h`}
           onClick={() => setShowRareDetail((v) => !v)}
         />
         <StatTile label="Exp/h" value={formatCompact(md.experience_per_hour)} />

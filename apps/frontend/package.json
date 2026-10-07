@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "copy-icons": "node scripts/copy-icons.mjs",
-    "prebuild": "node scripts/copy-icons.mjs",
+    "sprites": "node scripts/pokemon/fetch-sprites.mjs",
+    "pokedex": "node scripts/pokemon/generate-pokedex.mjs",
+    "prebuild": "node scripts/copy-icons.mjs && node scripts/pokemon/fetch-sprites.mjs",
     "build": "tsc -b && vite build",
     "postbuild": "node -e \"import('node:fs').then(fs=>fs.copyFileSync('dist/index.html','dist/404.html'))\"",
     "preview": "vite preview"

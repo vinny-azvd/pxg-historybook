@@ -4,7 +4,6 @@
 import type { CompareDelta, CompareResponse, MonthBucket, OverviewStats, PlayerTrendPoint, RareKillRow, TrendPoint } from '../../types';
 import type { StoredHunt } from '../storedTypes';
 import {
-  avg,
   bucketFn,
   bucketTopDrops,
   buildFilterPredicate,
@@ -15,10 +14,15 @@ import {
   maxOf,
   mostFrequentName,
   nameCounts,
+  perHour,
+  perSecond,
+  rareKillsPerHour,
   sum,
   topDrops,
 } from './shared';
 
+// The avg* rates are total ÷ hours over the whole filter (see perHour), so
+// computeCompare's deltas built on top of this use the same definition.
 export function computeOverview(hunts: StoredHunt[], filter: FilterQuery): OverviewStats {
   const filtered = hunts.filter(buildFilterPredicate<StoredHunt>(filter));
 
@@ -30,20 +34,24 @@ export function computeOverview(hunts: StoredHunt[], filter: FilterQuery): Overv
     huntCount: filtered.length,
     totalDurationSeconds: sum(filtered, (h) => h.duration_seconds),
     totalProfit: sum(filtered, (h) => h.profit),
-    avgProfitPerHour: avg(filtered, (h) => h.profit_per_hour),
+    avgProfitPerHour: perHour(filtered, (h) => h.profit),
     maxProfitPerHour: maxOf(filtered, (h) => h.profit_per_hour),
     totalKills: sum(filtered, (h) => h.kills),
-    avgKillsPerHour: avg(filtered, (h) => h.kills_per_hour),
+    avgKillsPerHour: perHour(filtered, (h) => h.kills),
     maxKillsPerHour: maxOf(filtered, (h) => h.kills_per_hour),
     maxKills: maxOf(filtered, (h) => h.kills),
     totalRareKills: sum(filtered, (h) => h.rare_kills),
-    avgRareKillsPerHour: avg(filtered, (h) => h.rare_kills_per_hour),
-    maxRareKillsPerHour: maxOf(filtered, (h) => h.rare_kills_per_hour),
+    avgRareKillsPerHour: perHour(filtered, (h) => h.rare_kills),
+    // Like SQL MAX(), zero-length hunts (no rate) are skipped.
+    maxRareKillsPerHour: maxOf(
+      filtered.filter((h) => rareKillsPerHour(h) !== null),
+      (h) => rareKillsPerHour(h)!
+    ),
     maxRareKills: maxOf(filtered, (h) => h.rare_kills),
-    avgExperiencePerHour: avg(filtered, (h) => h.experience_per_hour),
-    avgSuppliesPerHour: avg(filtered, (h) => h.supplies_per_hour),
-    avgDamageDealtPerSecond: avg(filtered, (h) => h.damage_dealt_per_second),
-    avgDamageTakenPerSecond: avg(filtered, (h) => h.damage_taken_per_second),
+    avgExperiencePerHour: perHour(filtered, (h) => h.experience),
+    avgSuppliesPerHour: perHour(filtered, (h) => h.supplies_cost),
+    avgDamageDealtPerSecond: perSecond(filtered, (h) => h.damage_dealt),
+    avgDamageTakenPerSecond: perSecond(filtered, (h) => h.damage_taken),
     totalExperience: sum(filtered, (h) => h.experience),
     mostProfitableHunt: mostProfitableDoc
       ? {
@@ -69,12 +77,17 @@ export function computeOverview(hunts: StoredHunt[], filter: FilterQuery): Overv
   };
 }
 
+// With a player filter, only that player's own rows count: in a party hunt
+// each Enemies Defeated row carries the player who got the kill, so matching
+// the hunt alone would credit them with the whole party's rares. In a solo
+// hunt every row already belongs to its only player, so nothing changes there.
 export function computeRareKills(hunts: StoredHunt[], filter: FilterQuery): RareKillRow[] {
   const filtered = hunts.filter(buildFilterPredicate<StoredHunt>(filter));
+  const playerId = filter.player ? Number(filter.player) : undefined;
   const rows: RareKillRow[] = [];
   for (const hunt of filtered) {
     for (const ed of hunt.enemies_defeated) {
-      if (ed.rare === 1) {
+      if (ed.rare === 1 && (playerId === undefined || ed.player_id === playerId)) {
         rows.push({
           id: ed.id,
           huntId: hunt.id,
@@ -123,7 +136,7 @@ export function computeTrends(hunts: StoredHunt[], filter: FilterQuery, bucket: 
         totalProfit: h.profit,
         avgProfitPerHour: h.profit_per_hour,
         avgKillsPerHour: h.kills_per_hour,
-        avgRareKillsPerHour: h.rare_kills_per_hour,
+        avgRareKillsPerHour: rareKillsPerHour(h),
         avgExperiencePerHour: h.experience_per_hour,
         avgSuppliesPerHour: h.supplies_per_hour,
         jadeTotemCount: h.jade_totem_count,
@@ -148,11 +161,11 @@ export function computeTrends(hunts: StoredHunt[], filter: FilterQuery, bucket: 
       names: nameCounts(docs, (h) => h.hunt_name),
       topDrops: bucketTopDrops(docs),
       totalProfit: sum(docs, (h) => h.profit),
-      avgProfitPerHour: avg(docs, (h) => h.profit_per_hour),
-      avgKillsPerHour: avg(docs, (h) => h.kills_per_hour),
-      avgRareKillsPerHour: avg(docs, (h) => h.rare_kills_per_hour),
-      avgExperiencePerHour: avg(docs, (h) => h.experience_per_hour),
-      avgSuppliesPerHour: avg(docs, (h) => h.supplies_per_hour),
+      avgProfitPerHour: perHour(docs, (h) => h.profit),
+      avgKillsPerHour: perHour(docs, (h) => h.kills),
+      avgRareKillsPerHour: perHour(docs, (h) => h.rare_kills),
+      avgExperiencePerHour: perHour(docs, (h) => h.experience),
+      avgSuppliesPerHour: perHour(docs, (h) => h.supplies_cost),
     }));
 }
 
@@ -174,7 +187,7 @@ export function computeTrendsByPlayer(hunts: StoredHunt[], filter: FilterQuery, 
           totalProfit: h.profit,
           avgProfitPerHour: h.profit_per_hour,
           avgKillsPerHour: h.kills_per_hour,
-          avgRareKillsPerHour: h.rare_kills_per_hour,
+          avgRareKillsPerHour: rareKillsPerHour(h),
           avgExperiencePerHour: h.experience_per_hour,
           avgSuppliesPerHour: h.supplies_per_hour,
         });
@@ -204,11 +217,11 @@ export function computeTrendsByPlayer(hunts: StoredHunt[], filter: FilterQuery, 
       names: nameCounts(g.docs, (h) => h.hunt_name),
       topDrops: bucketTopDrops(g.docs),
       totalProfit: sum(g.docs, (h) => h.profit),
-      avgProfitPerHour: avg(g.docs, (h) => h.profit_per_hour),
-      avgKillsPerHour: avg(g.docs, (h) => h.kills_per_hour),
-      avgRareKillsPerHour: avg(g.docs, (h) => h.rare_kills_per_hour),
-      avgExperiencePerHour: avg(g.docs, (h) => h.experience_per_hour),
-      avgSuppliesPerHour: avg(g.docs, (h) => h.supplies_per_hour),
+      avgProfitPerHour: perHour(g.docs, (h) => h.profit),
+      avgKillsPerHour: perHour(g.docs, (h) => h.kills),
+      avgRareKillsPerHour: perHour(g.docs, (h) => h.rare_kills),
+      avgExperiencePerHour: perHour(g.docs, (h) => h.experience),
+      avgSuppliesPerHour: perHour(g.docs, (h) => h.supplies_cost),
     }))
     .sort((a, b) => a.playerId - b.playerId || (a.bucketStart < b.bucketStart ? -1 : a.bucketStart > b.bucketStart ? 1 : 0));
 }

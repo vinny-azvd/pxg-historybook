@@ -6,7 +6,7 @@ import { ItemIcon } from '../components/ItemIcon';
 import { StatTile } from '../components/StatTile';
 import { RareDropBadge } from '../components/HuntBadges';
 import { usePreferences } from '../PreferencesContext';
-import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
+import { formatClock, formatCompact, formatDateTime, formatInt, formatRate } from '../format';
 
 export function TerrorDetailPage() {
   const { id } = useParams();
@@ -99,7 +99,7 @@ export function TerrorDetailPage() {
           )}
           <p className="page-subtitle">
             {formatDateTime(terror.start_time)} · {players.map((p) => p.name).join(', ')} · Duração{' '}
-            {formatDuration(terror.duration_seconds)}
+            {formatClock(terror.duration_seconds)}
           </p>
         </div>
         <button className="secondary" onClick={handleDelete}>
@@ -114,7 +114,7 @@ export function TerrorDetailPage() {
         <StatTile
           label="Raros"
           value={formatInt(terror.rare_kills)}
-          sub={`${formatInt(terror.rare_kills_per_hour)}/h`}
+          sub={`${formatRate(terror.rare_kills_per_hour)}/h`}
           onClick={() => setShowRareDetail((v) => !v)}
         />
         <StatTile label="Exp/h" value={formatCompact(terror.experience_per_hour)} />

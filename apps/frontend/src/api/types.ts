@@ -19,6 +19,9 @@ export interface HuntListItem {
   kills: number;
   kills_per_hour: number;
   rare_kills: number;
+  // Recomputed as rare_kills ÷ hours (0 for a zero-length session) in hunt,
+  // terror and MD lists/records alike - the export's own field is floored to
+  // an integer and is never served.
   rare_kills_per_hour: number;
   experience_per_hour: number;
   supplies_cost: number;
@@ -107,6 +110,10 @@ export interface HuntDetail {
   enemiesDefeated: EnemyDefeatedLine[];
 }
 
+// Every avg*PerHour / avg*PerSecond here, in TrendPoint/PlayerTrendPoint
+// day/week/month buckets and in CompareResponse is total ÷ time played over
+// the group, not a mean of per-hunt rates. Per-hunt trend points carry that
+// hunt's own rate (Raros/h recomputed from rare_kills, see HuntListItem).
 export interface OverviewStats {
   huntCount: number;
   totalDurationSeconds: number;
@@ -419,6 +426,8 @@ export interface MdWeeklySummary {
   mdCount: number;
   totalProfit: number;
   avgProfit: number | null;
+  // Total rares ÷ hours across the week's runs.
+  avgRareKillsPerHour: number | null;
 }
 
 export interface MdWeeklyResponse {

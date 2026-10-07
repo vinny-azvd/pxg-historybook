@@ -5,8 +5,8 @@ export function PlayerFilter() {
 
   return (
     <div className="filter-bar">
-      <select value={player} onChange={(e) => setPlayer(e.target.value)} aria-label="Filtrar por personagem">
-        <option value="">Todos os personagens</option>
+      <select value={player} onChange={(e) => setPlayer(e.target.value)} aria-label="Filtrar por treinador">
+        <option value="">Todos os treinadores</option>
         {players.map((p) => (
           <option key={p.id} value={p.id}>
             {p.name} ({p.huntCount})

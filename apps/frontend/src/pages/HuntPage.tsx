@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
 import { usePreferences } from '../PreferencesContext';
+import { usePlayerColor } from '../playerColors';
 import { parseHuntJson } from '../jsonParse';
 import { ConfirmHuntModal } from '../components/ConfirmHuntModal';
 import { HuntCard } from '../components/HuntCard';
@@ -14,7 +15,7 @@ import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChar
 import { NameBreakdownChart, type NameBreakdownMetric } from '../components/charts/NameBreakdownChart';
 import { PlayerLegend } from '../components/PlayerLegend';
 import type { HuntListItem, NameBreakdownRow, OverviewStats, PlayerTrendPoint, RareKillRow, TrendPoint } from '../api/types';
-import { formatBucketLabel, formatCompact, formatDateTime, formatHours, formatInt } from '../format';
+import { formatBucketLabel, formatCompact, formatDateTime, formatHours, formatInt, formatRate } from '../format';
 import { bucketRange, periodRangeForDate, referenceDateFromRange } from '../dates';
 
 type Tab = 'dashboard' | 'history' | 'upload';
@@ -40,10 +41,6 @@ const NAME_RANGE_OPTIONS: { value: NameRange; label: string }[] = [
 
 type HuntNameMetric = Extract<NameBreakdownMetric, 'avgProfitPerHour' | 'avgRareKillsPerHour' | 'totalDurationSeconds'>;
 
-function formatRatePerHour(value: number): string {
-  return value.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
-}
-
 const NAME_METRIC_OPTIONS: {
   value: HuntNameMetric;
   label: string;
@@ -51,7 +48,7 @@ const NAME_METRIC_OPTIONS: {
   formatValue: (value: number) => string;
 }[] = [
   { value: 'avgProfitPerHour', label: 'Profit/h médio', title: 'Profit/h médio por hunt', formatValue: formatCompact },
-  { value: 'avgRareKillsPerHour', label: 'Raros/h médio', title: 'Raros/h médio por hunt', formatValue: formatRatePerHour },
+  { value: 'avgRareKillsPerHour', label: 'Raros/h médio', title: 'Raros/h médio por hunt', formatValue: formatRate },
   { value: 'totalDurationSeconds', label: 'Horas caçadas', title: 'Horas caçadas por hunt', formatValue: formatHours },
 ];
 
@@ -118,7 +115,8 @@ export function HuntPage() {
 
 function HuntDashboardTab() {
   const { player, sessionType, from, to, setDateRange } = useFilters();
-  const { rareDropThreshold, getPlayerColor } = usePreferences();
+  const { rareDropThreshold } = usePreferences();
+  const getPlayerColor = usePlayerColor();
   const [overview, setOverview] = useState<OverviewStats | null>(null);
   // Unaffected by the from/to period filter, unlike `overview` - so
   // navigating to a period with zero hunts (e.g. an empty week) doesn't get
@@ -289,7 +287,7 @@ function HuntDashboardTab() {
     }
     return [...byPlayer.values()]
       .sort((a, b) => a.playerId - b.playerId)
-      .map((entry, index) => ({ ...entry, color: getPlayerColor(String(entry.playerId), index) }));
+      .map((entry) => ({ ...entry, color: getPlayerColor(entry.playerId) }));
   }, [playerTrend, getPlayerColor]);
 
   // Drilling into a clicked point also breaks it down hunt-by-hunt: how many
@@ -402,8 +400,8 @@ function HuntDashboardTab() {
         />
         <StatTile
           label="Raros/h médio"
-          value={formatInt(overview.avgRareKillsPerHour)}
-          sub={`máx ${formatInt(overview.maxRareKillsPerHour)}/h · recorde ${formatInt(overview.maxRareKills)} numa hunt`}
+          value={formatRate(overview.avgRareKillsPerHour)}
+          sub={`máx ${formatRate(overview.maxRareKillsPerHour)}/h · recorde ${formatInt(overview.maxRareKills)} numa hunt`}
         />
         <StatTile label="Exp/h médio" value={formatCompact(overview.avgExperiencePerHour)} />
         <StatTile label="Suprimentos/h médio" value={formatCompact(overview.avgSuppliesPerHour)} />
@@ -602,6 +600,7 @@ function HuntDashboardTab() {
                 rareDropThreshold={rareDropThreshold}
                 series={playerSeries}
                 bucket={chartBucket}
+                range={{ from, to }}
                 onPointClick={chartBucket === 'hunt' ? undefined : handlePointClick}
                 selectedBucketStart={selectedBucketStart}
               />
@@ -613,6 +612,7 @@ function HuntDashboardTab() {
               seriesLabel={chartBucket === 'hunt' ? 'Profit/h' : 'Profit/h médio'}
               seriesColor="var(--series-1)"
               bucket={chartBucket}
+              range={{ from, to }}
               onPointClick={chartBucket === 'hunt' ? undefined : handlePointClick}
               selectedBucketStart={selectedBucketStart}
               rareDropThreshold={rareDropThreshold}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { extractMdEnemies, deriveMdName } from '../mdNaming';
-import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
+import { formatClock, formatCompact, formatDateTime, formatInt } from '../format';
 import type { MdDifficulty } from '../api/types';
 
 // Hardest to easiest.
@@ -118,10 +118,10 @@ export function ConfirmMdModal({ md, submitting, errorMessage, onConfirm, onCanc
           </div>
           <div>
             <dt>Duração</dt>
-            <dd>{session['Duration seconds'] !== undefined ? formatDuration(session['Duration seconds']) : '—'}</dd>
+            <dd>{session['Duration seconds'] !== undefined ? formatClock(session['Duration seconds']) : '—'}</dd>
           </div>
           <div>
-            <dt>Personagem(s)</dt>
+            <dt>Treinador(es)</dt>
             <dd>
               {players.join(', ') || '—'}
               {session['Session type'] === 'party' ? ' (party)' : ''}

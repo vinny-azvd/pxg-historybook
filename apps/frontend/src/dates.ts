@@ -90,6 +90,43 @@ export function bucketStartForDate(date: Date, bucket: 'day' | 'week' | 'month')
   return toISODate(date);
 }
 
+// Above this many slots a "fill every gap" axis turns into a comb of empty
+// ticks - better to leave a huge all-time day range as it is.
+const MAX_FILLED_BUCKETS = 400;
+
+/** Every day/week/month bucketStart between `from` and `to` (or, when the
+ * range is open, between the first and last bucket that has data), merged
+ * with the ones that have data. Periods without hunts then still show up on
+ * the x axis instead of the line silently jumping over them. */
+export function fillBucketStarts(
+  existing: string[],
+  bucket: 'day' | 'week' | 'month',
+  range?: { from?: string; to?: string }
+): string[] {
+  const sorted = [...new Set(existing)].sort();
+  const firstIso = range?.from || sorted[0];
+  const lastIso = range?.to || sorted[sorted.length - 1];
+  if (!firstIso || !lastIso) return sorted;
+  const start = new Date(`${bucketStartForDate(new Date(`${firstIso.slice(0, 10)}T00:00:00`), bucket)}T00:00:00`);
+  const end = new Date(`${lastIso.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return sorted;
+
+  const all = new Set(sorted);
+  const cursor = new Date(start);
+  for (let i = 0; cursor <= end && i < MAX_FILLED_BUCKETS; i++) {
+    all.add(bucketStartForDate(cursor, bucket));
+    if (bucket === 'month') cursor.setMonth(cursor.getMonth() + 1, 1);
+    else cursor.setDate(cursor.getDate() + (bucket === 'week' ? 7 : 1));
+  }
+  return [...all].sort();
+}
+
+/** Whether a bucket is the still-running day/week/month, so a chart can flag
+ * its value as partial instead of reading like a finished period's dip. */
+export function isPartialBucket(bucketStart: string, bucket: 'day' | 'week' | 'month'): boolean {
+  return bucketStartForDate(new Date(), bucket) === bucketStart.slice(0, 10);
+}
+
 /** One day/week/month before or after `date`, for stepping the period
  * navigator's prev/next buttons. Months land on the 1st, so a step from Jan
  * 31st doesn't roll over into March. */

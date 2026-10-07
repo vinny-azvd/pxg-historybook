@@ -87,7 +87,7 @@ export function DataPage() {
       const res = await importFromJson(preview.payload, mode);
       setResult({
         kind: 'success',
-        message: `Importado: ${res.counts.players} jogadores, ${res.counts.hunts} hunts, ${res.counts.terrors} terrors, ${res.counts.mds} MDs.`,
+        message: `Importado: ${res.counts.players} treinadores, ${res.counts.hunts} hunts, ${res.counts.terrors} terrors, ${res.counts.mds} MDs.`,
       });
       setPreview({ kind: 'idle' });
       setConfirmingReplace(false);
@@ -179,7 +179,7 @@ export function DataPage() {
           <div style={{ marginTop: 14 }}>
             <p>
               Backup {preview.exportedAt ? `de ${preview.exportedAt} ` : ''}
-              contém: <strong>{preview.counts.players}</strong> jogadores, <strong>{preview.counts.hunts}</strong>{' '}
+              contém: <strong>{preview.counts.players}</strong> treinadores, <strong>{preview.counts.hunts}</strong>{' '}
               hunts, <strong>{preview.counts.terrors}</strong> terrors, <strong>{preview.counts.mds}</strong> MDs.
             </p>
 
