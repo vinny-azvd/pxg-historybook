@@ -12,6 +12,7 @@ import { PeriodNavigator } from '../components/PeriodNavigator';
 import { TrendChart } from '../components/charts/TrendChart';
 import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChart';
 import { PlayerLegend } from '../components/PlayerLegend';
+import { PeriodCards } from '../components/themes/PeriodCards';
 import type { PlayerTrendPoint, TerrorListItem, TerrorOverviewStats, TerrorWeeklySummary } from '../api/types';
 import { formatBucketLabel, formatCompact, formatDateTime, formatInt } from '../format';
 import { bucketRange, periodRangeForDate } from '../dates';
@@ -393,6 +394,8 @@ function TerrorDashboardTab() {
           )}
         </div>
       </div>
+
+      <PeriodCards kind="terror" />
 
       {pointFilter && (
         <div className="section" ref={drillDownRef} style={{ scrollMarginTop: 96 }}>

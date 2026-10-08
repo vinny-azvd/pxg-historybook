@@ -452,10 +452,67 @@
   border-radius: 12px;
 }
 
+/* Galeria de Raros: the same golden-framed card as the hunt cards, tinted by
+   the species' first type (RareGallery sets --t), sprite in an art window. */
+:root[data-skin='cards'] .rares-gallery {
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 22px 16px;
+}
+
 :root[data-skin='cards'] .rares-gallery-card {
-  background: var(--surface-1);
-  border: 2px solid rgba(242, 201, 76, 0.5);
-  border-radius: var(--radius-card);
+  --t: #b9b3a0;
+  /* Inside the card the page is light: dark ink tokens, like .hunt-card. */
+  --text-primary: #14120c;
+  --text-secondary: #2a2418;
+  --text-muted: #3b3222;
+  --gridline: rgba(20, 18, 12, 0.16);
+  --border: rgba(20, 18, 12, 0.24);
+  --focus-ring: #14120c;
+  --jade-badge-bg: #e3f7ee;
+  --jade-badge-text: #0a5a3c;
+  --rare-drop-badge-bg: #fff4d6;
+  --rare-drop-badge-text: #5c3f00;
+
+  color: var(--text-primary);
+  padding: 8px 8px 10px;
+  border: 8px solid transparent;
+  border-radius: 16px;
+  background: #e8e2d0;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--t) 44%, #fff), color-mix(in srgb, var(--t) 66%, #fff)) padding-box,
+    linear-gradient(135deg, #fbe38a, #d9a520 40%, #f6d765 62%, #b98511) border-box;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-skin='cards'] .rares-gallery-sprite {
+  width: 100%;
+  height: 116px;
+  padding: 8px;
+  object-fit: contain;
+  box-sizing: border-box;
+  border: 3px solid #c9a227;
+  border-radius: 6px;
+  background: radial-gradient(circle at 50% 62%, #fff 0%, color-mix(in srgb, var(--t) 40%, #fff) 72%);
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.18);
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.22));
+}
+
+:root[data-skin='cards'] .rares-gallery-name {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 19px;
+  color: var(--text-primary);
+}
+
+:root[data-skin='cards'] .rares-gallery-count {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 21px;
+}
+
+:root[data-skin='cards'] .rares-gallery-seen {
+  color: var(--text-muted);
 }
 
 /* ==========================================================================

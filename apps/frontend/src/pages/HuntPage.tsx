@@ -15,6 +15,7 @@ import { TrendChart } from '../components/charts/TrendChart';
 import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChart';
 import { NameBreakdownChart, type NameBreakdownMetric } from '../components/charts/NameBreakdownChart';
 import { PlayerLegend } from '../components/PlayerLegend';
+import { PeriodCards } from '../components/themes/PeriodCards';
 import type { HuntListItem, NameBreakdownRow, OverviewStats, PlayerTrendPoint, RareKillRow, TrendPoint } from '../api/types';
 import { formatBucketLabel, formatCompact, formatDateTime, formatHours, formatInt, formatRate } from '../format';
 import { bucketRange, inferPeriodScope, periodRangeForDate, type PeriodScope } from '../dates';
@@ -620,6 +621,8 @@ function HuntDashboardTab() {
           )}
         </div>
       </div>
+
+      <PeriodCards kind="hunt" />
 
       {pointFilter && (
         <div className="section" ref={drillDownRef} style={{ scrollMarginTop: 96 }}>

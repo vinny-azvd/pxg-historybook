@@ -1,5 +1,6 @@
 import type { RareSpeciesRow } from '../../api/types';
 import { formatDateTime, formatInt, formatRelativeDate } from '../../format';
+import { pokemonTypes, typeColor } from '../../pokemon';
 import { RareBadges, RareSprite, baseName } from './RareSprite';
 
 // The friendly side of the page: every rare species met in the period as a
@@ -10,7 +11,7 @@ export function RareGallery({ species }: { species: RareSpeciesRow[] }) {
   return (
     <ul className="rares-gallery">
       {species.map((s) => (
-        <li key={s.enemy} className="rares-gallery-card">
+        <li key={s.enemy} className="rares-gallery-card" style={{ ['--t' as string]: typeColor(pokemonTypes(s.enemy)[0]) }}>
           <RareSprite name={s.enemy} size={96} className="rares-gallery-sprite" />
           <span className="rares-gallery-name" title={s.enemy}>
             {baseName(s.enemy)}

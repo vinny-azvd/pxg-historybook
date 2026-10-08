@@ -13,6 +13,7 @@ import { TrendChart } from '../components/charts/TrendChart';
 import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChart';
 import { NameBreakdownChart } from '../components/charts/NameBreakdownChart';
 import { PlayerLegend } from '../components/PlayerLegend';
+import { PeriodCards } from '../components/themes/PeriodCards';
 import type { PlayerTrendPoint, MdDifficulty, MdListItem, MdOverviewStats, MdWeeklySummary, NameBreakdownRow } from '../api/types';
 import { formatBucketLabel, formatCompact, formatDateTime, formatInt } from '../format';
 import { bucketRange, periodRangeForDate } from '../dates';
@@ -397,6 +398,8 @@ function MdDashboardTab() {
           )}
         </div>
       </div>
+
+      <PeriodCards kind="md" />
 
       {pointFilter && (
         <div className="section" ref={drillDownRef} style={{ scrollMarginTop: 96 }}>
