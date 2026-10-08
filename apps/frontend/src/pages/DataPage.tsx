@@ -125,7 +125,7 @@ export function DataPage() {
 
   return (
     <div>
-      <h1>Dados locais</h1>
+      <h1 className="page-title">Dados locais</h1>
       <p className="page-subtitle">
         Este app está rodando no modo standalone: todos os dados ficam salvos só neste navegador (IndexedDB), sem
         nenhum servidor. Use esta página para importar um backup, ou para exportar o que está salvo aqui como
@@ -133,7 +133,7 @@ export function DataPage() {
       </p>
 
       <div className="card" style={{ marginBottom: 14 }}>
-        <h2>Exportar backup</h2>
+        <h2 className="section-title">Exportar backup</h2>
         <p className="page-subtitle">Baixa um arquivo .json com tudo que está salvo neste navegador agora.</p>
         <button disabled={busy} onClick={handleExport}>
           Exportar backup
@@ -141,7 +141,7 @@ export function DataPage() {
       </div>
 
       <div className="card">
-        <h2>Importar backup</h2>
+        <h2 className="section-title">Importar backup</h2>
         <p className="page-subtitle">
           Escolha o arquivo .json exportado (pelo backend com <code>npm run export</code>, ou por esta mesma tela em
           outro momento).

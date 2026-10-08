@@ -221,7 +221,7 @@ export function RaresPage() {
               </section>
 
               <section className="section">
-                <h2 className="section-title">Todos os raros ({formatInt(summary.events.length)})</h2>
+                <h2 className="section-title">Todos os raros <span className="num">({formatInt(summary.events.length)})</span></h2>
                 <div className="card">
                   <RareEventsTable events={summary.events} />
                 </div>

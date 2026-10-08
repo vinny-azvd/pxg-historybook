@@ -8,6 +8,7 @@ import { parseHuntJson } from '../jsonParse';
 import { ConfirmHuntModal } from '../components/ConfirmHuntModal';
 import { HuntCard } from '../components/HuntCard';
 import { CardSettingsPanel } from '../components/CardSettingsPanel';
+import { BattleScene } from '../components/themes/BattleScene';
 import { StatTile } from '../components/StatTile';
 import { PeriodNavigator } from '../components/PeriodNavigator';
 import { TrendChart } from '../components/charts/TrendChart';
@@ -349,6 +350,7 @@ function HuntDashboardTab() {
 
   return (
     <div>
+      <BattleScene overview={overview} />
       <p className="page-subtitle">
         {overview.huntCount} hunt{overview.huntCount === 1 ? '' : 's'} no período selecionado.
         {pointFilter && selectedBucketStart && <> · {formatBucketLabel(selectedBucketStart, chartBucket)}</>}
@@ -401,7 +403,7 @@ function HuntDashboardTab() {
               rates, timeline) lives on its own page, same period. */}
           <div className="rares-inline-header">
             <h2 className="section-title" style={{ margin: 0 }}>
-              Raros mortos no período ({rareKills.length})
+              Raros mortos no período <span className="num">({rareKills.length})</span>
             </h2>
             {/* Opens on Hunts only, so the total there matches this tile's. */}
             <Link to="/raros?origin=hunt" className="muted-link">
@@ -622,8 +624,11 @@ function HuntDashboardTab() {
       {pointFilter && (
         <div className="section" ref={drillDownRef} style={{ scrollMarginTop: 96 }}>
           <h2 className="section-title">
-            Hunts em {selectedBucketStart ? formatBucketLabel(selectedBucketStart, chartBucket) : ''}
-            {!dayHuntsLoading && <> ({dayHunts.length})</>}
+            Hunts em{' '}
+            <span className="num">
+              {selectedBucketStart ? formatBucketLabel(selectedBucketStart, chartBucket) : ''}
+              {!dayHuntsLoading && <> ({dayHunts.length})</>}
+            </span>
           </h2>
           {dayHuntsLoading ? (
             <div className="empty-state">Carregando...</div>

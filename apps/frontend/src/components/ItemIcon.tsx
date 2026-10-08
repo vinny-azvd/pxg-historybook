@@ -6,7 +6,7 @@ interface ItemIconProps {
 export function ItemIcon({ name, iconUrl }: ItemIconProps) {
   if (!iconUrl) {
     return (
-      <span className="item-icon placeholder" title={name}>
+      <span className="item-icon placeholder" title={name} aria-hidden="true">
         ?
       </span>
     );

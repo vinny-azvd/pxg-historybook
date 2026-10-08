@@ -1,10 +1,15 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { HuntDetail, HuntListItem } from '../api/types';
 import { usePreferences } from '../PreferencesContext';
+import { useSkin } from '../theme/ThemeContext';
+import { CardToggle } from '../theme/CardToggle';
+import { useCardProps } from '../theme/useCardProps';
 import { formatCompact, formatDateTime, formatDuration, formatInt, formatRate } from '../format';
 import { ItemIcon } from './ItemIcon';
+import { PokemonSprite } from './PokemonSprite';
+import { cardType } from './themes/cardType';
 import { JadeBadge, RareDropBadge } from './HuntBadges';
 
 interface HuntCardProps {
@@ -13,6 +18,7 @@ interface HuntCardProps {
 
 export function HuntCard({ hunt }: HuntCardProps) {
   const { rareDropThreshold, visibleFields } = usePreferences();
+  const { skin } = useSkin();
   const [expanded, setExpanded] = useState(false);
   const [detail, setDetail] = useState<HuntDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,17 +31,26 @@ export function HuntCard({ hunt }: HuntCardProps) {
     }
   }
 
+  const cardProps = useCardProps(toggle);
+  const expandedId = useId();
+
   const rareEnemies = detail?.enemiesDefeated.filter((e) => e.rare) ?? [];
   const rareDropLines = detail?.drops.filter((d) => d.unit_price >= rareDropThreshold) ?? [];
 
   return (
-    <div className="hunt-card" onClick={toggle}>
+    <div className="hunt-card" data-type={cardType(hunt.hunt_name)} {...cardProps}>
+      {skin !== 'classic' && (
+        <div className="hunt-card-art" aria-hidden="true">
+          <PokemonSprite name={hunt.hunt_name ?? ''} width={72} alt="" />
+        </div>
+      )}
       <div className="hunt-card-header">
         <Link to={`/hunts/${hunt.id}`} onClick={(e) => e.stopPropagation()}>
           {hunt.hunt_name ?? 'Hunt'}
         </Link>
         <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{formatDateTime(hunt.start_time)}</span>
       </div>
+      <CardToggle expanded={expanded} controlsId={expandedId} label={hunt.hunt_name ?? 'Hunt'} onToggle={toggle} />
 
       <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
         Duração {formatDuration(hunt.duration_seconds)} · {hunt.players.join(', ')}
@@ -90,7 +105,7 @@ export function HuntCard({ hunt }: HuntCardProps) {
       </dl>
 
       {expanded && (
-        <div className="hunt-card-expanded" onClick={(e) => e.stopPropagation()}>
+        <div className="hunt-card-expanded" id={expandedId} onClick={(e) => e.stopPropagation()}>
           {loading || !detail ? (
             <div className="empty-state">Carregando detalhes...</div>
           ) : (

@@ -401,8 +401,11 @@ function MdDashboardTab() {
       {pointFilter && (
         <div className="section" ref={drillDownRef} style={{ scrollMarginTop: 96 }}>
           <h2 className="section-title">
-            MDs em {selectedBucketStart ? formatBucketLabel(selectedBucketStart, chartBucket) : ''}
-            {!dayMdsLoading && <> ({dayMds.length})</>}
+            MDs em{' '}
+            <span className="num">
+              {selectedBucketStart ? formatBucketLabel(selectedBucketStart, chartBucket) : ''}
+              {!dayMdsLoading && <> ({dayMds.length})</>}
+            </span>
           </h2>
           {dayMdsLoading ? (
             <div className="empty-state">Carregando...</div>

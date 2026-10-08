@@ -1,5 +1,6 @@
 import { usePreferences } from '../PreferencesContext';
 import { toHexColor } from '../playerColors';
+import { DashSwatch } from './charts/seriesDash';
 
 export interface PlayerLegendEntry {
   id: number;
@@ -15,7 +16,7 @@ export function PlayerLegend({ entries }: { entries: PlayerLegendEntry[] }) {
     // several players, so switching to a period with no hunts (no entries)
     // doesn't shift the chart - and its nav buttons - up underneath the cursor.
     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, minHeight: 20, marginBottom: 10 }}>
-      {entries.map((e) => (
+      {entries.map((e, index) => (
         <label
           key={e.id}
           style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, cursor: 'pointer' }}
@@ -40,6 +41,8 @@ export function PlayerLegend({ entries }: { entries: PlayerLegendEntry[] }) {
               }}
             />
           </span>
+          {/* Dash-pattern sample; hidden unless the skin defines --legend-dash-display. */}
+          <DashSwatch color={e.color} index={index} />
           {e.name}
         </label>
       ))}

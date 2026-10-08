@@ -4,7 +4,8 @@ import { fillBucketStarts, isPartialBucket } from '../../dates';
 import { formatBucketLabel, formatCompact, formatFull } from '../../format';
 import { getRareDrops } from '../HuntBadges';
 import { TooltipNames, tooltipDetailStyle } from './TooltipNames';
-import { ChartFrame, ChartMarker, LineKey, MarkerLegend, niceScale, tooltipBoxStyle, tooltipHintStyle, type MarkerKind } from './chartKit';
+import { SeriesKey, seriesDash } from './seriesDash';
+import { ChartFrame, ChartMarker, MarkerLegend, niceScale, tooltipBoxStyle, tooltipHintStyle, type MarkerKind } from './chartKit';
 
 type PlayerTrendMetric = 'avgProfitPerHour' | 'avgProfit' | 'totalProfit';
 type Bucket = 'day' | 'week' | 'month' | 'hunt' | 'terror' | 'md';
@@ -208,7 +209,7 @@ export function MultiSeriesTrendChart({
                     return (
                       <div key={s.playerId} style={{ marginTop: index > 0 && !isEntryBucket ? 4 : 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <LineKey color={s.color} />
+                          <SeriesKey color={s.color} index={series.indexOf(s)} />
                           {s.playerName}: <strong title={formatFull(value)}>{formatCompact(value)}</strong>
                         </div>
                         {!isEntryBucket && (
@@ -239,7 +240,7 @@ export function MultiSeriesTrendChart({
               );
             }}
           />
-          {series.map((s) => (
+          {series.map((s, seriesIndex) => (
             <Line
               key={s.playerId}
               type="linear"
@@ -247,6 +248,7 @@ export function MultiSeriesTrendChart({
               name={s.playerName}
               stroke={s.color}
               strokeWidth={2}
+              style={{ strokeDasharray: seriesDash(s.color, seriesIndex) }}
               dot={(props: any) => (
                 <ChartMarker
                   key={props.key}

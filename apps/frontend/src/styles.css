@@ -32,11 +32,28 @@
   --rare-drop: #b8860b;
   --rare-drop-badge-bg: #fff6df;
   --rare-drop-badge-text: #8a6100;
+
+  /* Skin tokens (themes/*.css override them under :root[data-skin]).
+     Classic defaults reproduce the original look. */
+  --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --radius-card: 10px;
+  --radius-control: 6px;
+  --focus-ring: var(--selection);
+
+  /* Filled buttons / links (>= 4.5:1: white on #1a5cb0 is 6.6:1; the old
+     series-1 blue was 4.4:1). Skins restyle button/links on their own. */
+  --action: #1a5cb0;
+  --action-on: #ffffff;
+  --link: #1a5cb0;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme='light'])) {
     color-scheme: dark;
+    --action: #3987e5;
+    --action-on: #0d0d0d;
+    --link: #5a9cf0;
     --surface-1: #1a1a19;
     --page: #0d0d0d;
     --text-primary: #ffffff;
@@ -74,6 +91,9 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
+  --action: #3987e5;
+  --action-on: #0d0d0d;
+  --link: #5a9cf0;
   --surface-1: #1a1a19;
   --page: #0d0d0d;
   --text-primary: #ffffff;
@@ -116,7 +136,7 @@ body {
   margin: 0;
   background: var(--page);
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: var(--font-body);
 }
 
 a {
@@ -152,11 +172,13 @@ a {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
+  /* offsetParent of the links: App.tsx scrolls the active one into view. */
+  position: relative;
 }
 
 .nav a {
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   font-size: 14px;
   text-decoration: none;
   color: var(--text-secondary);
@@ -199,7 +221,7 @@ a {
 .card {
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   padding: 16px;
 }
 
@@ -213,7 +235,7 @@ a {
 .stat-tile {
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
@@ -302,7 +324,7 @@ table.data-table {
 
 .data-table a {
   text-decoration: none;
-  color: var(--series-1);
+  color: var(--link);
   font-weight: 600;
 }
 
@@ -326,7 +348,7 @@ table.data-table {
   align-items: center;
   justify-content: center;
   font-size: 10px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 select,
@@ -336,7 +358,7 @@ textarea {
   font-family: inherit;
   font-size: 13.5px;
   padding: 6px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--border);
   background: var(--surface-1);
   color: var(--text-primary);
@@ -346,10 +368,10 @@ button {
   font-family: inherit;
   font-size: 13.5px;
   padding: 7px 14px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--border);
-  background: var(--series-1);
-  color: white;
+  background: var(--action);
+  color: var(--action-on);
   font-weight: 600;
   cursor: pointer;
 }
@@ -409,7 +431,7 @@ button:disabled {
 .hunt-card {
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   padding: 14px 16px;
   cursor: pointer;
 }
@@ -463,7 +485,7 @@ button:disabled {
 
 .upload-drop {
   border: 1.5px dashed var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   padding: 32px;
   text-align: center;
   color: var(--text-secondary);
@@ -502,6 +524,12 @@ button:disabled {
   gap: 16px;
 }
 
+/* Lets a wide table scroll inside its .table-scroll instead of stretching the
+   column (and the page) to the table's width. */
+.two-col > * {
+  min-width: 0;
+}
+
 @media (max-width: 720px) {
   .two-col {
     grid-template-columns: 1fr;
@@ -526,6 +554,7 @@ button:disabled {
 
 .period-nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
@@ -885,7 +914,7 @@ button:disabled {
 .rares-gallery-card {
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   padding: 12px 10px 14px;
   display: flex;
   flex-direction: column;
@@ -997,3 +1026,627 @@ button:disabled {
   margin-bottom: 12px;
 }
 /* ========================= fim da Página Raros ========================= */
+
+/* ==========================================================================
+   SHELL / COMPACT BAR / THEME PICKER / SPRITE  (infra for the skins)
+   Documented contract: src/themes/README.md. Skins override these under
+   :root[data-skin='<skin>'] (higher specificity); do not edit them here.
+   ========================================================================== */
+
+/* ---- focus, skip link, motion (all skins) ---- */
+:where(a, button, select, input, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* The focus target of the skip link; no ring on a non-interactive region. */
+.main:focus {
+  outline: none;
+}
+
+html {
+  /* Anchor / focus scrolling keeps targets clear of the sticky bar.
+     --topbar-h is the bar's measured height (App.tsx); 88px until it runs. */
+  scroll-padding-top: calc(var(--topbar-h, 72px) + 16px);
+}
+
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 300;
+  padding: 10px 16px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border: 2px solid var(--focus-ring);
+  border-radius: var(--radius-control);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---- header ---- */
+.brand {
+  text-decoration: none;
+  color: inherit;
+  font-family: var(--font-display);
+}
+
+.brand-short {
+  display: none;
+}
+
+/* Display face (titles, menu, buttons). Same as the body face in Classic;
+   gameboy/battle/cards point --font-display at their own font. Numbers,
+   tables, axes and tooltips stay on --font-body. */
+.page-title,
+.section-title,
+.nav a,
+.nav-toggle,
+button {
+  font-family: var(--font-display);
+}
+
+.filters-toggle-count {
+  font-family: var(--font-body);
+}
+
+/* Hidden by default; the Game Boy skin shows it as START on phones. */
+.nav-toggle {
+  display: none;
+}
+
+/* "Filtros" button: phones only. */
+.filters-toggle {
+  display: none;
+}
+
+.filters-toggle-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--text-primary);
+  color: var(--surface-1);
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* Desktop: the two filters sit in the bar exactly as before. */
+.topbar-filters {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.topbar-filters .filter-bar {
+  margin-left: 0;
+}
+
+/* ---- theme picker ---- */
+.theme-picker {
+  position: relative;
+  flex: none;
+}
+
+.theme-picker-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 6px;
+}
+
+.theme-picker-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  width: min(340px, calc(100vw - 24px));
+  padding: 12px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.theme-picker-title {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.theme-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.theme-option:hover {
+  background: var(--gridline);
+}
+
+.theme-option[aria-selected='true'] {
+  border-color: var(--text-primary);
+}
+
+.theme-option-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.theme-option-label {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.theme-option-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.theme-option-check {
+  font-weight: 700;
+}
+
+/* Miniature of each skin. Fixed colours on purpose: the preview shows the
+   skin, not the active one. Three <i> children = bar / body / accent. */
+.skin-preview {
+  position: relative;
+  flex: none;
+  display: block;
+  width: 56px;
+  height: 40px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  background: var(--sw-body);
+}
+
+.skin-preview i {
+  position: absolute;
+  display: block;
+}
+
+.skin-preview i:nth-child(1) {
+  inset: 0 0 auto 0;
+  height: 10px;
+  background: var(--sw-bar);
+}
+
+.skin-preview i:nth-child(2) {
+  left: 6px;
+  right: 6px;
+  top: 16px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--sw-panel);
+}
+
+.skin-preview i:nth-child(3) {
+  left: 6px;
+  width: 22px;
+  bottom: 5px;
+  height: 5px;
+  border-radius: 2px;
+  background: var(--sw-accent);
+}
+
+.skin-preview[data-preview='classic'] {
+  --sw-bar: #fcfcfb;
+  --sw-body: #f9f9f7;
+  --sw-panel: #c3c2b7;
+  --sw-accent: #2a78d6;
+}
+
+.skin-preview[data-preview='gameboy'] {
+  --sw-bar: #0f380f;
+  --sw-body: #9bbc0f;
+  --sw-panel: #306230;
+  --sw-accent: #0f380f;
+}
+
+.skin-preview[data-preview='battle'] {
+  --sw-bar: #1b2a49;
+  --sw-body: #f7f5ee;
+  --sw-panel: #3a7bd5;
+  --sw-accent: #e8483b;
+}
+
+.skin-preview[data-preview='cards'] {
+  --sw-bar: #0c252a;
+  --sw-body: #12343b;
+  --sw-panel: rgba(255, 255, 255, 0.18);
+  --sw-accent: #f2c94c;
+}
+
+/* ---- pokémon sprite + card art slot (rendered only when skin != classic) ---- */
+.pokemon-sprite {
+  image-rendering: pixelated;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.hunt-card {
+  position: relative;
+}
+
+/* The card is not focusable itself: its only own tab stop is the visually
+   hidden disclosure button (theme/CardToggle.tsx); the ring goes around the
+   whole card. */
+.hunt-card:has(> .card-toggle:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+/* Selector weight on purpose: the skins restyle every <button> (padding,
+   min-height, shadows) and none of that may make this one visible. */
+:root .hunt-card > button.card-toggle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.hunt-card-art {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+/* ---- phones: ONE compact sticky row, <= 56px ----
+   Block 1 = every skin on phones. Block 2 = the same bar for the three
+   non-Classic skins on tablets and small windows (721-1023px), where their
+   multi-row header was taking 20% of the viewport; Classic keeps its original
+   wrapping header there. Keep the two blocks identical (block 2 only adds the
+   :root:where(:not([data-skin='classic'])) prefix, which adds no specificity
+   beyond the :root, so the skins still override it). */
+@media (max-width: 720px) {
+  .topbar {
+    flex-wrap: nowrap;
+    gap: 6px;
+    height: 56px;
+    padding: 0 8px;
+  }
+
+  .brand {
+    flex: none;
+    font-size: 15px;
+    /* touch target >= 40px */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .brand-full {
+    display: none;
+  }
+
+  .brand-short {
+    display: inline;
+  }
+
+  .nav {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-wrap: nowrap;
+    gap: 2px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    scroll-padding-inline: 16px;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav a {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 10px;
+    white-space: nowrap;
+  }
+
+  /* .nav scrolls (overflow clips the outline), so the ring is drawn INSIDE
+     the link instead of outside it. */
+  .nav a:focus-visible {
+    outline-offset: -3px;
+  }
+
+  .filters-toggle {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 12px;
+  }
+
+  .theme-picker-button {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  /* The Filtros panel drops under the bar. */
+  .topbar-filters {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin: 0;
+    padding: 12px 16px 16px;
+    background: var(--surface-1);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  .app-shell[data-filters-open='true'] .topbar-filters {
+    display: flex;
+  }
+
+  .topbar-filters .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .topbar-filters > div:not(.filter-bar) {
+    flex-wrap: wrap;
+  }
+
+  .topbar-filters select,
+  .topbar-filters input[type='date'] {
+    min-height: 40px;
+  }
+
+  .topbar-filters select {
+    width: 100%;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1023px) {
+  :root:where(:not([data-skin='classic'])) .topbar {
+    flex-wrap: nowrap;
+    gap: 6px;
+    height: 56px;
+    padding: 0 8px;
+  }
+
+  :root:where(:not([data-skin='classic'])) .brand {
+    flex: none;
+    font-size: 15px;
+    /* touch target >= 40px */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  :root:where(:not([data-skin='classic'])) .brand-full {
+    display: none;
+  }
+
+  :root:where(:not([data-skin='classic'])) .brand-short {
+    display: inline;
+  }
+
+  :root:where(:not([data-skin='classic'])) .nav {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-wrap: nowrap;
+    gap: 2px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    scroll-padding-inline: 16px;
+  }
+
+  :root:where(:not([data-skin='classic'])) .nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  :root:where(:not([data-skin='classic'])) .nav a {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 10px;
+    white-space: nowrap;
+  }
+
+  /* .nav scrolls (overflow clips the outline), so the ring is drawn INSIDE
+     the link instead of outside it. */
+  :root:where(:not([data-skin='classic'])) .nav a:focus-visible {
+    outline-offset: -3px;
+  }
+
+  :root:where(:not([data-skin='classic'])) .filters-toggle {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 12px;
+  }
+
+  :root:where(:not([data-skin='classic'])) .theme-picker-button {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  /* The Filtros panel drops under the bar. */
+  :root:where(:not([data-skin='classic'])) .topbar-filters {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin: 0;
+    padding: 12px 16px 16px;
+    background: var(--surface-1);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  :root:where(:not([data-skin='classic'])) .app-shell[data-filters-open='true'] .topbar-filters {
+    display: flex;
+  }
+
+  :root:where(:not([data-skin='classic'])) .topbar-filters .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  :root:where(:not([data-skin='classic'])) .topbar-filters > div:not(.filter-bar) {
+    flex-wrap: wrap;
+  }
+
+  :root:where(:not([data-skin='classic'])) .topbar-filters select,
+  :root:where(:not([data-skin='classic'])) .topbar-filters input[type='date'] {
+    min-height: 40px;
+  }
+
+  :root:where(:not([data-skin='classic'])) .topbar-filters select {
+    width: 100%;
+  }
+}
+
+/* ---- numbers inside pixel-font titles stay in the body face ---- */
+.section-title .num {
+  font-family: var(--font-body);
+}
+
+/* ---- wide tables scroll inside their own box, never the page ---- */
+.table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* ---- two date inputs (Trends "Comparar dois períodos") wrap and shrink ---- */
+.date-range-picker {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.date-range-picker .date-range-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.date-range-picker input[type='date'] {
+  flex: 1 1 130px;
+  min-width: 0;
+}
+
+/* ---- Windows High Contrast / forced colors ----
+   Backgrounds are dropped there, so the active page / active toggle must be
+   told apart by something other than a fill (aria-current is already set). */
+@media (forced-colors: active) {
+  /* A "transparent" border (battle's underline slot) is painted in a system
+     colour here, so every link would look underlined: drop it (!important to
+     beat the skins' more specific shorthand) and underline only the active one. */
+  .nav a {
+    border-bottom-width: 0 !important;
+  }
+
+  .nav a[aria-current='page'] {
+    text-decoration: underline;
+    text-decoration-thickness: 3px;
+    text-underline-offset: 4px;
+  }
+
+  /* Active toggle = the one that is not .secondary (Dashboard/Histórico/
+     Tudo ...) or aria-pressed. */
+  .bucket-toggle button:not(.secondary),
+  button[aria-pressed='true'] {
+    outline: 3px solid Highlight;
+    outline-offset: -3px;
+    text-decoration: underline;
+  }
+
+  .theme-option[aria-selected='true'] {
+    outline: 3px solid Highlight;
+    outline-offset: -3px;
+  }
+}
+
+/* ================= fim de SHELL / COMPACT BAR / PICKER ================= */
+
+/* ---------- credits footer ---------- */
+.app-credits {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 8px 24px 28px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.app-credits a {
+  color: inherit;
+}

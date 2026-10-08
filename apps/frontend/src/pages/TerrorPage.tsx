@@ -397,8 +397,11 @@ function TerrorDashboardTab() {
       {pointFilter && (
         <div className="section" ref={drillDownRef} style={{ scrollMarginTop: 96 }}>
           <h2 className="section-title">
-            Terrors em {selectedBucketStart ? formatBucketLabel(selectedBucketStart, chartBucket) : ''}
-            {!dayTerrorsLoading && <> ({dayTerrors.length})</>}
+            Terrors em{' '}
+            <span className="num">
+              {selectedBucketStart ? formatBucketLabel(selectedBucketStart, chartBucket) : ''}
+              {!dayTerrorsLoading && <> ({dayTerrors.length})</>}
+            </span>
           </h2>
           {dayTerrorsLoading ? (
             <div className="empty-state">Carregando...</div>
