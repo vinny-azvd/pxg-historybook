@@ -10,6 +10,7 @@ import { TerrorDetailPage } from './pages/TerrorDetailPage';
 import { MdPage } from './pages/MdPage';
 import { MdDetailPage } from './pages/MdDetailPage';
 import { DataPage } from './pages/DataPage';
+import { RaresPage } from './pages/RaresPage';
 
 const isLocalDataMode = import.meta.env.VITE_DATA_MODE === 'local';
 
@@ -31,8 +32,11 @@ export default function App() {
           <NavLink to="/md" className={({ isActive }) => (isActive ? 'active' : '')}>
             MD
           </NavLink>
-          {/* "Raros" goes here, between MD and Tendências. Tendências stays
-              second to last so "Dados" (import/export) closes the menu. */}
+          <NavLink to="/raros" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Raros
+          </NavLink>
+          {/* Tendências stays second to last so "Dados" (import/export)
+              closes the menu. */}
           <NavLink to="/trends" className={({ isActive }) => (isActive ? 'active' : '')}>
             Tendências
           </NavLink>
@@ -55,6 +59,7 @@ export default function App() {
           <Route path="/terror/:id" element={<TerrorDetailPage />} />
           <Route path="/md" element={<MdPage />} />
           <Route path="/md/:id" element={<MdDetailPage />} />
+          <Route path="/raros" element={<RaresPage />} />
           {isLocalDataMode && <Route path="/data" element={<DataPage />} />}
         </Routes>
       </main>

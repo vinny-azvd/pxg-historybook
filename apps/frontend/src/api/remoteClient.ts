@@ -10,6 +10,8 @@ import type {
   Player,
   PlayerTrendPoint,
   RareKillRow,
+  RaresFilters,
+  RaresSummary,
   TerrorDetail,
   TerrorListResponse,
   TerrorOverviewStats,
@@ -200,4 +202,6 @@ export const api = {
 
   getMdsWeekly: (filters: Filters & { page?: number; pageSize?: number }) =>
     request<MdWeeklyResponse>(`/api/md-stats/weekly${toQuery(filters)}`),
+
+  getRares: (filters: RaresFilters) => request<RaresSummary>(`/api/rares${toQuery(filters)}`),
 };

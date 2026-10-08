@@ -23,6 +23,8 @@ import type {
   Player,
   PlayerTrendPoint,
   RareKillRow,
+  RaresFilters,
+  RaresSummary,
   TerrorDetail,
   TerrorListItem,
   TerrorListResponse,
@@ -51,6 +53,7 @@ import type { StoredHunt, StoredMd, StoredTerror } from './storedTypes';
 import * as huntsAgg from './aggregation/hunts';
 import * as terrorsAgg from './aggregation/terrors';
 import * as mdsAgg from './aggregation/mds';
+import * as raresAgg from './aggregation/rares';
 import { buildFilterPredicate, jadeSevere, nameBreakdown, rareKillsPerHour, topDrops } from './aggregation/shared';
 
 const MD_DIFFICULTIES = ['Grand Master', 'Master', 'Hyper', 'Ultra', 'Platinum'] as const;
@@ -619,5 +622,12 @@ export const api = {
     const pageNum = Math.max(1, Number(filters.page) || 1);
     const pageSizeNum = Math.min(50, Math.max(1, Number(filters.pageSize) || 10));
     return mdsAgg.computeWeeklyGroups(await mdsRepo.list(), filters, pageNum, pageSizeNum);
+  },
+
+  // Raros (hunts + MDs) ----------------------------------------------------
+
+  getRares: async (filters: RaresFilters): Promise<RaresSummary> => {
+    const [hunts, mds] = await Promise.all([huntsRepo.list(), mdsRepo.list()]);
+    return raresAgg.computeRares(hunts, mds, filters);
   },
 };

@@ -14,6 +14,7 @@ import { terrorsRouter } from './routes/terrors.js';
 import { terrorStatsRouter } from './routes/terrorStats.js';
 import { mdsRouter } from './routes/mds.js';
 import { mdStatsRouter } from './routes/mdStats.js';
+import { raresRouter } from './routes/rares.js';
 
 export function createApp() {
   const app = express();
@@ -33,6 +34,7 @@ export function createApp() {
   app.use('/api/terror-stats', terrorStatsRouter);
   app.use('/api/mds', mdsRouter);
   app.use('/api/md-stats', mdStatsRouter);
+  app.use('/api/rares', raresRouter);
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
 

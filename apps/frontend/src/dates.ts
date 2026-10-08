@@ -60,6 +60,22 @@ export function referenceDateFromRange(from: string, to: string): Date {
   return anchor ? new Date(`${anchor}T00:00:00`) : new Date();
 }
 
+export type PeriodScope = 'all' | 'day' | 'week' | 'month' | 'custom';
+
+/** Which period toggle (Tudo/Dia/Semana/Mês) a from/to pair corresponds to,
+ * so a page's toggle stays in sync when the shared range is changed elsewhere
+ * (header filter, another page) instead of trusting local state. An empty
+ * range is "Tudo"; one that isn't exactly a day/week/month is "custom". */
+export function inferPeriodScope(from: string, to: string): PeriodScope {
+  if (!from && !to) return 'all';
+  const reference = referenceDateFromRange(from, to);
+  for (const scope of ['day', 'week', 'month'] as const) {
+    const range = periodRangeForDate(reference, scope);
+    if (range.from === from && range.to === to) return scope;
+  }
+  return 'custom';
+}
+
 export function startOfWeek(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();

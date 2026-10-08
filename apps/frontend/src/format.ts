@@ -127,6 +127,29 @@ export function formatBucketLabel(bucketStart: string, bucket: 'day' | 'week' | 
   return formatDate(bucketStart);
 }
 
+/** Part of a whole (0..1) as "37%" / "4,5%" - one decimal only below 10%,
+ * where a whole number would round a single item of a bigger total to "0%". */
+export function formatShare(share: number): string {
+  const pct = share * 100;
+  return `${decimal(pct, pct < 10 ? 1 : 0)}%`;
+}
+
+const relativeFormat = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' });
+
+/** "hoje", "ontem", "há 3 dias", "há 2 semanas", "há 4 meses" - by calendar
+ * day, so something from 23h yesterday isn't "hoje" at 1h today. */
+export function formatRelativeDate(value: string, now = new Date()): string {
+  const iso = value.includes('T') ? value : value.replace(' ', 'T');
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return value;
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOfDay(now) - startOfDay(date)) / 86_400_000);
+  if (days < 7) return relativeFormat.format(-days, 'day');
+  if (days < 60) return relativeFormat.format(-Math.floor(days / 7), 'week');
+  if (days < 365) return relativeFormat.format(-Math.floor(days / 30), 'month');
+  return relativeFormat.format(-Math.floor(days / 365), 'year');
+}
+
 export function formatPercent(value: number | null | undefined): string {
   if (isMissing(value)) return '—';
   const sign = value > 0 ? '+' : '';

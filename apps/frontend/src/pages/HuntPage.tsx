@@ -16,7 +16,7 @@ import { NameBreakdownChart, type NameBreakdownMetric } from '../components/char
 import { PlayerLegend } from '../components/PlayerLegend';
 import type { HuntListItem, NameBreakdownRow, OverviewStats, PlayerTrendPoint, RareKillRow, TrendPoint } from '../api/types';
 import { formatBucketLabel, formatCompact, formatDateTime, formatHours, formatInt, formatRate } from '../format';
-import { bucketRange, periodRangeForDate, referenceDateFromRange } from '../dates';
+import { bucketRange, inferPeriodScope, periodRangeForDate, type PeriodScope } from '../dates';
 
 type Tab = 'dashboard' | 'history' | 'upload';
 type Bucket = 'all' | 'day' | 'week' | 'month' | 'hunt';
@@ -29,7 +29,7 @@ const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
   { value: 'hunt', label: 'Por hunt' },
 ];
 
-type NameRange = 'all' | 'day' | 'week' | 'month' | 'custom';
+type NameRange = PeriodScope;
 
 const NAME_RANGE_OPTIONS: { value: NameRange; label: string }[] = [
   { value: 'all', label: 'Tudo' },
@@ -51,19 +51,6 @@ const NAME_METRIC_OPTIONS: {
   { value: 'avgRareKillsPerHour', label: 'Raros/h médio', title: 'Raros/h médio por hunt', formatValue: formatRate },
   { value: 'totalDurationSeconds', label: 'Horas caçadas', title: 'Horas caçadas por hunt', formatValue: formatHours },
 ];
-
-// Which "Por hunt" range button a from/to pair corresponds to, so the toggle
-// stays in sync when the range is changed elsewhere (header filter, another
-// page) instead of trusting local state.
-function inferNameRange(from: string, to: string): NameRange {
-  if (!from && !to) return 'all';
-  const reference = referenceDateFromRange(from, to);
-  for (const scope of ['day', 'week', 'month'] as const) {
-    const range = periodRangeForDate(reference, scope);
-    if (range.from === from && range.to === to) return scope;
-  }
-  return 'custom';
-}
 
 const CHART_BUCKET_LABEL: Record<Exclude<Bucket, 'all'>, string> = {
   day: 'dia',
@@ -265,7 +252,7 @@ function HuntDashboardTab() {
     };
   }, [player, sessionType, from, to, chartBucket, showPlayerBreakdown, showNameBreakdown]);
 
-  const nameRange: NameRange = nameRangeCustomOpen ? 'custom' : inferNameRange(from, to);
+  const nameRange: NameRange = nameRangeCustomOpen ? 'custom' : inferPeriodScope(from, to);
   const nameMetricOption = NAME_METRIC_OPTIONS.find((opt) => opt.value === nameMetric)!;
   const sortedByName = useMemo(
     () => [...byName].sort((a, b) => (b[nameMetric] ?? -Infinity) - (a[nameMetric] ?? -Infinity)),
@@ -396,6 +383,7 @@ function HuntDashboardTab() {
         <StatTile
           label="Raros total"
           value={formatInt(overview.totalRareKills)}
+          sub={showRareKills ? 'clique para ocultar a lista' : 'clique para listar os raros'}
           onClick={() => setShowRareKills((v) => !v)}
         />
         <StatTile
@@ -409,7 +397,17 @@ function HuntDashboardTab() {
 
       {showRareKills && (
         <div className="section">
-          <h2 className="section-title">Raros mortos no período ({rareKills.length})</h2>
+          {/* The quick inline list stays; the full breakdown (species,
+              rates, timeline) lives on its own page, same period. */}
+          <div className="rares-inline-header">
+            <h2 className="section-title" style={{ margin: 0 }}>
+              Raros mortos no período ({rareKills.length})
+            </h2>
+            {/* Opens on Hunts only, so the total there matches this tile's. */}
+            <Link to="/raros?origin=hunt" className="muted-link">
+              Ver página Raros →
+            </Link>
+          </div>
           <div className="card">
             {rareKillsLoading ? (
               <div className="empty-state">Carregando...</div>
