@@ -10,6 +10,9 @@ import type {
   Player,
   PlayerTrendPoint,
   RareKillRow,
+  RaresFilters,
+  RaresSummary,
+  TerrorBossFights,
   TerrorDetail,
   TerrorListResponse,
   TerrorOverviewStats,
@@ -120,6 +123,8 @@ export const api = {
   getTerrors: (filters: Filters & { sort?: string; order?: string; page?: number; pageSize?: number }) =>
     request<TerrorListResponse>(`/api/terrors${toQuery(filters)}`),
 
+  getTerrorBossFights: (filters: Filters) => request<TerrorBossFights>(`/api/terrors/bosses${toQuery(filters)}`),
+
   getTerror: (id: number) => request<TerrorDetail>(`/api/terrors/${id}`),
 
   renameTerror: async (id: number, terrorName: string) => {
@@ -200,4 +205,6 @@ export const api = {
 
   getMdsWeekly: (filters: Filters & { page?: number; pageSize?: number }) =>
     request<MdWeeklyResponse>(`/api/md-stats/weekly${toQuery(filters)}`),
+
+  getRares: (filters: RaresFilters) => request<RaresSummary>(`/api/rares${toQuery(filters)}`),
 };

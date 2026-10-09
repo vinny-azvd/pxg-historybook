@@ -1,39 +1,23 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type DragEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
 import { usePreferences } from '../PreferencesContext';
+import { usePlayerColor } from '../playerColors';
 import { parseHuntJson } from '../jsonParse';
 import { ConfirmMdModal } from '../components/ConfirmMdModal';
-import { MdCard } from '../components/MdCard';
 import { CardSettingsPanel } from '../components/CardSettingsPanel';
-import { PeriodNavigator } from '../components/PeriodNavigator';
 import { TrendChart } from '../components/charts/TrendChart';
 import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChart';
 import { NameBreakdownChart } from '../components/charts/NameBreakdownChart';
 import { PlayerLegend } from '../components/PlayerLegend';
-import type { PlayerTrendPoint, MdDifficulty, MdListItem, MdOverviewStats, MdWeeklySummary, NameBreakdownRow } from '../api/types';
-import { formatBucketLabel, formatCompact, formatDateTime, formatInt } from '../format';
-import { bucketRange, periodRangeForDate } from '../dates';
+import { PeriodCards } from '../components/themes/PeriodCards';
+import { ScopeBreadcrumb, ScopeToolbar, bucketNoun, useChartScope } from '../chartScope';
+import type { PlayerTrendPoint, MdDifficulty, MdOverviewStats, MdWeeklySummary, NameBreakdownRow } from '../api/types';
+import { formatCompact, formatDateTime, formatInt } from '../format';
 import { MdWeekCard } from '../components/MdWeekCard';
 
 type Tab = 'dashboard' | 'history' | 'upload';
-type Bucket = 'all' | 'day' | 'week' | 'month' | 'md';
-
-const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
-  { value: 'all', label: 'Tudo' },
-  { value: 'day', label: 'Dia' },
-  { value: 'week', label: 'Semana' },
-  { value: 'month', label: 'Mês' },
-  { value: 'md', label: 'Por MD' },
-];
-
-const CHART_BUCKET_LABEL: Record<Exclude<Bucket, 'all'>, string> = {
-  day: 'dia',
-  week: 'semana',
-  month: 'mês',
-  md: 'MD',
-};
 
 // Reserves room for 2 lines so the highlight cards don't change height
 // depending on whether their text wraps (a long md name/date) or is a
@@ -66,8 +50,9 @@ export function MdPage() {
 }
 
 function MdDashboardTab() {
-  const { player, sessionType, from, to, setDateRange } = useFilters();
-  const { rareDropThreshold, getPlayerColor } = usePreferences();
+  const { player, sessionType, from, to } = useFilters();
+  const { rareDropThreshold } = usePreferences();
+  const getPlayerColor = usePlayerColor();
   const [overview, setOverview] = useState<MdOverviewStats | null>(null);
   // Unaffected by the from/to period filter, unlike `overview` - so
   // navigating to a period with zero mds (e.g. an empty week) doesn't
@@ -75,81 +60,35 @@ function MdDashboardTab() {
   const [totalMdCount, setTotalMdCount] = useState<number | null>(null);
   const [trend, setTrend] = useState<any[]>([]);
   const [playerTrend, setPlayerTrend] = useState<PlayerTrendPoint[]>([]);
+  // The bucket and range the loaded trend rows are for: a granularity switch or
+  // a step with the arrows must not plot the old rows under the new axis labels.
+  const [trendBucket, setTrendBucket] = useState<string | null>(null);
   const [byName, setByName] = useState<NameBreakdownRow[]>([]);
-  const [bucket, setBucket] = useState<Bucket>('week');
-  const [pointFilter, setPointFilter] = useState<{ from: string; to: string } | null>(null);
-  const [dayTrend, setDayTrend] = useState<any[]>([]);
-  const [dayMds, setDayMds] = useState<MdListItem[]>([]);
-  const [dayMdsLoading, setDayMdsLoading] = useState(false);
-  const drillDownRef = useRef<HTMLDivElement>(null);
+  // The chart is either a comparison over time (granularity, zoom: see
+  // chartScope) or the ranking by MD name ("Por MD").
+  const [view, setView] = useState<'time' | 'name'>('time');
+  const scope = useChartScope({ entryBucket: 'md' });
 
   // No single character selected - color-code the main chart per player
   // instead of blending everyone into one averaged line, same as the Hunts
-  // dashboard. The per-md granularity already colors by top drop, so it
-  // keeps its own single line rather than layering both signals into one chart.
-  const showPlayerBreakdown = !player && bucket !== 'md';
-  const showNameBreakdown = bucket === 'md';
-
-  // The bucket toggle picks which single period you're browsing (a day, a
-  // week, a month), but the chart itself always drills one level finer than
-  // that: a week shows its days, a month shows its weeks, a day shows its
-  // individual mds, and "Tudo" shows every month on record. "Por MD" isn't a
-  // time axis at all - it groups by MD name across whatever the outer date
-  // filter is, comparing each MD's average profit per run against the others.
-  const chartBucket: Exclude<Bucket, 'all'> =
-    bucket === 'all' ? 'month' : bucket === 'day' ? 'md' : bucket === 'week' ? 'day' : bucket === 'month' ? 'week' : 'md';
-
-  // Switching the bucket toggle always lands on the current day/week/month
-  // (or clears the range for "Tudo") rather than one derived from the range
-  // already in view - deriving it from a past month dropped "Semana" onto
-  // that month's first week, often an empty one.
-  function selectBucket(next: Bucket) {
-    setBucket(next);
-    if (next === 'md') return;
-    if (next === 'all') setDateRange({ from: '', to: '' });
-    else setDateRange(periodRangeForDate(new Date(), next));
-  }
-
-  // Same pinning, but only for the very first render, and only if the date
-  // filter hasn't been touched yet (from/to still empty) - respects a filter
-  // the user already had set (e.g. arriving from another page) instead of
-  // silently overriding it.
-  useEffect(() => {
-    if (bucket !== 'md' && bucket !== 'all' && !from && !to) {
-      setDateRange(periodRangeForDate(new Date(), bucket));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Clearing the range from elsewhere ("Limpar filtro de período", the
-  // header's "Todo o período") leaves no single day/week/month to browse, so
-  // follow it to "Tudo" instead of labelling an all-time chart as one week.
-  // Only reacts to a set range becoming empty, so the initial empty range
-  // (before the mount effect above pins the default one) doesn't count.
-  const prevRangeRef = useRef({ from, to });
-  useEffect(() => {
-    const prev = prevRangeRef.current;
-    prevRangeRef.current = { from, to };
-    const wasSet = Boolean(prev.from || prev.to);
-    if (wasSet && !from && !to && (bucket === 'day' || bucket === 'week' || bucket === 'month')) setBucket('all');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, to]);
-
-  useEffect(() => {
-    setPointFilter(null);
-  }, [player, sessionType, from, to, bucket]);
-
-  const overviewRange = pointFilter ?? { from, to };
+  // dashboard. Zoomed down to single MDs the points are colored by top drop,
+  // so that level keeps its own single line rather than layering both
+  // signals into one chart. "Por MD" isn't a time axis at all - it groups by
+  // MD name across the period filter, comparing each MD's average profit per
+  // run against the others.
+  const showNameBreakdown = view === 'name';
+  const chartBucket = scope.chartBucket as 'day' | 'week' | 'month' | 'md';
+  const showPlayerBreakdown = !player && !showNameBreakdown && !scope.isEntryLevel;
 
   useEffect(() => {
     let ignore = false;
-    api.getMdOverview({ player, sessionType, from: overviewRange.from, to: overviewRange.to }).then((res) => {
+    api.getMdOverview({ player, sessionType, from, to }).then((res) => {
       if (!ignore) setOverview(res);
     });
     return () => {
       ignore = true;
     };
-  }, [player, sessionType, overviewRange.from, overviewRange.to]);
+  }, [player, sessionType, from, to]);
 
   useEffect(() => {
     let ignore = false;
@@ -169,17 +108,23 @@ function MdDashboardTab() {
       });
     } else if (showPlayerBreakdown) {
       api.getMdTrendsByPlayer({ player, sessionType, from, to, bucket: chartBucket }).then((res) => {
-        if (!ignore) setPlayerTrend(res);
+        if (ignore) return;
+        setPlayerTrend(res);
+        setTrendBucket(`player:${chartBucket}:${from}:${to}`);
       });
     } else {
       api.getMdTrends({ player, sessionType, from, to, bucket: chartBucket }).then((res) => {
-        if (!ignore) setTrend(res);
+        if (ignore) return;
+        setTrend(res);
+        setTrendBucket(`single:${chartBucket}:${from}:${to}`);
       });
     }
     return () => {
       ignore = true;
     };
   }, [player, sessionType, from, to, chartBucket, showPlayerBreakdown, showNameBreakdown]);
+
+  const trendReady = trendBucket === `${showPlayerBreakdown ? 'player' : 'single'}:${chartBucket}:${from}:${to}`;
 
   const playerSeries = useMemo(() => {
     const byPlayer = new Map<number, { playerId: number; playerName: string; points: PlayerTrendPoint[] }>();
@@ -190,61 +135,8 @@ function MdDashboardTab() {
     }
     return [...byPlayer.values()]
       .sort((a, b) => a.playerId - b.playerId)
-      .map((entry, index) => ({ ...entry, color: getPlayerColor(String(entry.playerId), index) }));
+      .map((entry) => ({ ...entry, color: getPlayerColor(entry.playerId) }));
   }, [playerTrend, getPlayerColor]);
-
-  useEffect(() => {
-    if (!pointFilter) {
-      setDayTrend([]);
-      setDayMds([]);
-      return;
-    }
-    let ignore = false;
-    setDayMdsLoading(true);
-    Promise.all([
-      api.getMdTrends({ player, sessionType, from: pointFilter.from, to: pointFilter.to, bucket: 'md' }),
-      api.getMds({
-        player,
-        sessionType,
-        from: pointFilter.from,
-        to: pointFilter.to,
-        sort: 'start_time',
-        order: 'asc',
-        page: 1,
-        pageSize: 100,
-      }),
-    ])
-      .then(([trendRes, mdsRes]) => {
-        if (ignore) return;
-        setDayTrend(trendRes);
-        setDayMds(mdsRes.items);
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            drillDownRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          });
-        });
-      })
-      .finally(() => {
-        if (!ignore) setDayMdsLoading(false);
-      });
-    return () => {
-      ignore = true;
-    };
-  }, [player, sessionType, pointFilter?.from, pointFilter?.to]);
-
-  function handlePointClick(bucketStart: string) {
-    if (chartBucket === 'md') return;
-    const range = bucketRange(bucketStart, chartBucket);
-    setPointFilter((prev) => (prev && prev.from === range.from && prev.to === range.to ? null : range));
-  }
-
-  const knownBucketStarts = showPlayerBreakdown ? playerTrend.map((p) => p.bucketStart) : trend.map((p: any) => p.bucketStart);
-  const selectedBucketStart = pointFilter && chartBucket !== 'md'
-    ? knownBucketStarts.find((bucketStart: string) => {
-        const range = bucketRange(bucketStart, chartBucket);
-        return range.from === pointFilter.from && range.to === pointFilter.to;
-      })
-    : undefined;
 
   if (!overview || totalMdCount === null) return <div className="empty-state">Carregando...</div>;
 
@@ -260,16 +152,18 @@ function MdDashboardTab() {
     <div>
       <p className="page-subtitle">
         {overview.mdCount} MD{overview.mdCount === 1 ? '' : 's'} no período selecionado.
-        {pointFilter && selectedBucketStart && <> · {formatBucketLabel(selectedBucketStart, chartBucket)}</>}
-        {(pointFilter || from || to) && (
+        {(from || to) && (
           <>
             {' '}
             <button
               className="secondary"
               style={{ fontSize: 11.5, padding: '2px 8px', marginLeft: 4 }}
-              onClick={() => (pointFilter ? setPointFilter(null) : setDateRange({ from: '', to: '' }))}
+              onClick={() => {
+                setView('time');
+                scope.setGranularity('all');
+              }}
             >
-              {pointFilter ? 'Voltar ao período completo' : 'Limpar filtro de período'}
+              Ver todo o período
             </button>
           </>
         )}
@@ -335,37 +229,30 @@ function MdDashboardTab() {
       </div>
 
       <div className="section">
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 12,
-            gap: 12,
-            flexWrap: 'wrap',
-          }}
-        >
+        <div className="scope-head">
           <h2 className="section-title" style={{ margin: 0 }}>
-            {showNameBreakdown ? 'Profit médio por MD' : `Profit por ${CHART_BUCKET_LABEL[chartBucket]}`}
+            {showNameBreakdown ? 'Profit médio por MD' : `Profit por ${bucketNoun(chartBucket, 'MD')}`}
           </h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            {(bucket === 'day' || bucket === 'week' || bucket === 'month') && <PeriodNavigator bucket={bucket} />}
-            <div className="bucket-toggle">
-              {BUCKET_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  className={bucket === opt.value ? '' : 'secondary'}
-                  onClick={() => selectBucket(opt.value)}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <ScopeToolbar
+            scope={scope}
+            onGranularity={(granularity) => {
+              setView('time');
+              scope.setGranularity(granularity);
+            }}
+            extra={{
+              label: 'Por MD',
+              title: 'Ranking por nome de MD no período',
+              active: showNameBreakdown,
+              onSelect: () => setView('name'),
+            }}
+          />
         </div>
+        {!showNameBreakdown && <ScopeBreadcrumb scope={scope} />}
         <div className="card">
           {showNameBreakdown ? (
             <NameBreakdownChart data={byName} metricKey="avgProfit" seriesLabel="Profit médio" unitLabel="MD" />
+          ) : !trendReady ? (
+            <div className="chart-empty-state">Carregando...</div>
           ) : showPlayerBreakdown ? (
             <>
               <PlayerLegend entries={playerSeries.map((s) => ({ id: s.playerId, name: s.playerName, color: s.color }))} />
@@ -373,9 +260,10 @@ function MdDashboardTab() {
                 rareDropThreshold={rareDropThreshold}
                 series={playerSeries}
                 bucket={chartBucket}
+                range={scope.range}
                 metricKey="avgProfit"
-                onPointClick={chartBucket === 'md' ? undefined : handlePointClick}
-                selectedBucketStart={selectedBucketStart}
+                onZoom={scope.canZoom ? scope.zoom : undefined}
+                onZoomSpan={scope.canZoom ? scope.zoomSpan : undefined}
               />
             </>
           ) : (
@@ -385,47 +273,17 @@ function MdDashboardTab() {
               seriesLabel={chartBucket === 'md' ? 'Profit' : 'Profit médio'}
               seriesColor="var(--series-1)"
               bucket={chartBucket}
+              range={scope.range}
               unitLabel="md"
-              onPointClick={chartBucket === 'md' ? undefined : handlePointClick}
-              selectedBucketStart={selectedBucketStart}
+              onZoom={scope.canZoom ? scope.zoom : undefined}
+              onZoomSpan={scope.canZoom ? scope.zoomSpan : undefined}
               rareDropThreshold={rareDropThreshold}
             />
           )}
         </div>
       </div>
 
-      {pointFilter && (
-        <div className="section" ref={drillDownRef} style={{ scrollMarginTop: 96 }}>
-          <h2 className="section-title">
-            MDs em {selectedBucketStart ? formatBucketLabel(selectedBucketStart, chartBucket) : ''}
-            {!dayMdsLoading && <> ({dayMds.length})</>}
-          </h2>
-          {dayMdsLoading ? (
-            <div className="empty-state">Carregando...</div>
-          ) : dayMds.length === 0 ? (
-            <div className="empty-state">Nenhuma MD nesse período.</div>
-          ) : (
-            <>
-              <div className="card" style={{ marginBottom: 14 }}>
-                <TrendChart
-                  data={dayTrend}
-                  metricKey="avgProfit"
-                  seriesLabel="Profit"
-                  seriesColor="var(--series-1)"
-                  bucket="md"
-                  unitLabel="md"
-                  rareDropThreshold={rareDropThreshold}
-                />
-              </div>
-              <div className="hunt-card-grid">
-                {dayMds.map((md) => (
-                  <MdCard key={md.id} md={md} />
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )}
+      <PeriodCards kind="md" entryLevel={!showNameBreakdown && scope.isEntryLevel} periodLabel={scope.label} />
     </div>
   );
 }

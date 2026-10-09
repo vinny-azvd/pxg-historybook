@@ -2,6 +2,7 @@ import { db } from '../db/connection.js';
 import { bucketTopDrops, parseTopDropsRaw } from './bucketDrops.js';
 import { namesConcat, withNameCounts } from './nameCounts.js';
 import { buildHuntFilter, type HuntFilterQuery } from './huntFilters.js';
+import { perHourSql, perSecondSql, rareKillsPerHourSql } from './rates.js';
 
 export interface OverviewStats {
   huntCount: number;
@@ -27,6 +28,8 @@ export interface OverviewStats {
   mostFrequentHunt: { huntName: string; count: number } | null;
 }
 
+// The avg* rates are total ÷ hours over the whole filter (see rates.ts), so
+// /compare's deltas built on top of this use the same definition.
 export function computeOverview(filter: HuntFilterQuery): OverviewStats {
   const { whereClause, params } = buildHuntFilter(filter);
 
@@ -36,20 +39,20 @@ export function computeOverview(filter: HuntFilterQuery): OverviewStats {
          COUNT(*) AS huntCount,
          COALESCE(SUM(h.duration_seconds), 0) AS totalDurationSeconds,
          COALESCE(SUM(h.profit), 0) AS totalProfit,
-         AVG(h.profit_per_hour) AS avgProfitPerHour,
+         ${perHourSql('h', 'profit')} AS avgProfitPerHour,
          MAX(h.profit_per_hour) AS maxProfitPerHour,
          COALESCE(SUM(h.kills), 0) AS totalKills,
-         AVG(h.kills_per_hour) AS avgKillsPerHour,
+         ${perHourSql('h', 'kills')} AS avgKillsPerHour,
          MAX(h.kills_per_hour) AS maxKillsPerHour,
          MAX(h.kills) AS maxKills,
          COALESCE(SUM(h.rare_kills), 0) AS totalRareKills,
-         AVG(h.rare_kills_per_hour) AS avgRareKillsPerHour,
-         MAX(h.rare_kills_per_hour) AS maxRareKillsPerHour,
+         ${perHourSql('h', 'rare_kills')} AS avgRareKillsPerHour,
+         MAX(${rareKillsPerHourSql('h')}) AS maxRareKillsPerHour,
          MAX(h.rare_kills) AS maxRareKills,
-         AVG(h.experience_per_hour) AS avgExperiencePerHour,
-         AVG(h.supplies_per_hour) AS avgSuppliesPerHour,
-         AVG(h.damage_dealt_per_second) AS avgDamageDealtPerSecond,
-         AVG(h.damage_taken_per_second) AS avgDamageTakenPerSecond,
+         ${perHourSql('h', 'experience')} AS avgExperiencePerHour,
+         ${perHourSql('h', 'supplies_cost')} AS avgSuppliesPerHour,
+         ${perSecondSql('h', 'damage_dealt')} AS avgDamageDealtPerSecond,
+         ${perSecondSql('h', 'damage_taken')} AS avgDamageTakenPerSecond,
          COALESCE(SUM(h.experience), 0) AS totalExperience
        FROM hunts h
        ${whereClause}`
@@ -139,9 +142,14 @@ export interface RareKillRow {
 // tile - unlike the overview's single totalRareKills number, this names
 // which rares came from which hunt so a click on that tile can answer
 // "which rares died in a given hunt" across the whole filtered period.
+// With a player filter, only that player's own rows count: in a party hunt
+// each Enemies Defeated row carries the player who got the kill, so matching
+// the hunt alone would credit them with the whole party's rares. In a solo
+// hunt every row already belongs to its only player, so nothing changes there.
 export function computeRareKills(filter: HuntFilterQuery): RareKillRow[] {
   const { whereClause, params } = buildHuntFilter(filter);
-  const rareClause = whereClause ? `${whereClause} AND ed.rare = 1` : 'WHERE ed.rare = 1';
+  const rareConditions = filter.player ? 'ed.rare = 1 AND ed.player_id = @player' : 'ed.rare = 1';
+  const rareClause = whereClause ? `${whereClause} AND ${rareConditions}` : `WHERE ${rareConditions}`;
 
   const rows = db
     .prepare(
@@ -184,7 +192,7 @@ export function computeTrends(filter: HuntFilterQuery, bucket: string) {
       .prepare(
         `SELECT h.id AS huntId, h.hunt_name AS huntName, h.start_time AS bucketStart,
                 1 AS huntCount, h.profit AS totalProfit, h.profit_per_hour AS avgProfitPerHour,
-                h.kills_per_hour AS avgKillsPerHour, h.rare_kills_per_hour AS avgRareKillsPerHour,
+                h.kills_per_hour AS avgKillsPerHour, ${rareKillsPerHourSql('h')} AS avgRareKillsPerHour,
                 h.experience_per_hour AS avgExperiencePerHour, h.supplies_per_hour AS avgSuppliesPerHour,
                 h.jade_totem_count AS jadeTotemCount,
                 CASE WHEN h.jade_totem_count > 0 AND (h.jade_totem_count * 3600) < h.duration_seconds THEN 1 ELSE 0 END AS jadeSevere,
@@ -218,11 +226,11 @@ export function computeTrends(filter: HuntFilterQuery, bucket: string) {
          ${bucketExpr} AS bucketStart,
          COUNT(*) AS huntCount,
          COALESCE(SUM(h.profit), 0) AS totalProfit,
-         AVG(h.profit_per_hour) AS avgProfitPerHour,
-         AVG(h.kills_per_hour) AS avgKillsPerHour,
-         AVG(h.rare_kills_per_hour) AS avgRareKillsPerHour,
-         AVG(h.experience_per_hour) AS avgExperiencePerHour,
-         AVG(h.supplies_per_hour) AS avgSuppliesPerHour,
+         ${perHourSql('h', 'profit')} AS avgProfitPerHour,
+         ${perHourSql('h', 'kills')} AS avgKillsPerHour,
+         ${perHourSql('h', 'rare_kills')} AS avgRareKillsPerHour,
+         ${perHourSql('h', 'experience')} AS avgExperiencePerHour,
+         ${perHourSql('h', 'supplies_cost')} AS avgSuppliesPerHour,
          ${namesConcat('h.hunt_name')}
        FROM hunts h
        ${whereClause}
@@ -265,7 +273,7 @@ export function computeTrendsByPlayer(filter: HuntFilterQuery, bucket: string) {
            h.profit AS totalProfit,
            h.profit_per_hour AS avgProfitPerHour,
            h.kills_per_hour AS avgKillsPerHour,
-           h.rare_kills_per_hour AS avgRareKillsPerHour,
+           ${rareKillsPerHourSql('h')} AS avgRareKillsPerHour,
            h.experience_per_hour AS avgExperiencePerHour,
            h.supplies_per_hour AS avgSuppliesPerHour,
            (SELECT GROUP_CONCAT(td.item || '::' || td.unit_price, '||')
@@ -305,11 +313,11 @@ export function computeTrendsByPlayer(filter: HuntFilterQuery, bucket: string) {
          ${bucketExpr} AS bucketStart,
          COUNT(*) AS huntCount,
          COALESCE(SUM(h.profit), 0) AS totalProfit,
-         AVG(h.profit_per_hour) AS avgProfitPerHour,
-         AVG(h.kills_per_hour) AS avgKillsPerHour,
-         AVG(h.rare_kills_per_hour) AS avgRareKillsPerHour,
-         AVG(h.experience_per_hour) AS avgExperiencePerHour,
-         AVG(h.supplies_per_hour) AS avgSuppliesPerHour,
+         ${perHourSql('h', 'profit')} AS avgProfitPerHour,
+         ${perHourSql('h', 'kills')} AS avgKillsPerHour,
+         ${perHourSql('h', 'rare_kills')} AS avgRareKillsPerHour,
+         ${perHourSql('h', 'experience')} AS avgExperiencePerHour,
+         ${perHourSql('h', 'supplies_cost')} AS avgSuppliesPerHour,
          ${namesConcat('h.hunt_name')}
        FROM hunts h
        JOIN hunt_players hp ON hp.hunt_id = h.id
@@ -358,8 +366,8 @@ export interface NameBreakdownRow {
 
 // One row per distinct hunt name (Sudowoodo, Raichu, ...) so the "Por hunt"
 // chart compares spots against each other instead of plotting every single
-// session. Profit/h is weighted by duration, so a 10-minute outlier doesn't
-// weigh as much as a 3-hour session of the same spot.
+// session. Profit/h is total ÷ hours, so a 10-minute outlier doesn't weigh
+// as much as a 3-hour session of the same spot.
 export function computeByName(filter: HuntFilterQuery): NameBreakdownRow[] {
   const { whereClause, params } = buildHuntFilter(filter);
   return db
@@ -369,9 +377,9 @@ export function computeByName(filter: HuntFilterQuery): NameBreakdownRow[] {
          COUNT(*) AS count,
          COALESCE(SUM(h.duration_seconds), 0) AS totalDurationSeconds,
          COALESCE(SUM(h.profit), 0) AS totalProfit,
-         SUM(h.profit_per_hour * h.duration_seconds) * 1.0 / NULLIF(SUM(h.duration_seconds), 0) AS avgProfitPerHour,
+         ${perHourSql('h', 'profit')} AS avgProfitPerHour,
          AVG(h.profit) AS avgProfit,
-         SUM(h.rare_kills) * 3600.0 / NULLIF(SUM(h.duration_seconds), 0) AS avgRareKillsPerHour
+         ${perHourSql('h', 'rare_kills')} AS avgRareKillsPerHour
        FROM hunts h
        ${whereClause}
        GROUP BY name

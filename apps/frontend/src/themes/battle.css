@@ -1,0 +1,928 @@
+/*
+ * Skin "battle" - Batalha: navy header, cream page, white boxes with thick navy
+ * borders and hard offset shadows, red accents. Reference: design-mockups/
+ * 7-batalha.html (a visual reference only; everything here is the app's own CSS).
+ *
+ * Every rule is scoped under :root[data-skin='battle'] (specificity 0,2,0 beats
+ * the :root blocks of styles.css, including its OS dark-mode media block, so the
+ * fixed light color-scheme cannot be overridden by the system preference).
+ * Imported after styles.css in main.tsx. Contract and the list of selectors a
+ * skin may rely on: src/themes/README.md.
+ *
+ * Fixed colour scheme: light. The skin runtime also sets
+ * html[data-type-surface='light'], which themes/types.css keys off.
+ *
+ * Fonts: Rubik for body/headings-in-cards; Pixelify Sans (--font-display) ONLY
+ * for titles, menu and buttons, at integer px sizes. Numbers, tables, axes and
+ * tooltips always stay on --font-body.
+ *
+ * Contrast (WCAG, computed): text-primary on page 14.2:1, text-secondary 7.1:1,
+ * text-muted 5.4:1 (cream) / 5.8:1 (white); white on red button 4.7:1; nav text
+ * on navy 9.5:1; focus ring 6.1:1 on cream, 6.7:1 on white (gold ring on navy
+ * header 9.9:1).
+ *
+ * Series palette (validate_palette.js, --mode light --surface #ffffff, the
+ * chart panel): all checks pass - lightness band, chroma floor, CVD separation
+ * (worst adjacent #00897b/#d97706 dE 11.7 protan), normal-vision floor
+ * (dE 23.0), contrast >= 3:1 against the surface. Series 1 is red and 2 is blue
+ * (the theme's two colours); lines are also told apart by legend + end labels.
+ */
+
+:root[data-skin='battle'] {
+  color-scheme: light;
+
+  --battle-navy: #1b2a49;
+  --battle-navy-2: #273b66;
+  --battle-line: #283044;
+  --battle-accent: #e8483b;
+  --battle-cream: #fffdf3;
+  --battle-hover: #eef2ff;
+  --battle-shadow: rgba(27, 42, 73, 0.14);
+
+  --surface-1: #ffffff;
+  --page: #f7f5ee;
+  --text-primary: #1d2433;
+  --text-secondary: #4a5368;
+  --text-muted: #5d6578;
+  --selection: #1d2433;
+  --gridline: #e4e1d6;
+  --baseline: #7d8597;
+  --border: #283044;
+  --success: #1b7a35;
+  --danger: #c62828;
+  --focus-ring: #1a4fd6;
+
+  --series-1: #d6372b;
+  --series-2: #2f6fd0;
+  --series-3: #d97706;
+  --series-4: #00897b;
+  --series-5: #7b4bc4;
+  --series-6: #a8780a;
+  --series-7: #d63d8c;
+  --series-8: #5f7a1e;
+
+  --party-badge-bg: #fff1e0;
+  --party-badge-text: #8f4a10;
+  --jade: #00a86b;
+  --jade-soft: #7dd8b3;
+  --jade-badge-bg: #e3f7ee;
+  --jade-badge-text: #0a6a47;
+  --rare-drop: #b8860b;
+  --rare-drop-badge-bg: #fff3d1;
+  --rare-drop-badge-text: #7a5200;
+
+  --font-display: 'Pixelify Sans', ui-monospace, monospace; /* titles, menu, buttons ONLY */
+  --font-body: 'Rubik', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --radius-card: 12px;
+  --radius-control: 8px;
+}
+
+:root[data-skin='battle'] body {
+  font-family: var(--font-body);
+}
+
+/* ======================================================================
+   Header: navy bar, red underline on the active tab
+   ====================================================================== */
+:root[data-skin='battle'] .topbar {
+  --focus-ring: #ffd24a;
+  --text-secondary: #c8d3ee;
+  --text-muted: #c8d3ee;
+  background: var(--battle-navy);
+  color: #ffffff;
+  border-bottom: 3px solid var(--battle-line);
+}
+
+/* Desktop: tighter rows when the bar wraps (filters under the menu). Below
+   1024px the bar is the one-row compact bar of styles.css. */
+@media (min-width: 1024px) {
+  :root[data-skin='battle'] .topbar {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    column-gap: 20px;
+    row-gap: 6px;
+  }
+}
+
+:root[data-skin='battle'] .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* Pokéball mark (decorative, pseudo-element so it has no accessible name). */
+:root[data-skin='battle'] .brand::before,
+:root[data-skin='battle'] .upload-drop::before {
+  content: '';
+  display: block;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='44' fill='%23fff' stroke='%23000' stroke-width='8'/%3E%3Cpath d='M6 50a44 44 0 0 1 88 0z' fill='%23e8483b' stroke='%23000' stroke-width='8'/%3E%3Ccircle cx='50' cy='50' r='13' fill='%23fff' stroke='%23000' stroke-width='8'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+:root[data-skin='battle'] .nav {
+  gap: 2px;
+}
+
+:root[data-skin='battle'] .nav a {
+  padding: 10px 14px 7px;
+  border-radius: 0;
+  border-bottom: 3px solid transparent;
+  color: #c8d3ee;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+:root[data-skin='battle'] .nav a:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+:root[data-skin='battle'] .nav a.active {
+  background: transparent;
+  color: #ffffff;
+  font-weight: 700;
+  border-bottom-color: var(--battle-accent);
+}
+
+/* Header controls (filters, picker button): navy-2 with a light border so the
+   boundary stays visible (3.9:1 against the bar). */
+:root[data-skin='battle'] .topbar select,
+:root[data-skin='battle'] .topbar input[type='date'] {
+  background: var(--battle-navy-2);
+  color: #ffffff;
+  border: 2px solid #6f86bd;
+  color-scheme: dark;
+  min-height: 36px;
+}
+
+:root[data-skin='battle'] .topbar option {
+  background: var(--battle-navy-2);
+  color: #ffffff;
+}
+
+:root[data-skin='battle'] .topbar .filters-toggle,
+:root[data-skin='battle'] .topbar .theme-picker-button {
+  background: var(--battle-navy-2);
+  color: #ffffff;
+  border: 2px solid #6f86bd;
+  box-shadow: none;
+}
+
+:root[data-skin='battle'] .topbar .filters-toggle:hover:not(:disabled),
+:root[data-skin='battle'] .topbar .theme-picker-button:hover:not(:disabled) {
+  background: #34497a;
+  filter: none;
+}
+
+:root[data-skin='battle'] .filters-toggle-count {
+  background: #ffd24a;
+  color: var(--battle-navy);
+}
+
+/* The popover is a white box inside the navy header: restore the dark-on-light
+   token values the header scope above lightened. */
+:root[data-skin='battle'] .theme-picker-popover {
+  --text-primary: #1d2433;
+  --text-secondary: #4a5368;
+  --text-muted: #5d6578;
+  --focus-ring: #1a4fd6;
+  border: 3px solid var(--battle-line);
+  box-shadow: 4px 4px 0 rgba(27, 42, 73, 0.25);
+}
+
+:root[data-skin='battle'] .theme-option:hover {
+  background: var(--battle-hover);
+}
+
+:root[data-skin='battle'] .theme-option[aria-selected='true'] {
+  border-color: var(--battle-line);
+  background: var(--battle-hover);
+}
+
+/* A 3px ring: the 2px global one gets lost against the thick navy borders. */
+:root[data-skin='battle'] :where(a, button, select, input, textarea, summary, [tabindex]):focus-visible {
+  outline-width: 3px;
+}
+
+/* ======================================================================
+   Page chrome, titles
+   ====================================================================== */
+:root[data-skin='battle'] .page-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--battle-navy);
+}
+
+:root[data-skin='battle'] .page-subtitle {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* Pixelify Sans is ambiguous at heading size in Portuguese (c/o, f/A):
+   section headings use the body face; the pixel font stays on h1, menu, buttons. */
+:root[data-skin='battle'] .section-title {
+  font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--battle-navy);
+}
+
+/* ======================================================================
+   Boxes: thick navy border + hard shadow
+   ====================================================================== */
+:root[data-skin='battle'] .card {
+  background: #ffffff;
+  border: 3px solid var(--battle-line);
+  box-shadow: 5px 5px 0 var(--battle-shadow);
+}
+
+:root[data-skin='battle'] .stat-tile {
+  position: relative;
+  overflow: hidden;
+  border: 3px solid var(--battle-line);
+  background: #ffffff;
+  padding: 12px 16px 12px 24px;
+  box-shadow: 4px 4px 0 var(--battle-shadow);
+}
+
+/* One accent colour for every tile: no type labels, no per-tile hues. */
+:root[data-skin='battle'] .stat-tile::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  background: var(--battle-accent);
+}
+
+:root[data-skin='battle'] .stat-tile .label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+:root[data-skin='battle'] .stat-tile .value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+
+:root[data-skin='battle'] .stat-tile .sub {
+  color: var(--text-muted);
+}
+
+:root[data-skin='battle'] .stat-tile.clickable:hover {
+  border-color: var(--battle-accent);
+}
+
+:root[data-skin='battle'] .modal-overlay {
+  background: rgba(27, 42, 73, 0.6);
+}
+
+:root[data-skin='battle'] .modal-card {
+  border: 4px solid var(--battle-line);
+  border-radius: 12px;
+  box-shadow: 6px 6px 0 rgba(27, 42, 73, 0.3);
+}
+
+:root[data-skin='battle'] .modal-card h2 {
+  font-weight: 800;
+}
+
+:root[data-skin='battle'] .upload-drop {
+  border: 4px dashed var(--battle-line);
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 18px;
+  padding: 36px 24px;
+}
+
+:root[data-skin='battle'] .upload-drop::before {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 12px;
+}
+
+:root[data-skin='battle'] .upload-drop.dragging {
+  border-color: var(--battle-accent);
+  background: #fff4f2;
+}
+
+:root[data-skin='battle'] .error-box,
+:root[data-skin='battle'] .success-box {
+  border-width: 3px;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+:root[data-skin='battle'] .empty-state,
+:root[data-skin='battle'] .chart-empty-state {
+  color: var(--text-muted);
+}
+
+/* ======================================================================
+   Controls
+   ====================================================================== */
+:root[data-skin='battle'] select,
+:root[data-skin='battle'] input[type='date'],
+:root[data-skin='battle'] input[type='text'],
+:root[data-skin='battle'] textarea {
+  border: 2px solid var(--battle-line);
+  background: #ffffff;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  padding: 6px 10px;
+}
+
+:root[data-skin='battle'] textarea {
+  border-radius: 10px;
+}
+
+:root[data-skin='battle'] button {
+  background: var(--series-1);
+  color: #ffffff;
+  border: 3px solid var(--battle-line);
+  border-radius: var(--radius-control);
+  box-shadow: 0 3px 0 var(--battle-line);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+  min-height: 36px;
+  padding: 5px 14px;
+}
+
+/* Buttons that carry their own tiny inline font-size (e.g. "Limpar filtro de
+   período"): pixel faces blur and merge letters below ~14px, so keep them on
+   an integer size. */
+:root[data-skin='battle'] button[style*='font-size'] {
+  font-size: 14px !important;
+  padding: 2px 10px !important;
+  min-height: 32px;
+}
+
+:root[data-skin='battle'] button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+:root[data-skin='battle'] button.secondary {
+  background: #ffffff;
+  color: var(--text-primary);
+}
+
+:root[data-skin='battle'] button.secondary:hover:not(:disabled) {
+  background: var(--battle-hover);
+  filter: none;
+}
+
+:root[data-skin='battle'] button:disabled {
+  box-shadow: none;
+  opacity: 0.55;
+}
+
+/* Segmented toggles are pills, like the mockup. */
+:root[data-skin='battle'] .bucket-toggle {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+:root[data-skin='battle'] .bucket-toggle button,
+:root[data-skin='battle'] .period-nav button,
+:root[data-skin='battle'] .chart-table-toggle {
+  border-radius: 999px;
+  min-height: 36px;
+  padding: 3px 14px;
+  font-size: 16px;
+}
+
+:root[data-skin='battle'] .period-nav {
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  max-width: 100%;
+}
+
+:root[data-skin='battle'] .period-nav input[type='date'] {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Last-rare tile: keep the full species name (information parity). */
+:root[data-skin='battle'] .stat-tile .rares-last-value {
+  font-size: 20px;
+}
+
+:root[data-skin='battle'] .rares-last-name {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: break-word;
+  line-height: 1.15;
+}
+
+/* "Exibição" row (Terror/MD): breathing room above the first card. */
+:root[data-skin='battle'] .card-settings {
+  margin-bottom: 12px;
+}
+
+:root[data-skin='battle'] .period-nav-label {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+:root[data-skin='battle'] .chart-toolbar-label {
+  color: var(--text-secondary);
+}
+
+/* ======================================================================
+   Tables
+   ====================================================================== */
+:root[data-skin='battle'] .data-table th {
+  border-bottom: 2px solid var(--battle-line);
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+:root[data-skin='battle'] .data-table td {
+  border-bottom-color: var(--gridline);
+}
+
+:root[data-skin='battle'] .data-table tbody tr:hover {
+  background: var(--battle-hover);
+}
+
+/* Red (series-1) is 4.7:1 on white, but a blue link reads as a link at 6.9:1. */
+:root[data-skin='battle'] .data-table a,
+:root[data-skin='battle'] .rares-table a {
+  color: #1f55b8;
+}
+
+:root[data-skin='battle'] .muted-link {
+  color: #1f55b8;
+}
+
+/* ======================================================================
+   Badges: outlined tags
+   ====================================================================== */
+:root[data-skin='battle'] .badge {
+  padding: 1px 7px;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* ======================================================================
+   Hunt / MD / Terror cards: cream, sprite beside the name
+   ====================================================================== */
+:root[data-skin='battle'] .hunt-card-grid {
+  gap: 16px;
+  /* An expanded card doesn't stretch its row neighbours into empty boxes. */
+  align-items: start;
+}
+
+:root[data-skin='battle'] .hunt-card {
+  background: var(--battle-cream);
+  border: 3px solid var(--battle-line);
+  border-radius: 12px 12px 12px 3px;
+  padding: 12px 14px 14px;
+  box-shadow: 4px 4px 0 var(--battle-shadow);
+}
+
+:root[data-skin='battle'] .hunt-card-header {
+  flex-wrap: wrap;
+  column-gap: 8px;
+  row-gap: 0;
+}
+
+:root[data-skin='battle'] .hunt-card-header a {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+:root[data-skin='battle'] .hunt-card-header a:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--battle-accent);
+  text-decoration-thickness: 3px;
+}
+
+/* With the art slot present: sprite in the left column, name/info/badges to its
+   right, stats and details across the full width. Cards without art (Terror)
+   stay a plain block. */
+:root[data-skin='battle'] .hunt-card:has(> .hunt-card-art) {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  column-gap: 10px;
+  align-content: start;
+}
+
+:root[data-skin='battle'] .hunt-card-art {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  align-self: start;
+  justify-content: flex-start;
+  margin: -8px 0 0 -6px;
+}
+
+:root[data-skin='battle'] .hunt-card:has(> .hunt-card-art) > .hunt-card-header {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+:root[data-skin='battle'] .hunt-card:has(> .hunt-card-art) > div:not([class]) {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+:root[data-skin='battle'] .hunt-card:has(> .hunt-card-art) > .hunt-card-badges {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+:root[data-skin='battle'] .hunt-card:has(> .hunt-card-art) > .hunt-card-stats,
+:root[data-skin='battle'] .hunt-card:has(> .hunt-card-art) > .hunt-card-expanded {
+  grid-column: 1 / -1;
+}
+
+:root[data-skin='battle'] .hunt-card-badges {
+  min-height: 22px;
+}
+
+:root[data-skin='battle'] .hunt-card-stats {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px 10px;
+}
+
+:root[data-skin='battle'] .hunt-card-stats dt {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+:root[data-skin='battle'] .hunt-card-stats dd {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+:root[data-skin='battle'] .hunt-card-expanded {
+  border-top: 2px dashed var(--battle-line);
+}
+
+:root[data-skin='battle'] .rares-gallery-card {
+  border: 3px solid var(--battle-line);
+  background: var(--battle-cream);
+  box-shadow: 3px 3px 0 var(--battle-shadow);
+}
+
+/* ======================================================================
+   Charts (Recharts renders inline SVG; these override presentation attrs)
+   ====================================================================== */
+:root[data-skin='battle'] .recharts-line .recharts-line-curve {
+  stroke-width: 3.5px;
+}
+
+:root[data-skin='battle'] .recharts-tooltip-wrapper > div {
+  border: 3px solid var(--battle-line) !important;
+  border-radius: 8px !important;
+  box-shadow: 4px 4px 0 rgba(27, 42, 73, 0.25) !important;
+  background: #ffffff !important;
+  font-family: var(--font-body);
+}
+
+:root[data-skin='battle'] .legend-swatch {
+  border-radius: 3px;
+}
+
+/* ======================================================================
+   Battle scene (components/themes/BattleScene.tsx) - Hunts dashboard only,
+   rendered by the component only at >= 960px.
+   ====================================================================== */
+:root[data-skin='battle'] .battle-scene {
+  margin-bottom: 24px;
+}
+
+:root[data-skin='battle'] .battle-scene-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+:root[data-skin='battle'] .battle-scene-title {
+  margin: 0;
+  font-size: 20px;
+}
+
+:root[data-skin='battle'] .battle-arena {
+  position: relative;
+  height: 380px;
+  overflow: hidden;
+  border: 4px solid var(--battle-line);
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(180deg, #bfe4ff 0%, #e6f6ff 45%, #a5dc8a 45.2%, #8fd174 100%);
+}
+
+:root[data-skin='battle'] .battle-arena::before {
+  content: '';
+  position: absolute;
+  inset: 45% 0 0 0;
+  background: repeating-linear-gradient(100deg, transparent 0 40px, rgba(255, 255, 255, 0.14) 40px 44px);
+}
+
+:root[data-skin='battle'] .battle-pad {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, #6fb85a 0 55%, #5aa247 56% 70%, transparent 71%);
+}
+
+:root[data-skin='battle'] .battle-pad-foe {
+  width: 300px;
+  height: 70px;
+  right: 9%;
+  top: 158px;
+}
+
+:root[data-skin='battle'] .battle-pad-me {
+  width: 400px;
+  height: 90px;
+  left: 4%;
+  bottom: -14px;
+}
+
+:root[data-skin='battle'] .battle-mon {
+  position: absolute;
+  max-width: none;
+  image-rendering: pixelated;
+}
+
+:root[data-skin='battle'] .battle-mon-foe {
+  right: calc(9% + 54px);
+  top: 12px;
+}
+
+:root[data-skin='battle'] .battle-mon-me {
+  left: calc(7% + 40px);
+  bottom: 0;
+}
+
+:root[data-skin='battle'] .battle-box {
+  position: absolute;
+  width: 320px;
+  padding: 10px 14px 12px;
+  background: var(--battle-cream);
+  color: var(--text-primary);
+  border: 3px solid var(--battle-line);
+  border-radius: 10px 10px 10px 2px;
+  box-shadow: 4px 4px 0 rgba(27, 42, 73, 0.25);
+}
+
+:root[data-skin='battle'] .battle-box-foe {
+  left: 5%;
+  top: 16px;
+}
+
+:root[data-skin='battle'] .battle-box-me {
+  right: 5%;
+  bottom: 22px;
+  border-radius: 10px 10px 2px 10px;
+}
+
+:root[data-skin='battle'] .battle-box-caption {
+  margin: 0 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+:root[data-skin='battle'] .battle-box-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+:root[data-skin='battle'] .battle-box-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+:root[data-skin='battle'] .battle-box-value {
+  flex: none;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-skin='battle'] .battle-score {
+  margin-top: 8px;
+}
+
+:root[data-skin='battle'] .battle-score-label {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* ONE colour for every bar (no green/yellow/red traffic light). */
+:root[data-skin='battle'] .battle-score-track {
+  display: block;
+  height: 12px;
+  overflow: hidden;
+  background: #dfe4f0;
+  border: 2px solid var(--battle-line);
+  border-radius: 6px;
+}
+
+:root[data-skin='battle'] .battle-score-fill {
+  display: block;
+  height: 100%;
+  background: var(--series-2);
+}
+
+:root[data-skin='battle'] .battle-box-note {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+:root[data-skin='battle'] .battle-narrator {
+  padding: 8px;
+  background: var(--battle-navy);
+  border: 4px solid var(--battle-line);
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+}
+
+:root[data-skin='battle'] .battle-narrator-text {
+  margin: 0;
+  min-height: 64px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  background: var(--battle-cream);
+  color: var(--text-primary);
+  border: 4px solid #c84a3d;
+  border-radius: 10px;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+:root[data-skin='battle'] .battle-scene-toggle {
+  flex: none;
+}
+
+/* ======================================================================
+   Motion: only without prefers-reduced-motion; hover lifts only on real
+   hover pointers. Nothing loops.
+   ====================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-skin='battle'] button {
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+  }
+
+  :root[data-skin='battle'] button:active:not(:disabled) {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 var(--battle-line);
+  }
+
+  :root[data-skin='battle'] .hunt-card,
+  :root[data-skin='battle'] .stat-tile {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  :root[data-skin='battle'] .battle-score-fill {
+    transition: width 0.8s ease-out;
+  }
+
+  :root[data-skin='battle'] .battle-mon {
+    transition: transform 0.4s ease-out;
+  }
+
+  /* One-time entrance when the scene appears; `backwards` so the final state
+     is the plain one and the hover transform below still applies. */
+  :root[data-skin='battle'] .battle-mon-foe {
+    animation: battle-enter-right 0.5s ease-out backwards;
+  }
+
+  :root[data-skin='battle'] .battle-mon-me {
+    animation: battle-enter-left 0.5s ease-out backwards;
+  }
+}
+
+@keyframes battle-enter-right {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+
+@keyframes battle-enter-left {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :root[data-skin='battle'] .hunt-card:hover,
+  :root[data-skin='battle'] .stat-tile.clickable:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 rgba(27, 42, 73, 0.2);
+  }
+
+  :root[data-skin='battle'] .battle-arena:hover .battle-mon-foe {
+    transform: scale(1.04);
+  }
+}
+
+/* ======================================================================
+   Phones (<= 720px): the bar stays ONE row of <= 56px (shell rules in
+   styles.css); only colours/fonts change here.
+   ====================================================================== */
+@media (max-width: 720px) {
+  :root[data-skin='battle'] .brand {
+    font-size: 16px;
+    gap: 6px;
+    min-width: 40px;
+    min-height: 40px;
+    justify-content: center;
+  }
+
+  :root[data-skin='battle'] .brand::before {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Pokéball only: leaves room for the scrollable menu (the link keeps its
+     aria-label "Hunt History Analyser, início"). */
+  :root[data-skin='battle'] .brand-short {
+    display: none;
+  }
+
+  :root[data-skin='battle'] .nav a {
+    padding: 0 8px;
+    font-size: 15px;
+    border-bottom-width: 3px;
+  }
+
+  :root[data-skin='battle'] .topbar .filters-toggle {
+    padding: 0 9px;
+    font-size: 14px;
+  }
+
+  :root[data-skin='battle'] .filters-toggle-count {
+    margin-left: 5px;
+  }
+
+  :root[data-skin='battle'] .topbar-filters {
+    --focus-ring: #ffd24a;
+    --text-muted: #c8d3ee;
+    background: var(--battle-navy);
+    color: #ffffff;
+    border-bottom: 4px solid var(--battle-line);
+  }
+
+  :root[data-skin='battle'] .page-title {
+    font-size: 24px;
+  }
+
+  :root[data-skin='battle'] .stat-tile .value {
+    font-size: 24px;
+  }
+}
+
+/* ===== Bosses: MD banner next to the name (bossImages / MdCard) ===== */
+:root[data-skin='battle'] .hunt-card:has(> .hunt-card-art.has-banner) {
+  grid-template-columns: 100px minmax(0, 1fr);
+}
+
+:root[data-skin='battle'] .hunt-card-art.has-banner .boss-banner {
+  width: 96px;
+  height: 96px;
+}
+/* ===== fim de Bosses ===== */

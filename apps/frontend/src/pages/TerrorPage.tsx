@@ -1,39 +1,23 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type DragEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
 import { usePreferences } from '../PreferencesContext';
+import { usePlayerColor } from '../playerColors';
 import { parseHuntJson } from '../jsonParse';
 import { ConfirmTerrorModal } from '../components/ConfirmTerrorModal';
-import { TerrorCard } from '../components/TerrorCard';
 import { CardSettingsPanel } from '../components/CardSettingsPanel';
-import { PeriodNavigator } from '../components/PeriodNavigator';
 import { TrendChart } from '../components/charts/TrendChart';
 import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChart';
 import { PlayerLegend } from '../components/PlayerLegend';
-import type { PlayerTrendPoint, TerrorListItem, TerrorOverviewStats, TerrorWeeklySummary } from '../api/types';
-import { formatBucketLabel, formatCompact, formatDateTime, formatInt } from '../format';
-import { bucketRange, periodRangeForDate } from '../dates';
+import { PeriodCards } from '../components/themes/PeriodCards';
+import { ScopeBreadcrumb, ScopeToolbar, bucketNoun, useChartScope } from '../chartScope';
+import type { PlayerTrendPoint, TerrorOverviewStats, TerrorWeeklySummary } from '../api/types';
+import { formatCompact, formatDateTime, formatInt } from '../format';
 import { TerrorWeekCard } from '../components/TerrorWeekCard';
+import { TerrorBossGallery } from '../components/bosses/TerrorBossGallery';
 
 type Tab = 'dashboard' | 'history' | 'upload';
-type Bucket = 'all' | 'day' | 'week' | 'month' | 'terror';
-
-const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
-  { value: 'all', label: 'Tudo' },
-  { value: 'day', label: 'Dia' },
-  { value: 'week', label: 'Semana' },
-  { value: 'month', label: 'Mês' },
-  { value: 'terror', label: 'Por terror' },
-];
-
-const CHART_BUCKET_LABEL: Record<Exclude<Bucket, 'all'>, string> = {
-  day: 'dia',
-  week: 'semana',
-  month: 'mês',
-  terror: 'terror',
-};
-
 // Reserves room for 2 lines so the highlight cards don't change height
 // depending on whether their text wraps (a long terror name/date) or is a
 // short one-liner (the "Sem terrors no período" placeholder).
@@ -65,8 +49,9 @@ export function TerrorPage() {
 }
 
 function TerrorDashboardTab() {
-  const { player, sessionType, from, to, setDateRange } = useFilters();
-  const { rareDropThreshold, getPlayerColor } = usePreferences();
+  const { player, sessionType, from, to } = useFilters();
+  const { rareDropThreshold } = usePreferences();
+  const getPlayerColor = usePlayerColor();
   const [overview, setOverview] = useState<TerrorOverviewStats | null>(null);
   // Unaffected by the from/to period filter, unlike `overview` - so
   // navigating to a period with zero terrors (e.g. an empty week) doesn't
@@ -74,79 +59,30 @@ function TerrorDashboardTab() {
   const [totalTerrorCount, setTotalTerrorCount] = useState<number | null>(null);
   const [trend, setTrend] = useState<any[]>([]);
   const [playerTrend, setPlayerTrend] = useState<PlayerTrendPoint[]>([]);
-  const [bucket, setBucket] = useState<Bucket>('week');
-  const [pointFilter, setPointFilter] = useState<{ from: string; to: string } | null>(null);
-  const [dayTrend, setDayTrend] = useState<any[]>([]);
-  const [dayTerrors, setDayTerrors] = useState<TerrorListItem[]>([]);
-  const [dayTerrorsLoading, setDayTerrorsLoading] = useState(false);
-  const drillDownRef = useRef<HTMLDivElement>(null);
+  // The bucket and range the loaded trend rows are for: a granularity switch or
+  // a step with the arrows must not plot the old rows under the new axis labels.
+  const [trendBucket, setTrendBucket] = useState<string | null>(null);
+  // The chart is a comparison over time: the Tudo/Dia/Semana/Mês buttons pick
+  // the size of each point, clicking or dragging zooms in (see chartScope).
+  // Zoomed down to a day (or a short selection) each point is one terror.
+  const scope = useChartScope({ entryBucket: 'terror' });
+  const chartBucket = scope.chartBucket as 'day' | 'week' | 'month' | 'terror';
 
   // No single character selected - color-code the main chart per player
   // instead of blending everyone into one averaged line, same as the Hunts
-  // dashboard. The per-terror granularity already colors by top drop, so it
-  // keeps its own single line rather than layering both signals into one chart.
-  const showPlayerBreakdown = !player && bucket !== 'terror';
-
-  // The bucket toggle picks which single period you're browsing (a day, a
-  // week, a month), but the chart itself always drills one level finer than
-  // that: a week shows its days, a month shows its weeks, a day shows its
-  // individual terrors, and "Tudo" shows every month on record. "Por terror"
-  // has no coarser period around it, so it just shows terrors across
-  // whatever the outer date filter is.
-  const chartBucket: Exclude<Bucket, 'all'> =
-    bucket === 'all' ? 'month' : bucket === 'day' ? 'terror' : bucket === 'week' ? 'day' : bucket === 'month' ? 'week' : 'terror';
-
-  // Switching the bucket toggle always lands on the current day/week/month
-  // (or clears the range for "Tudo") rather than one derived from the range
-  // already in view - deriving it from a past month dropped "Semana" onto
-  // that month's first week, often an empty one.
-  function selectBucket(next: Bucket) {
-    setBucket(next);
-    if (next === 'terror') return;
-    if (next === 'all') setDateRange({ from: '', to: '' });
-    else setDateRange(periodRangeForDate(new Date(), next));
-  }
-
-  // Same pinning, but only for the very first render, and only if the date
-  // filter hasn't been touched yet (from/to still empty) - respects a filter
-  // the user already had set (e.g. arriving from another page) instead of
-  // silently overriding it.
-  useEffect(() => {
-    if (bucket !== 'terror' && bucket !== 'all' && !from && !to) {
-      setDateRange(periodRangeForDate(new Date(), bucket));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Clearing the range from elsewhere ("Limpar filtro de período", the
-  // header's "Todo o período") leaves no single day/week/month to browse, so
-  // follow it to "Tudo" instead of labelling an all-time chart as one week.
-  // Only reacts to a set range becoming empty, so the initial empty range
-  // (before the mount effect above pins the default one) doesn't count.
-  const prevRangeRef = useRef({ from, to });
-  useEffect(() => {
-    const prev = prevRangeRef.current;
-    prevRangeRef.current = { from, to };
-    const wasSet = Boolean(prev.from || prev.to);
-    if (wasSet && !from && !to && (bucket === 'day' || bucket === 'week' || bucket === 'month')) setBucket('all');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, to]);
-
-  useEffect(() => {
-    setPointFilter(null);
-  }, [player, sessionType, from, to, bucket]);
-
-  const overviewRange = pointFilter ?? { from, to };
+  // dashboard. The per-terror level already colors by top drop, so it keeps
+  // its own single line rather than layering both signals into one chart.
+  const showPlayerBreakdown = !player && !scope.isEntryLevel;
 
   useEffect(() => {
     let ignore = false;
-    api.getTerrorOverview({ player, sessionType, from: overviewRange.from, to: overviewRange.to }).then((res) => {
+    api.getTerrorOverview({ player, sessionType, from, to }).then((res) => {
       if (!ignore) setOverview(res);
     });
     return () => {
       ignore = true;
     };
-  }, [player, sessionType, overviewRange.from, overviewRange.to]);
+  }, [player, sessionType, from, to]);
 
   useEffect(() => {
     let ignore = false;
@@ -162,17 +98,23 @@ function TerrorDashboardTab() {
     let ignore = false;
     if (showPlayerBreakdown) {
       api.getTerrorTrendsByPlayer({ player, sessionType, from, to, bucket: chartBucket }).then((res) => {
-        if (!ignore) setPlayerTrend(res);
+        if (ignore) return;
+        setPlayerTrend(res);
+        setTrendBucket(`player:${chartBucket}:${from}:${to}`);
       });
     } else {
       api.getTerrorTrends({ player, sessionType, from, to, bucket: chartBucket }).then((res) => {
-        if (!ignore) setTrend(res);
+        if (ignore) return;
+        setTrend(res);
+        setTrendBucket(`single:${chartBucket}:${from}:${to}`);
       });
     }
     return () => {
       ignore = true;
     };
   }, [player, sessionType, from, to, chartBucket, showPlayerBreakdown]);
+
+  const trendReady = trendBucket === `${showPlayerBreakdown ? 'player' : 'single'}:${chartBucket}:${from}:${to}`;
 
   const playerSeries = useMemo(() => {
     const byPlayer = new Map<number, { playerId: number; playerName: string; points: PlayerTrendPoint[] }>();
@@ -183,61 +125,8 @@ function TerrorDashboardTab() {
     }
     return [...byPlayer.values()]
       .sort((a, b) => a.playerId - b.playerId)
-      .map((entry, index) => ({ ...entry, color: getPlayerColor(String(entry.playerId), index) }));
+      .map((entry) => ({ ...entry, color: getPlayerColor(entry.playerId) }));
   }, [playerTrend, getPlayerColor]);
-
-  useEffect(() => {
-    if (!pointFilter) {
-      setDayTrend([]);
-      setDayTerrors([]);
-      return;
-    }
-    let ignore = false;
-    setDayTerrorsLoading(true);
-    Promise.all([
-      api.getTerrorTrends({ player, sessionType, from: pointFilter.from, to: pointFilter.to, bucket: 'terror' }),
-      api.getTerrors({
-        player,
-        sessionType,
-        from: pointFilter.from,
-        to: pointFilter.to,
-        sort: 'start_time',
-        order: 'asc',
-        page: 1,
-        pageSize: 100,
-      }),
-    ])
-      .then(([trendRes, terrorsRes]) => {
-        if (ignore) return;
-        setDayTrend(trendRes);
-        setDayTerrors(terrorsRes.items);
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            drillDownRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          });
-        });
-      })
-      .finally(() => {
-        if (!ignore) setDayTerrorsLoading(false);
-      });
-    return () => {
-      ignore = true;
-    };
-  }, [player, sessionType, pointFilter?.from, pointFilter?.to]);
-
-  function handlePointClick(bucketStart: string) {
-    if (chartBucket === 'terror') return;
-    const range = bucketRange(bucketStart, chartBucket);
-    setPointFilter((prev) => (prev && prev.from === range.from && prev.to === range.to ? null : range));
-  }
-
-  const knownBucketStarts = showPlayerBreakdown ? playerTrend.map((p) => p.bucketStart) : trend.map((p: any) => p.bucketStart);
-  const selectedBucketStart = pointFilter && chartBucket !== 'terror'
-    ? knownBucketStarts.find((bucketStart: string) => {
-        const range = bucketRange(bucketStart, chartBucket);
-        return range.from === pointFilter.from && range.to === pointFilter.to;
-      })
-    : undefined;
 
   if (!overview || totalTerrorCount === null) return <div className="empty-state">Carregando...</div>;
 
@@ -253,16 +142,15 @@ function TerrorDashboardTab() {
     <div>
       <p className="page-subtitle">
         {overview.terrorCount} terror{overview.terrorCount === 1 ? '' : 'es'} no período selecionado.
-        {pointFilter && selectedBucketStart && <> · {formatBucketLabel(selectedBucketStart, chartBucket)}</>}
-        {(pointFilter || from || to) && (
+        {(from || to) && (
           <>
             {' '}
             <button
               className="secondary"
               style={{ fontSize: 11.5, padding: '2px 8px', marginLeft: 4 }}
-              onClick={() => (pointFilter ? setPointFilter(null) : setDateRange({ from: '', to: '' }))}
+              onClick={() => scope.setGranularity('all')}
             >
-              {pointFilter ? 'Voltar ao período completo' : 'Limpar filtro de período'}
+              Ver todo o período
             </button>
           </>
         )}
@@ -333,45 +221,27 @@ function TerrorDashboardTab() {
       </div>
 
       <div className="section">
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 12,
-            gap: 12,
-            flexWrap: 'wrap',
-          }}
-        >
+        <div className="scope-head">
           <h2 className="section-title" style={{ margin: 0 }}>
-            Profit por {CHART_BUCKET_LABEL[chartBucket]}
+            Profit por {bucketNoun(chartBucket, 'terror')}
           </h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            {(bucket === 'day' || bucket === 'week' || bucket === 'month') && <PeriodNavigator bucket={bucket} />}
-            <div className="bucket-toggle">
-              {BUCKET_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  className={bucket === opt.value ? '' : 'secondary'}
-                  onClick={() => selectBucket(opt.value)}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <ScopeToolbar scope={scope} />
         </div>
+        <ScopeBreadcrumb scope={scope} />
         <div className="card">
-          {showPlayerBreakdown ? (
+          {!trendReady ? (
+            <div className="chart-empty-state">Carregando...</div>
+          ) : showPlayerBreakdown ? (
             <>
               <PlayerLegend entries={playerSeries.map((s) => ({ id: s.playerId, name: s.playerName, color: s.color }))} />
               <MultiSeriesTrendChart
                 rareDropThreshold={rareDropThreshold}
                 series={playerSeries}
                 bucket={chartBucket}
+                range={scope.range}
                 metricKey="avgProfit"
-                onPointClick={chartBucket === 'terror' ? undefined : handlePointClick}
-                selectedBucketStart={selectedBucketStart}
+                onZoom={scope.canZoom ? scope.zoom : undefined}
+                onZoomSpan={scope.canZoom ? scope.zoomSpan : undefined}
               />
             </>
           ) : (
@@ -381,47 +251,20 @@ function TerrorDashboardTab() {
               seriesLabel={chartBucket === 'terror' ? 'Profit' : 'Profit médio'}
               seriesColor="var(--series-1)"
               bucket={chartBucket}
+              range={scope.range}
               unitLabel="terror"
-              onPointClick={chartBucket === 'terror' ? undefined : handlePointClick}
-              selectedBucketStart={selectedBucketStart}
+              onZoom={scope.canZoom ? scope.zoom : undefined}
+              onZoomSpan={scope.canZoom ? scope.zoomSpan : undefined}
               rareDropThreshold={rareDropThreshold}
             />
           )}
         </div>
       </div>
 
-      {pointFilter && (
-        <div className="section" ref={drillDownRef} style={{ scrollMarginTop: 96 }}>
-          <h2 className="section-title">
-            Terrors em {selectedBucketStart ? formatBucketLabel(selectedBucketStart, chartBucket) : ''}
-            {!dayTerrorsLoading && <> ({dayTerrors.length})</>}
-          </h2>
-          {dayTerrorsLoading ? (
-            <div className="empty-state">Carregando...</div>
-          ) : dayTerrors.length === 0 ? (
-            <div className="empty-state">Nenhum terror nesse período.</div>
-          ) : (
-            <>
-              <div className="card" style={{ marginBottom: 14 }}>
-                <TrendChart
-                  data={dayTrend}
-                  metricKey="avgProfit"
-                  seriesLabel="Profit"
-                  seriesColor="var(--series-1)"
-                  bucket="terror"
-                  unitLabel="terror"
-                  rareDropThreshold={rareDropThreshold}
-                />
-              </div>
-              <div className="hunt-card-grid">
-                {dayTerrors.map((terror) => (
-                  <TerrorCard key={terror.id} terror={terror} />
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )}
+      <PeriodCards kind="terror" entryLevel={scope.isEntryLevel} periodLabel={scope.label} />
+
+      {/* Bosses gallery (boss images agent): self-contained, keep as the last child of the dashboard. */}
+      <TerrorBossGallery />
     </div>
   );
 }

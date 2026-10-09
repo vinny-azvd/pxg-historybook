@@ -80,6 +80,37 @@ export function avg<T>(arr: T[], selector: (item: T) => number): number | null {
   return sum(arr, selector) / arr.length;
 }
 
+// Per-hour rates come from totals and duration, never from the export's
+// *_per_hour fields: the game floors those to an integer, and averaging
+// per-session rates lets a 15-minute session weigh as much as a 3-hour one.
+// Mirrors apps/backend/src/services/rates.ts operation for operation, so
+// both data modes produce the same floating-point values.
+
+interface TimedDoc {
+  duration_seconds: number;
+}
+
+/** Time-weighted "X/h médio" over a group: total ÷ hours played - the
+ * backend's `SUM(x) * 3600.0 / NULLIF(SUM(duration_seconds), 0)`. */
+export function perHour<T extends TimedDoc>(docs: T[], total: (doc: T) => number): number | null {
+  const duration = sum(docs, (d) => d.duration_seconds);
+  if (!duration) return null;
+  return (sum(docs, total) * 3600) / duration;
+}
+
+/** Same as perHour, for the damage totals the export rates per second. */
+export function perSecond<T extends TimedDoc>(docs: T[], total: (doc: T) => number): number | null {
+  const duration = sum(docs, (d) => d.duration_seconds);
+  if (!duration) return null;
+  return sum(docs, total) / duration;
+}
+
+/** One session's rare kills per hour, null for a zero-length session. */
+export function rareKillsPerHour(doc: TimedDoc & { rare_kills: number }): number | null {
+  if (!doc.duration_seconds) return null;
+  return (doc.rare_kills * 3600) / doc.duration_seconds;
+}
+
 export function maxOf<T>(arr: T[], selector: (item: T) => number): number | null {
   if (arr.length === 0) return null;
   let best = -Infinity;
@@ -171,11 +202,9 @@ export function mostFrequentName<T extends { start_time: string }>(
 }
 
 /** Mirrors the backend's computeByName/computeMdByName: groups by name
- * (NULL -> "Sem nome"), weights profit/h by duration, sorts by `sortKey` DESC
+ * (NULL -> "Sem nome"), rates as total ÷ hours, sorts by `sortKey` DESC
  * with NULLs last (SQLite's DESC ordering). */
-export function nameBreakdown<
-  T extends { duration_seconds: number; profit: number; profit_per_hour: number; rare_kills: number },
->(
+export function nameBreakdown<T extends { duration_seconds: number; profit: number; rare_kills: number }>(
   docs: T[],
   nameOf: (doc: T) => string | null,
   sortKey: 'avgProfitPerHour' | 'avgProfit'
@@ -187,20 +216,15 @@ export function nameBreakdown<
     groups.get(name)!.push(doc);
   }
   return [...groups.entries()]
-    .map(([name, group]) => {
-      const totalDurationSeconds = sum(group, (d) => d.duration_seconds);
-      return {
-        name,
-        count: group.length,
-        totalDurationSeconds,
-        totalProfit: sum(group, (d) => d.profit),
-        avgProfitPerHour:
-          totalDurationSeconds === 0 ? null : sum(group, (d) => d.profit_per_hour * d.duration_seconds) / totalDurationSeconds,
-        avgProfit: avg(group, (d) => d.profit),
-        avgRareKillsPerHour:
-          totalDurationSeconds === 0 ? null : (sum(group, (d) => d.rare_kills) * 3600) / totalDurationSeconds,
-      };
-    })
+    .map(([name, group]) => ({
+      name,
+      count: group.length,
+      totalDurationSeconds: sum(group, (d) => d.duration_seconds),
+      totalProfit: sum(group, (d) => d.profit),
+      avgProfitPerHour: perHour(group, (d) => d.profit),
+      avgProfit: avg(group, (d) => d.profit),
+      avgRareKillsPerHour: perHour(group, (d) => d.rare_kills),
+    }))
     .sort((a, b) => (b[sortKey] ?? -Infinity) - (a[sortKey] ?? -Infinity));
 }
 

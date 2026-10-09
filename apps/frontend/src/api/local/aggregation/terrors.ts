@@ -207,7 +207,7 @@ export function computeTrendsByPlayer(terrors: StoredTerror[], filter: FilterQue
       names: nameCounts(g.docs, (t) => t.terror_name),
       topDrops: bucketTopDrops(g.docs),
       totalProfit: sum(g.docs, (t) => t.profit),
-      avgProfitPerHour: avg(g.docs, (t) => t.profit),
+      avgProfitPerHour: null,
       avgKillsPerHour: null,
       avgRareKillsPerHour: null,
       avgExperiencePerHour: null,

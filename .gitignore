@@ -7,5 +7,8 @@ dist/
 .env
 backups/
 apps/frontend/public/static/
+# Sparse clone of PokeAPI/sprites used by scripts/pokemon/fetch-sprites.mjs
+apps/frontend/.cache/
 *.tsbuildinfo
 RUNBOOK.md
+design-mockups/

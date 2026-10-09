@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { extractTerrorBosses, deriveTerrorName } from '../terrorNaming';
-import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
+import { formatClock, formatCompact, formatDateTime, formatInt } from '../format';
 
 interface TerrorExportPreview {
   Session?: {
@@ -77,10 +77,10 @@ export function ConfirmTerrorModal({ terror, submitting, errorMessage, onConfirm
           </div>
           <div>
             <dt>Duração</dt>
-            <dd>{session['Duration seconds'] !== undefined ? formatDuration(session['Duration seconds']) : '—'}</dd>
+            <dd>{session['Duration seconds'] !== undefined ? formatClock(session['Duration seconds']) : '—'}</dd>
           </div>
           <div>
-            <dt>Personagem(s)</dt>
+            <dt>Treinador(es)</dt>
             <dd>
               {players.join(', ') || '—'}
               {session['Session type'] === 'party' ? ' (party)' : ''}

@@ -1,5 +1,5 @@
 import { useFilters } from '../FiltersContext';
-import { bucketStartForDate, periodRangeForDate, shiftPeriodDate, toISODate } from '../dates';
+import { bucketStartForDate, periodRangeForDate, referenceDateFromRange, shiftPeriodDate, toISODate } from '../dates';
 import { formatBucketLabel } from '../format';
 
 interface PeriodNavigatorProps {
@@ -9,8 +9,9 @@ interface PeriodNavigatorProps {
 export function PeriodNavigator({ bucket }: PeriodNavigatorProps) {
   const { from, to, setDateRange } = useFilters();
 
-  const referenceIso = to || from;
-  const referenceDate = referenceIso ? new Date(`${referenceIso}T00:00:00`) : new Date();
+  // Today when the period contains it (so the date field reads today after
+  // "Hoje", not the last day of the week/month), otherwise the period's own date.
+  const referenceDate = referenceDateFromRange(from, to);
 
   function go(direction: 1 | -1) {
     setDateRange(periodRangeForDate(shiftPeriodDate(referenceDate, bucket, direction), bucket));

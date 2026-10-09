@@ -1,0 +1,5 @@
+{
+  "_comment": "Commit of github.com/PokeAPI/sprites that the build downloads small sprites from (scripts/pokemon/fetch-sprites.mjs), that src/pokemon.ts builds large-art URLs with, and that the Pages workflow keys its cache by. Pinned so builds are reproducible and raw.githubusercontent URLs never change under us. To update: git ls-remote https://github.com/PokeAPI/sprites.git HEAD, then regenerate src/data/pokedex.json with the matching PokeAPI data.",
+  "repo": "https://github.com/PokeAPI/sprites.git",
+  "commit": "8491ffde1b247e4de574d4bb8e24b7bd9fa876fa"
+}

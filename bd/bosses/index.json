@@ -1,0 +1,596 @@
+{
+ "source": "https://wiki.pokexgames.com",
+ "note": "Images belong to PokeXGames; kept for personal/fan use. Review the rights before any public redistribution.",
+ "items": [
+  {
+   "kind": "md",
+   "name": "Alpha Hisuian Arcanine",
+   "file": "md/Alpha Hisuian Arcanine.webp",
+   "source": "https://wiki.pokexgames.com/images/d/d0/Banner_Bolinha_MD_-_Alpha_Hisuian_Arcanine.webp",
+   "wikiLink": "Alpha Hisuian Arcanine",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 22426
+  },
+  {
+   "kind": "md",
+   "name": "Alpha Hisuian Electrode",
+   "file": "md/Alpha Hisuian Electrode.webp",
+   "source": "https://wiki.pokexgames.com/images/3/32/Banner_Bolinha_MD_-_Alpha_Hisuian_Electrode.webp",
+   "wikiLink": "Alpha Hisuian Electrode",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 20026
+  },
+  {
+   "kind": "md",
+   "name": "Alpha Hisuian Typhlosion",
+   "file": "md/Alpha Hisuian Typhlosion.webp",
+   "source": "https://wiki.pokexgames.com/images/1/13/Banner_Bolinha_MD_-_Alpha_Hisuian_Typhlosion.webp",
+   "wikiLink": "Alpha Hisuian Typhlosion",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 22666
+  },
+  {
+   "kind": "md",
+   "name": "Alpha Kleavor",
+   "file": "md/Alpha Kleavor.webp",
+   "source": "https://wiki.pokexgames.com/images/5/5e/Banner_Bolinha_MD_-_Alpha_Kleavor.webp",
+   "wikiLink": "Alpha Kleavor",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 20290
+  },
+  {
+   "kind": "md",
+   "name": "Alpha Overqwil",
+   "file": "md/Alpha Overqwil.webp",
+   "source": "https://wiki.pokexgames.com/images/8/84/Banner_Bolinha_MD_-_Alpha_Overqwil.webp",
+   "wikiLink": "Alpha Overqwil",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 19592
+  },
+  {
+   "kind": "md",
+   "name": "Alpha Sneasler",
+   "file": "md/Alpha Sneasler.webp",
+   "source": "https://wiki.pokexgames.com/images/4/44/Banner_Bolinha_MD_-_Alpha_Sneasler.webp",
+   "wikiLink": "Alpha Sneasler",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 20232
+  },
+  {
+   "kind": "md",
+   "name": "Alpha Ursaluna",
+   "file": "md/Alpha Ursaluna.webp",
+   "source": "https://wiki.pokexgames.com/images/6/6f/Banner_Bolinha_MD_-_Alpha_Ursaluna.webp",
+   "wikiLink": "Alpha Ursaluna",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 20434
+  },
+  {
+   "kind": "md",
+   "name": "Battle Tree House",
+   "file": "md/Battle Tree House.webp",
+   "source": "https://wiki.pokexgames.com/images/0/00/Banner_Bolinha_MD_-_Battle_Tree_House.webp",
+   "wikiLink": "Battle Tree House",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 21314
+  },
+  {
+   "kind": "md",
+   "name": "Below Zero",
+   "file": "md/Below Zero.webp",
+   "source": "https://wiki.pokexgames.com/images/9/92/Banner_Bolinha_MD_-_Below_Zero.webp",
+   "wikiLink": "Below Zero",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 18488
+  },
+  {
+   "kind": "md",
+   "name": "Burned Tower",
+   "file": "md/Burned Tower.webp",
+   "source": "https://wiki.pokexgames.com/images/f/f4/Banner_Bolinha_MD_-_Burned_Tower.webp",
+   "wikiLink": "Burned Tower",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 20914
+  },
+  {
+   "kind": "md",
+   "name": "Celebi - Wood (Suicune)",
+   "file": "md/Celebi - Wood (Suicune).webp",
+   "source": "https://wiki.pokexgames.com/images/d/df/Banner_Bolinha_MD_-_Celebi_-_Wood_%28Suicune%29.webp",
+   "wikiLink": "%3F%3F%3F",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 21088
+  },
+  {
+   "kind": "md",
+   "name": "Combat Art",
+   "file": "md/Combat Art.webp",
+   "source": "https://wiki.pokexgames.com/images/1/15/Banner_Bolinha_MD_-_Combat_Art.webp",
+   "wikiLink": "Combat Art",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 20274
+  },
+  {
+   "kind": "md",
+   "name": "Cyber World",
+   "file": "md/Cyber World.webp",
+   "source": "https://wiki.pokexgames.com/images/0/05/Banner_Bolinha_MD_-_Cyber_World.webp",
+   "wikiLink": "Cyber World",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 20538
+  },
+  {
+   "kind": "md",
+   "name": "Dark Celebi",
+   "file": "md/Dark Celebi.webp",
+   "source": "https://wiki.pokexgames.com/images/4/47/Banner_Bolinha_MD_-_Dark_Celebi.webp",
+   "wikiLink": "Dark Celebi",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 21700
+  },
+  {
+   "kind": "md",
+   "name": "Defeat The Darkness",
+   "file": "md/Defeat The Darkness.webp",
+   "source": "https://wiki.pokexgames.com/images/7/74/Banner_Bolinha_MD_-_Defeat_The_Darkness.webp",
+   "wikiLink": "Defeat The Darkness",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 24918
+  },
+  {
+   "kind": "md",
+   "name": "Dreams or Nightmares",
+   "file": "md/Dreams or Nightmares.webp",
+   "source": "https://wiki.pokexgames.com/images/6/65/Banner_Bolinha_MD_-_Dreams_or_Nightmares.webp",
+   "wikiLink": "Dreams or Nightmares",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 21978
+  },
+  {
+   "kind": "md",
+   "name": "Dorabelle's Wrath",
+   "file": "md/Dorabelle's Wrath.webp",
+   "source": "https://wiki.pokexgames.com/images/7/7f/Banner_Bolinha_MD_-_Dorabelle%27s_Wrath.webp",
+   "wikiLink": "Dorabelle's Wrath",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 20878
+  },
+  {
+   "kind": "md",
+   "name": "Ecruteak Maze",
+   "file": "md/Ecruteak Maze.webp",
+   "source": "https://wiki.pokexgames.com/images/7/71/Banner_Bolinha_MD_-_Ecruteak_Maze.webp",
+   "wikiLink": "Ecruteak Maze",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 19686
+  },
+  {
+   "kind": "md",
+   "name": "Fishing Competition",
+   "file": "md/Fishing Competition.webp",
+   "source": "https://wiki.pokexgames.com/images/b/be/Banner_Bolinha_MD_-_Fishing_Competition.webp",
+   "wikiLink": "Fishing Competition",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 22100
+  },
+  {
+   "kind": "md",
+   "name": "Fishing Cruise",
+   "file": "md/Fishing Cruise.webp",
+   "source": "https://wiki.pokexgames.com/images/f/fa/Banner_Bolinha_MD_-_Fishing_Cruise.webp",
+   "wikiLink": "Fishing Cruise",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 18456
+  },
+  {
+   "kind": "md",
+   "name": "Forest of Illusions",
+   "file": "md/Forest of Illusions.webp",
+   "source": "https://wiki.pokexgames.com/images/8/86/Banner_Bolinha_MD_-_Forest_of_Illusions.webp",
+   "wikiLink": "Forest of Illusions",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 19970
+  },
+  {
+   "kind": "md",
+   "name": "Johto Pokémon League",
+   "file": "md/Johto Pokémon League.webp",
+   "source": "https://wiki.pokexgames.com/images/1/1b/Banner_Bolinha_MD_-_Johto_Pokémon_League.webp",
+   "wikiLink": "Johto Pokémon League",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 20876
+  },
+  {
+   "kind": "md",
+   "name": "Mecha Iron-Masked Marauder",
+   "file": "md/Mecha Iron-Masked Marauder.webp",
+   "source": "https://wiki.pokexgames.com/images/d/d0/Banner_Bolinha_MD_-_Mecha_Iron-Masked_Marauder.webp",
+   "wikiLink": "Mecha Iron-Masked Marauder",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 25058
+  },
+  {
+   "kind": "md",
+   "name": "Mewtwo Strikes Back",
+   "file": "md/Mewtwo Strikes Back.webp",
+   "source": "https://wiki.pokexgames.com/images/8/8d/Banner_Bolinha_MD_-_Mewtwo_Strikes_Back.webp",
+   "wikiLink": "Mewtwo Strikes Back",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 21972
+  },
+  {
+   "kind": "md",
+   "name": "Muchmoney and The Runaway Precious",
+   "file": "md/Muchmoney and The Runaway Precious.webp",
+   "source": "https://wiki.pokexgames.com/images/d/d6/Banner_Bolinha_MD_-_Muchmoney_and_The_Runaway_Precious.webp",
+   "wikiLink": "Muchmoney and The Runaway Precious",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 21264
+  },
+  {
+   "kind": "md",
+   "name": "Music Challenge",
+   "file": "md/Music Challenge.webp",
+   "source": "https://wiki.pokexgames.com/images/2/2d/Banner_Bolinha_MD_-_Music_Challenge.webp",
+   "wikiLink": "Music Challenge",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 30194
+  },
+  {
+   "kind": "md",
+   "name": "Operation Radio",
+   "file": "md/Operation Radio.webp",
+   "source": "https://wiki.pokexgames.com/images/0/04/Banner_Bolinha_MD_-_Operation_Radio.webp",
+   "wikiLink": "Operation Radio",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 19636
+  },
+  {
+   "kind": "md",
+   "name": "Photography Challenge",
+   "file": "md/Photography Challenge.webp",
+   "source": "https://wiki.pokexgames.com/images/a/a7/Banner_Bolinha_MD_-_Photography_Challenge.webp",
+   "wikiLink": "Photography Challenge",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 24338
+  },
+  {
+   "kind": "md",
+   "name": "Rocket Ambush",
+   "file": "md/Rocket Ambush.webp",
+   "source": "https://wiki.pokexgames.com/images/2/2b/Banner_Bolinha_MD_-_Rocket_Ambush.webp",
+   "wikiLink": "Rocket Ambush",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 19576
+  },
+  {
+   "kind": "md",
+   "name": "Rocket Hideout",
+   "file": "md/Rocket Hideout.webp",
+   "source": "https://wiki.pokexgames.com/images/0/0d/Banner_Bolinha_MD_-_Rocket_Hideout.webp",
+   "wikiLink": "Rocket Hideout",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 19816
+  },
+  {
+   "kind": "md",
+   "name": "Sewers Infestation",
+   "file": "md/Sewers Infestation.webp",
+   "source": "https://wiki.pokexgames.com/images/8/89/Banner_Bolinha_MD_-_Sewers_Infestation.webp",
+   "wikiLink": "Sewers Infestation",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 24380
+  },
+  {
+   "kind": "md",
+   "name": "Sylvester's Farfetch'D",
+   "file": "md/Sylvester's Farfetch'D.webp",
+   "source": "https://wiki.pokexgames.com/images/5/52/Banner_Bolinha_MD_-_Sylvester%27s_Farfetch%27D.webp",
+   "wikiLink": "Sylvester's Farfetch'D",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 22022
+  },
+  {
+   "kind": "md",
+   "name": "The Call of The Megas",
+   "file": "md/The Call of The Megas.webp",
+   "source": "https://wiki.pokexgames.com/images/1/1b/Banner_Bolinha_MD_-_The_Call_of_The_Megas.webp",
+   "wikiLink": "The Call of The Megas",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 24208
+  },
+  {
+   "kind": "md",
+   "name": "The Celestial Serpent",
+   "file": "md/The Celestial Serpent.webp",
+   "source": "https://wiki.pokexgames.com/images/a/ab/Banner_Bolinha_MD_-_The_Celestial_Serpent.webp",
+   "wikiLink": "The Celestial Serpent",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 22058
+  },
+  {
+   "kind": "md",
+   "name": "The Darkness",
+   "file": "md/The Darkness.webp",
+   "source": "https://wiki.pokexgames.com/images/1/1f/Banner_Bolinha_MD_-_The_Darkness.webp",
+   "wikiLink": "The Darkness",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 19524
+  },
+  {
+   "kind": "md",
+   "name": "The Iron-Masked Marauder",
+   "file": "md/The Iron-Masked Marauder.webp",
+   "source": "https://wiki.pokexgames.com/images/3/3c/Banner_Bolinha_MD_-_The_Iron_Masked_Marauder.webp",
+   "wikiLink": "Iron-Masked Marauder",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 23286
+  },
+  {
+   "kind": "md",
+   "name": "The Magma Insurgency",
+   "file": "md/The Magma Insurgency.webp",
+   "source": "https://wiki.pokexgames.com/images/9/98/Banner_Bolinha_MD_-_The_Magma_Insurgency.webp",
+   "wikiLink": "The Magma Insurgency",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 21714
+  },
+  {
+   "kind": "md",
+   "name": "The Red Gyarados",
+   "file": "md/The Red Gyarados.webp",
+   "source": "https://wiki.pokexgames.com/images/f/fa/Banner_Bolinha_MD_-_The_Red_Gyarados.webp",
+   "wikiLink": "The Red Gyarados",
+   "energy": "vermelha",
+   "alias": [],
+   "bytes": 23432
+  },
+  {
+   "kind": "md",
+   "name": "The Slowpoke Well Showdown",
+   "file": "md/The Slowpoke Well Showdown.webp",
+   "source": "https://wiki.pokexgames.com/images/1/1e/Banner_Bolinha_MD_-_The_Slowpoke_Well_Showdown.webp",
+   "wikiLink": "The Slowpoke Well Showdown",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 24348
+  },
+  {
+   "kind": "md",
+   "name": "The Ultimate Challenge",
+   "file": "md/The Ultimate Challenge.webp",
+   "source": "https://wiki.pokexgames.com/images/3/30/Banner_Bolinha_MD_-_The_Ultimate_Challenge.webp",
+   "wikiLink": "The Ultimate Challenge",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 25244
+  },
+  {
+   "kind": "md",
+   "name": "Tour de Alto Mare",
+   "file": "md/Tour de Alto Mare.webp",
+   "source": "https://wiki.pokexgames.com/images/3/3e/Banner_Bolinha_MD_-_Tour_de_Alto_Mare.webp",
+   "wikiLink": "Tour de Alto Mare",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 23536
+  },
+  {
+   "kind": "md",
+   "name": "Whirl Cup",
+   "file": "md/Whirl Cup.webp",
+   "source": "https://wiki.pokexgames.com/images/7/7d/Banner_Bolinha_MD_-_Whirl_Cup.webp",
+   "wikiLink": "Whirl Cup",
+   "energy": "azul",
+   "alias": [],
+   "bytes": 21728
+  },
+  {
+   "kind": "terror",
+   "name": "Entei",
+   "file": "terror/Entei.png",
+   "source": "https://wiki.pokexgames.com/images/a/a3/Banner_BFEntei.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 76000
+  },
+  {
+   "kind": "terror",
+   "name": "Raikou",
+   "file": "terror/Raikou.png",
+   "source": "https://wiki.pokexgames.com/images/7/7d/Banner_BFRaikou.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 85124
+  },
+  {
+   "kind": "terror",
+   "name": "Suicune",
+   "file": "terror/Suicune.png",
+   "source": "https://wiki.pokexgames.com/images/6/6e/Banner_BFSuicune.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 98651
+  },
+  {
+   "kind": "terror",
+   "name": "Ghost",
+   "file": "terror/Ghost.png",
+   "source": "https://wiki.pokexgames.com/images/a/ad/Banner_BFGhost.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 74749
+  },
+  {
+   "kind": "terror",
+   "name": "Giant Shiny Tentacruel",
+   "file": "terror/Giant Shiny Tentacruel.png",
+   "source": "https://wiki.pokexgames.com/images/6/63/BFGiantShinyTentacruel.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 94643
+  },
+  {
+   "kind": "terror",
+   "name": "Kairiki",
+   "file": "terror/Kairiki.png",
+   "source": "https://wiki.pokexgames.com/images/0/02/Banner_BFKairiki.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 75715
+  },
+  {
+   "kind": "terror",
+   "name": "Kame",
+   "file": "terror/Kame.png",
+   "source": "https://wiki.pokexgames.com/images/0/02/Banner_BFKame.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 73912
+  },
+  {
+   "kind": "terror",
+   "name": "Ptera",
+   "file": "terror/Ptera.png",
+   "source": "https://wiki.pokexgames.com/images/0/0d/Banner_BFPtera.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 90455
+  },
+  {
+   "kind": "terror",
+   "name": "Gama",
+   "file": "terror/Gama.png",
+   "source": "https://wiki.pokexgames.com/images/7/78/Banner_BF_Gama.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 85163
+  },
+  {
+   "kind": "terror",
+   "name": "Riza",
+   "file": "terror/Riza.png",
+   "source": "https://wiki.pokexgames.com/images/f/fd/Banner_BFRiza.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 90973
+  },
+  {
+   "kind": "terror",
+   "name": "Raito",
+   "file": "terror/Raito.png",
+   "source": "https://wiki.pokexgames.com/images/0/07/Banner_BFRaito.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 99530
+  },
+  {
+   "kind": "terror",
+   "name": "Gyakkyo",
+   "file": "terror/Gyakkyo.png",
+   "source": "https://wiki.pokexgames.com/images/6/67/Banner_BF_Gyakkyo.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 99846
+  },
+  {
+   "kind": "terror",
+   "name": "Seishin & Yurei",
+   "file": "terror/Seishin & Yurei.png",
+   "source": "https://wiki.pokexgames.com/images/4/4a/Banner_BF_Seishin_%26_Yurei.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 90152
+  },
+  {
+   "kind": "terror",
+   "name": "Kitsune",
+   "file": "terror/Kitsune.png",
+   "source": "https://wiki.pokexgames.com/images/c/c8/Banner_BF_Kitsune.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 77982
+  },
+  {
+   "kind": "terror",
+   "name": "Missingno",
+   "file": "terror/Missingno.png",
+   "source": "https://wiki.pokexgames.com/images/5/57/Banner_BFMissingno.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 87619
+  },
+  {
+   "kind": "terror",
+   "name": "Bowstoise",
+   "file": "terror/Bowstoise.png",
+   "source": "https://wiki.pokexgames.com/images/6/62/Banner_BFBowstoise.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 86399
+  },
+  {
+   "kind": "terror",
+   "name": "O Veredito Celestial",
+   "file": "terror/O Veredito Celestial.png",
+   "source": "https://wiki.pokexgames.com/images/f/fb/Bolinha_O_Veredito_Celestial.png",
+   "wikiLink": null,
+   "energy": null,
+   "alias": [],
+   "bytes": 87784
+  }
+ ]
+}

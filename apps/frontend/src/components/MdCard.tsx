@@ -1,18 +1,31 @@
-import { useState } from 'react';
+import { canonicalEnemyName } from '../enemyNames';
+import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { MdDetail, MdListItem } from '../api/types';
 import { usePreferences } from '../PreferencesContext';
-import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
+import { useSkin } from '../theme/ThemeContext';
+import { CardToggle } from '../theme/CardToggle';
+import { useCardProps } from '../theme/useCardProps';
+import { formatCompact, formatDateTime, formatDuration, formatInt, formatRate } from '../format';
 import { ItemIcon } from './ItemIcon';
+import { PokemonSprite } from './PokemonSprite';
+import { BossBanner } from './bosses/BossBanner';
+import { mdBanner, normalizeBossName } from '../bossImages';
+import { cardType } from './themes/cardType';
 import { RareDropBadge } from './HuntBadges';
 
 interface MdCardProps {
   md: MdListItem;
+  /** How many times this boss was defeated in the period the card is listed
+   * under: the number of unique MD records for it (an MD is a weekly boss
+   * battle, so kills/h says nothing). */
+  defeats?: number;
 }
 
-export function MdCard({ md }: MdCardProps) {
+export function MdCard({ md, defeats }: MdCardProps) {
   const { rareDropThreshold, visibleFields } = usePreferences();
+  const { skin } = useSkin();
   const [expanded, setExpanded] = useState(false);
   const [detail, setDetail] = useState<MdDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,17 +38,35 @@ export function MdCard({ md }: MdCardProps) {
     }
   }
 
+  const cardProps = useCardProps(toggle);
+  const expandedId = useId();
+
+  const banner = mdBanner(md.md_name);
+  // The wiki names the dungeon, the export the boss ("Noctu" = "Defeat The Darkness").
+  const dungeonName = banner && normalizeBossName(banner.name) !== normalizeBossName(md.md_name ?? '') ? banner.name : null;
+
   const rareEnemies = detail?.enemiesDefeated.filter((e) => e.rare) ?? [];
   const rareDropLines = detail?.drops.filter((d) => d.unit_price >= rareDropThreshold) ?? [];
 
   return (
-    <div className="hunt-card" onClick={toggle}>
+    <div className="hunt-card" data-type={cardType(md.md_name)} {...cardProps}>
+      {skin !== 'classic' && (
+        <div className={banner ? 'hunt-card-art has-banner' : 'hunt-card-art'} aria-hidden={banner ? undefined : true}>
+          {banner ? (
+            <BossBanner src={banner.src} alt={`Banner da dungeon ${banner.name}`} fallbackName={md.md_name ?? ''} width={72} />
+          ) : (
+            <PokemonSprite name={md.md_name ?? ''} width={72} alt="" />
+          )}
+        </div>
+      )}
       <div className="hunt-card-header">
         <Link to={`/md/${md.id}`} onClick={(e) => e.stopPropagation()}>
           {md.md_name ?? 'MD'}
         </Link>
         <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{formatDateTime(md.start_time)}</span>
       </div>
+      {dungeonName && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{dungeonName}</div>}
+      <CardToggle expanded={expanded} controlsId={expandedId} label={md.md_name ?? 'MD'} onToggle={toggle} />
 
       <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
         Duração {formatDuration(md.duration_seconds)} · {md.players.join(', ')}
@@ -67,12 +98,12 @@ export function MdCard({ md }: MdCardProps) {
           <dd>{formatCompact(md.profit_per_hour)}</dd>
         </div>
         <div>
-          <dt>Kills/h</dt>
-          <dd>{formatInt(md.kills_per_hour)}</dd>
+          <dt>Derrotado</dt>
+          <dd>{defeats === undefined ? '—' : `${formatInt(defeats)}×`}</dd>
         </div>
         <div>
           <dt>Raros/h</dt>
-          <dd>{formatInt(md.rare_kills_per_hour)}</dd>
+          <dd>{formatRate(md.rare_kills_per_hour)}</dd>
         </div>
         {visibleFields.experience && (
           <div>
@@ -95,7 +126,7 @@ export function MdCard({ md }: MdCardProps) {
       </dl>
 
       {expanded && (
-        <div className="hunt-card-expanded" onClick={(e) => e.stopPropagation()}>
+        <div className="hunt-card-expanded" id={expandedId} onClick={(e) => e.stopPropagation()}>
           {loading || !detail ? (
             <div className="empty-state">Carregando detalhes...</div>
           ) : (
@@ -109,7 +140,7 @@ export function MdCard({ md }: MdCardProps) {
                 <ul style={{ margin: '0 0 10px', paddingLeft: 18, fontSize: 12.5 }}>
                   {rareEnemies.map((e) => (
                     <li key={e.id}>
-                      {e.enemy} × {formatInt(e.count)}
+                      {canonicalEnemyName(e.enemy)} × {formatInt(e.count)}
                     </li>
                   ))}
                 </ul>

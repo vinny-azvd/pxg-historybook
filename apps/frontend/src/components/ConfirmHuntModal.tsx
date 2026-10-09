@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { deriveHuntName } from '../huntNaming';
-import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
+import { formatClock, formatCompact, formatDateTime, formatInt } from '../format';
 
 interface HuntExportPreview {
   Session?: {
@@ -88,10 +88,10 @@ export function ConfirmHuntModal({ hunt, submitting, errorMessage, onConfirm, on
           </div>
           <div>
             <dt>Duração</dt>
-            <dd>{session['Duration seconds'] !== undefined ? formatDuration(session['Duration seconds']) : '—'}</dd>
+            <dd>{session['Duration seconds'] !== undefined ? formatClock(session['Duration seconds']) : '—'}</dd>
           </div>
           <div>
-            <dt>Personagem(s)</dt>
+            <dt>Treinador(es)</dt>
             <dd>
               {players.join(', ') || '—'}
               {session['Session type'] === 'party' ? ' (party)' : ''}

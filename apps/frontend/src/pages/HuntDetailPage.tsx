@@ -1,17 +1,20 @@
+import { canonicalEnemyName } from '../enemyNames';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { HuntDetail } from '../api/types';
+import { DetailNotFound } from '../components/DetailNotFound';
 import { ItemIcon } from '../components/ItemIcon';
 import { StatTile } from '../components/StatTile';
 import { JadeBadge, RareDropBadge } from '../components/HuntBadges';
 import { usePreferences } from '../PreferencesContext';
-import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
+import { formatClock, formatCompact, formatDateTime, formatInt, formatRate } from '../format';
 
 export function HuntDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [detail, setDetail] = useState<HuntDetail | null>(null);
+  const [missing, setMissing] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
@@ -24,9 +27,14 @@ export function HuntDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    api.getHunt(Number(id)).then(setDetail);
+    setMissing(false);
+    api
+      .getHunt(Number(id))
+      .then(setDetail)
+      .catch(() => setMissing(true));
   }, [id]);
 
+  if (missing) return <DetailNotFound to="/hunts" linkLabel="Voltar para Hunts" />;
   if (!detail) return <div className="empty-state">Carregando...</div>;
 
   const { hunt, players, damage, supplies, drops, enemiesDefeated } = detail;
@@ -130,7 +138,7 @@ export function HuntDetailPage() {
           )}
           <p className="page-subtitle">
             {formatDateTime(hunt.start_time)} · {players.map((p) => p.name).join(', ')} · Duração{' '}
-            {formatDuration(hunt.duration_seconds)}
+            {formatClock(hunt.duration_seconds)}
           </p>
         </div>
         <button className="secondary" onClick={handleDelete}>
@@ -145,7 +153,7 @@ export function HuntDetailPage() {
         <StatTile
           label="Raros"
           value={formatInt(hunt.rare_kills)}
-          sub={`${formatInt(hunt.rare_kills_per_hour)}/h`}
+          sub={`${formatRate(hunt.rare_kills_per_hour)}/h`}
           onClick={() => setShowRareDetail((v) => !v)}
         />
         <StatTile label="Exp/h" value={formatCompact(hunt.experience_per_hour)} />
@@ -156,7 +164,7 @@ export function HuntDetailPage() {
 
       {showRareDetail && (
         <div className="section">
-          <h2 className="section-title">Raros mortos ({rareEnemies.length})</h2>
+          <h2 className="section-title">Raros mortos <span className="num">({rareEnemies.length})</span></h2>
           <div className="card">
             {rareEnemies.length === 0 ? (
               <div className="empty-state">Nenhum raro nessa hunt.</div>
@@ -164,7 +172,7 @@ export function HuntDetailPage() {
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5 }}>
                 {rareEnemies.map((e) => (
                   <li key={e.id}>
-                    {e.enemy} × {formatInt(e.count)}
+                    {canonicalEnemyName(e.enemy)} × {formatInt(e.count)}
                     {!!e.from_nightmare_crystal && (
                       <>
                         {' '}
@@ -183,13 +191,13 @@ export function HuntDetailPage() {
 
       <div className="two-col">
         <div className="section">
-          <h2 className="section-title">Drops ({drops.length})</h2>
+          <h2 className="section-title">Drops <span className="num">({drops.length})</span></h2>
           <div className="card">
             <ItemTable items={drops} />
           </div>
         </div>
         <div className="section">
-          <h2 className="section-title">Suprimentos usados ({supplies.length})</h2>
+          <h2 className="section-title">Suprimentos usados <span className="num">({supplies.length})</span></h2>
           <div className="card">
             <ItemTable items={supplies} />
           </div>
@@ -220,7 +228,7 @@ export function HuntDetailPage() {
                   checked={crystalDraft.has(e.id)}
                   onChange={() => toggleCrystalDraft(e.id)}
                 />
-                {e.enemy} (× {e.count})
+                {canonicalEnemyName(e.enemy)} (× {e.count})
               </label>
             ))}
             <div className="modal-actions" style={{ marginTop: 10 }}>
@@ -237,34 +245,36 @@ export function HuntDetailPage() {
           {enemiesDefeated.length === 0 ? (
             <div className="empty-state">Sem dados.</div>
           ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Inimigo</th>
-                  <th>Quantidade</th>
-                  <th>Raro</th>
-                </tr>
-              </thead>
-              <tbody>
-                {enemiesDefeated.map((e) => (
-                  <tr key={e.id}>
-                    <td>{e.enemy}</td>
-                    <td>{formatInt(e.count)}</td>
-                    <td>
-                      {e.rare ? 'Sim' : '—'}
-                      {!!e.from_nightmare_crystal && (
-                        <>
-                          {' '}
-                          <span className="badge badge-jade" title="Spawn aleatório do Nightmare Crystal">
-                            via Nightmare Crystal
-                          </span>
-                        </>
-                      )}
-                    </td>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Inimigo</th>
+                    <th>Quantidade</th>
+                    <th>Raro</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {enemiesDefeated.map((e) => (
+                    <tr key={e.id}>
+                      <td>{canonicalEnemyName(e.enemy)}</td>
+                      <td>{formatInt(e.count)}</td>
+                      <td>
+                        {e.rare ? 'Sim' : '—'}
+                        {!!e.from_nightmare_crystal && (
+                          <>
+                            {' '}
+                            <span className="badge badge-jade" title="Spawn aleatório do Nightmare Crystal">
+                              via Nightmare Crystal
+                            </span>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -275,26 +285,28 @@ export function HuntDetailPage() {
           {damage.length === 0 ? (
             <div className="empty-state">Sem dados.</div>
           ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Inimigo</th>
-                  <th>Elemento</th>
-                  <th>Dano causado</th>
-                  <th>Dano recebido</th>
-                </tr>
-              </thead>
-              <tbody>
-                {damage.map((d) => (
-                  <tr key={d.id}>
-                    <td>{d.enemy}</td>
-                    <td>{d.element}</td>
-                    <td>{formatInt(d.damage_dealt)}</td>
-                    <td>{formatInt(d.damage_taken)}</td>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Inimigo</th>
+                    <th>Elemento</th>
+                    <th>Dano causado</th>
+                    <th>Dano recebido</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {damage.map((d) => (
+                    <tr key={d.id}>
+                      <td>{d.enemy}</td>
+                      <td>{d.element}</td>
+                      <td>{formatInt(d.damage_dealt)}</td>
+                      <td>{formatInt(d.damage_taken)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -320,30 +332,32 @@ export function HuntDetailPage() {
 function ItemTable({ items }: { items: HuntDetail['drops'] }) {
   if (items.length === 0) return <div className="empty-state">Sem itens.</div>;
   return (
-    <table className="data-table">
-      <thead>
-        <tr>
-          <th>Item</th>
-          <th>Qtd</th>
-          <th>Preço unit.</th>
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((item) => (
-          <tr key={item.id}>
-            <td>
-              <div className="item-cell">
-                <ItemIcon name={item.item} iconUrl={item.icon_url} />
-                {item.item}
-              </div>
-            </td>
-            <td>{formatInt(item.count)}</td>
-            <td>{formatCompact(item.unit_price)}</td>
-            <td>{formatCompact(item.total_price)}</td>
+    <div className="table-scroll">
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Qtd</th>
+            <th>Preço unit.</th>
+            <th>Total</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.id}>
+              <td>
+                <div className="item-cell">
+                  <ItemIcon name={item.item} iconUrl={item.icon_url} />
+                  {item.item}
+                </div>
+              </td>
+              <td>{formatInt(item.count)}</td>
+              <td>{formatCompact(item.unit_price)}</td>
+              <td>{formatCompact(item.total_price)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

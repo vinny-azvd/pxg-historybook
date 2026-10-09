@@ -19,6 +19,9 @@ export interface HuntListItem {
   kills: number;
   kills_per_hour: number;
   rare_kills: number;
+  // Recomputed as rare_kills ÷ hours (0 for a zero-length session) in hunt,
+  // terror and MD lists/records alike - the export's own field is floored to
+  // an integer and is never served.
   rare_kills_per_hour: number;
   experience_per_hour: number;
   supplies_cost: number;
@@ -107,6 +110,10 @@ export interface HuntDetail {
   enemiesDefeated: EnemyDefeatedLine[];
 }
 
+// Every avg*PerHour / avg*PerSecond here, in TrendPoint/PlayerTrendPoint
+// day/week/month buckets and in CompareResponse is total ÷ time played over
+// the group, not a mean of per-hunt rates. Per-hunt trend points carry that
+// hunt's own rate (Raros/h recomputed from rare_kills, see HuntListItem).
 export interface OverviewStats {
   huntCount: number;
   totalDurationSeconds: number;
@@ -139,6 +146,76 @@ export interface RareKillRow {
   enemy: string;
   count: number;
   fromNightmareCrystal: boolean;
+}
+
+// ---------- Página Raros ----------
+// Rares are whatever the game export flags `rare` (never inferred from the
+// name - "Giant Mamoswine" isn't rare but "Giant Porygon" is). Hunts and MDs
+// both have them; Terror rotations don't flag any today.
+export type RareOrigin = 'hunt' | 'md';
+
+export interface RaresFilters extends Filters {
+  origin?: 'all' | RareOrigin;
+  bucket: 'day' | 'week' | 'month';
+}
+
+/** One rare kill row as exported (one enemy name inside one hunt/MD). */
+export interface RareEvent {
+  id: string; // `${origin}-${entryId}-${enemies_defeated.id}`, unique across origins and sessions
+  origin: RareOrigin;
+  entryId: number; // hunt id or md id
+  entryName: string | null; // hunt_name / md_name
+  startTime: string;
+  enemy: string; // raw exported name, e.g. "Shiny Muk"
+  count: number;
+  fromNightmareCrystal: boolean; // user annotation, hunts only
+}
+
+/** Every rare with the same exported enemy name, aggregated. */
+export interface RareSpeciesRow {
+  enemy: string;
+  origins: RareOrigin[];
+  count: number;
+  nightmareCrystalCount: number;
+  lastAt: string; // latest startTime it appeared in
+  entryNames: NameCount[]; // hunts/MDs it came from, most frequent first
+}
+
+/** Rares per hunt/MD name, for "Raros/h por hunt". Rate = total ÷ hours. */
+export interface RareEntryRow {
+  name: string;
+  origin: RareOrigin;
+  sessions: number;
+  rareKills: number; // session-level rare_kills (includes unidentified ones)
+  durationSeconds: number;
+  rareKillsPerHour: number | null;
+}
+
+export interface RareTimelinePoint {
+  bucketStart: string;
+  hunt: number;
+  md: number;
+}
+
+export interface RaresSummary {
+  /** Session-level counts (hunts.rare_kills + mds.rare_kills). */
+  totalRareKills: number;
+  /** Sum of the per-enemy rare rows - can be lower than the total when an
+   * export counted rares without listing which enemy they were. */
+  identifiedRareKills: number;
+  unidentifiedRareKills: number;
+  totalDurationSeconds: number;
+  rareKillsPerHour: number | null;
+  sessions: number;
+  sessionsWithRares: number;
+  nightmareCrystalRares: number;
+  /** "Nightmare Crystal" enemy rows (not rare themselves) - crystals broken. */
+  nightmareCrystalsBroken: number;
+  lastRare: RareEvent | null;
+  species: RareSpeciesRow[]; // most kills first
+  byEntry: RareEntryRow[]; // highest Raros/h first
+  timeline: RareTimelinePoint[]; // only buckets with sessions; the chart fills gaps
+  events: RareEvent[]; // newest first
 }
 
 export interface MonthBucket {
@@ -419,6 +496,8 @@ export interface MdWeeklySummary {
   mdCount: number;
   totalProfit: number;
   avgProfit: number | null;
+  // Total rares ÷ hours across the week's runs.
+  avgRareKillsPerHour: number | null;
 }
 
 export interface MdWeeklyResponse {
@@ -437,4 +516,18 @@ export interface NameBreakdownRow {
   avgProfitPerHour: number | null;
   avgProfit: number | null;
   avgRareKillsPerHour: number | null;
+}
+
+/** Terror rotations in a period and, per enemy, in how many of them damage was
+ * dealt to it (the way to tell which bosses were done: the export lists the
+ * whole rotation, not only the kills). */
+export interface TerrorBossFight {
+  enemy: string;
+  count: number;
+  lastAt: string;
+}
+
+export interface TerrorBossFights {
+  rotations: number;
+  fights: TerrorBossFight[];
 }

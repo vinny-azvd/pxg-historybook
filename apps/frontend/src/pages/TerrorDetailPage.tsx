@@ -2,16 +2,19 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { TerrorDetail } from '../api/types';
+import { DetailNotFound } from '../components/DetailNotFound';
 import { ItemIcon } from '../components/ItemIcon';
 import { StatTile } from '../components/StatTile';
 import { RareDropBadge } from '../components/HuntBadges';
+import { terrorEnemyLabel } from '../terrorNames';
 import { usePreferences } from '../PreferencesContext';
-import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
+import { formatClock, formatCompact, formatDateTime, formatInt, formatRate } from '../format';
 
 export function TerrorDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [detail, setDetail] = useState<TerrorDetail | null>(null);
+  const [missing, setMissing] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
@@ -21,9 +24,14 @@ export function TerrorDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    api.getTerror(Number(id)).then(setDetail);
+    setMissing(false);
+    api
+      .getTerror(Number(id))
+      .then(setDetail)
+      .catch(() => setMissing(true));
   }, [id]);
 
+  if (missing) return <DetailNotFound to="/terror" linkLabel="Voltar para Terror" />;
   if (!detail) return <div className="empty-state">Carregando...</div>;
 
   const { terror, players, damage, supplies, drops, enemiesDefeated } = detail;
@@ -99,7 +107,7 @@ export function TerrorDetailPage() {
           )}
           <p className="page-subtitle">
             {formatDateTime(terror.start_time)} · {players.map((p) => p.name).join(', ')} · Duração{' '}
-            {formatDuration(terror.duration_seconds)}
+            {formatClock(terror.duration_seconds)}
           </p>
         </div>
         <button className="secondary" onClick={handleDelete}>
@@ -114,7 +122,7 @@ export function TerrorDetailPage() {
         <StatTile
           label="Raros"
           value={formatInt(terror.rare_kills)}
-          sub={`${formatInt(terror.rare_kills_per_hour)}/h`}
+          sub={`${formatRate(terror.rare_kills_per_hour)}/h`}
           onClick={() => setShowRareDetail((v) => !v)}
         />
         <StatTile label="Exp/h" value={formatCompact(terror.experience_per_hour)} />
@@ -125,7 +133,7 @@ export function TerrorDetailPage() {
 
       {showRareDetail && (
         <div className="section">
-          <h2 className="section-title">Raros mortos ({rareEnemies.length})</h2>
+          <h2 className="section-title">Raros mortos <span className="num">({rareEnemies.length})</span></h2>
           <div className="card">
             {rareEnemies.length === 0 ? (
               <div className="empty-state">Nenhum raro nesse terror.</div>
@@ -133,7 +141,7 @@ export function TerrorDetailPage() {
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5 }}>
                 {rareEnemies.map((e) => (
                   <li key={e.id}>
-                    {e.enemy} × {formatInt(e.count)}
+                    {terrorEnemyLabel(e.enemy)} × {formatInt(e.count)}
                   </li>
                 ))}
               </ul>
@@ -144,13 +152,13 @@ export function TerrorDetailPage() {
 
       <div className="two-col">
         <div className="section">
-          <h2 className="section-title">Drops ({drops.length})</h2>
+          <h2 className="section-title">Drops <span className="num">({drops.length})</span></h2>
           <div className="card">
             <ItemTable items={drops} />
           </div>
         </div>
         <div className="section">
-          <h2 className="section-title">Suprimentos usados ({supplies.length})</h2>
+          <h2 className="section-title">Suprimentos usados <span className="num">({supplies.length})</span></h2>
           <div className="card">
             <ItemTable items={supplies} />
           </div>
@@ -163,24 +171,26 @@ export function TerrorDetailPage() {
           {enemiesDefeated.length === 0 ? (
             <div className="empty-state">Sem dados.</div>
           ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Inimigo</th>
-                  <th>Quantidade</th>
-                  <th>Raro</th>
-                </tr>
-              </thead>
-              <tbody>
-                {enemiesDefeated.map((e) => (
-                  <tr key={e.id}>
-                    <td>{e.enemy}</td>
-                    <td>{formatInt(e.count)}</td>
-                    <td>{e.rare ? 'Sim' : '—'}</td>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Inimigo</th>
+                    <th>Quantidade</th>
+                    <th>Raro</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {enemiesDefeated.map((e) => (
+                    <tr key={e.id}>
+                      <td>{terrorEnemyLabel(e.enemy)}</td>
+                      <td>{formatInt(e.count)}</td>
+                      <td>{e.rare ? 'Sim' : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -191,26 +201,28 @@ export function TerrorDetailPage() {
           {damage.length === 0 ? (
             <div className="empty-state">Sem dados.</div>
           ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Inimigo</th>
-                  <th>Elemento</th>
-                  <th>Dano causado</th>
-                  <th>Dano recebido</th>
-                </tr>
-              </thead>
-              <tbody>
-                {damage.map((d) => (
-                  <tr key={d.id}>
-                    <td>{d.enemy}</td>
-                    <td>{d.element}</td>
-                    <td>{formatInt(d.damage_dealt)}</td>
-                    <td>{formatInt(d.damage_taken)}</td>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Inimigo</th>
+                    <th>Elemento</th>
+                    <th>Dano causado</th>
+                    <th>Dano recebido</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {damage.map((d) => (
+                    <tr key={d.id}>
+                      <td>{terrorEnemyLabel(d.enemy)}</td>
+                      <td>{d.element}</td>
+                      <td>{formatInt(d.damage_dealt)}</td>
+                      <td>{formatInt(d.damage_taken)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -236,30 +248,32 @@ export function TerrorDetailPage() {
 function ItemTable({ items }: { items: TerrorDetail['drops'] }) {
   if (items.length === 0) return <div className="empty-state">Sem itens.</div>;
   return (
-    <table className="data-table">
-      <thead>
-        <tr>
-          <th>Item</th>
-          <th>Qtd</th>
-          <th>Preço unit.</th>
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((item) => (
-          <tr key={item.id}>
-            <td>
-              <div className="item-cell">
-                <ItemIcon name={item.item} iconUrl={item.icon_url} />
-                {item.item}
-              </div>
-            </td>
-            <td>{formatInt(item.count)}</td>
-            <td>{formatCompact(item.unit_price)}</td>
-            <td>{formatCompact(item.total_price)}</td>
+    <div className="table-scroll">
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Qtd</th>
+            <th>Preço unit.</th>
+            <th>Total</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.id}>
+              <td>
+                <div className="item-cell">
+                  <ItemIcon name={item.item} iconUrl={item.icon_url} />
+                  {item.item}
+                </div>
+              </td>
+              <td>{formatInt(item.count)}</td>
+              <td>{formatCompact(item.unit_price)}</td>
+              <td>{formatCompact(item.total_price)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

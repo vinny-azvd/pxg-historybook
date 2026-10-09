@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { terrorEnemyLabel } from '../terrorNames';
+import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { TerrorDetail, TerrorListItem } from '../api/types';
 import { usePreferences } from '../PreferencesContext';
-import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
+import { CardToggle } from '../theme/CardToggle';
+import { useCardProps } from '../theme/useCardProps';
+import { formatCompact, formatDateTime, formatDuration, formatInt, formatRate } from '../format';
 import { ItemIcon } from './ItemIcon';
 import { RareDropBadge } from './HuntBadges';
 
@@ -25,17 +28,21 @@ export function TerrorCard({ terror }: TerrorCardProps) {
     }
   }
 
+  const cardProps = useCardProps(toggle);
+  const expandedId = useId();
+
   const rareEnemies = detail?.enemiesDefeated.filter((e) => e.rare) ?? [];
   const rareDropLines = detail?.drops.filter((d) => d.unit_price >= rareDropThreshold) ?? [];
 
   return (
-    <div className="hunt-card" onClick={toggle}>
+    <div className="hunt-card" {...cardProps}>
       <div className="hunt-card-header">
         <Link to={`/terror/${terror.id}`} onClick={(e) => e.stopPropagation()}>
           {terror.terror_name ?? 'Terror'}
         </Link>
         <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{formatDateTime(terror.start_time)}</span>
       </div>
+      <CardToggle expanded={expanded} controlsId={expandedId} label={terror.terror_name ?? 'Terror'} onToggle={toggle} />
 
       <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
         Duração {formatDuration(terror.duration_seconds)} · {terror.players.join(', ')}
@@ -66,7 +73,7 @@ export function TerrorCard({ terror }: TerrorCardProps) {
         </div>
         <div>
           <dt>Raros/h</dt>
-          <dd>{formatInt(terror.rare_kills_per_hour)}</dd>
+          <dd>{formatRate(terror.rare_kills_per_hour)}</dd>
         </div>
         {visibleFields.experience && (
           <div>
@@ -89,7 +96,7 @@ export function TerrorCard({ terror }: TerrorCardProps) {
       </dl>
 
       {expanded && (
-        <div className="hunt-card-expanded" onClick={(e) => e.stopPropagation()}>
+        <div className="hunt-card-expanded" id={expandedId} onClick={(e) => e.stopPropagation()}>
           {loading || !detail ? (
             <div className="empty-state">Carregando detalhes...</div>
           ) : (
@@ -103,7 +110,7 @@ export function TerrorCard({ terror }: TerrorCardProps) {
                 <ul style={{ margin: '0 0 10px', paddingLeft: 18, fontSize: 12.5 }}>
                   {rareEnemies.map((e) => (
                     <li key={e.id}>
-                      {e.enemy} × {formatInt(e.count)}
+                      {terrorEnemyLabel(e.enemy)} × {formatInt(e.count)}
                     </li>
                   ))}
                 </ul>

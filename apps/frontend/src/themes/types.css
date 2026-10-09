@@ -1,0 +1,114 @@
+/*
+ * Pokémon type colours (bars of "Por hunt", rare ranking, type badges).
+ * Canonical type colours with HSL lightness moved (hue/saturation kept) until
+ * each reaches >= 3:1 WCAG non-text contrast against every chart surface of
+ * its mode — light: #fcfcfb, #ffffff, #f7f5ee; dark: #1a1a19, #204047.
+ * Colour is never the only cue: the type name always goes in the
+ * legend/tooltip (several earthy types end up close to each other in light
+ * mode). --type-unknown is the neutral grey for unresolved species.
+ * Read through typeColor() in src/pokemon.ts.
+ */
+
+:root {
+  --type-normal: #908f5f;
+  --type-fire: #e16a12;
+  --type-water: #5a89ef;
+  --type-electric: #a88906;
+  --type-grass: #5a9d31;
+  --type-ice: #389b96;
+  --type-fighting: #c22e28;
+  --type-poison: #a33ea1;
+  --type-ground: #af8721;
+  --type-flying: #9778f1;
+  --type-psychic: #f9497f;
+  --type-bug: #859415;
+  --type-rock: #9e8c2f;
+  --type-ghost: #735797;
+  --type-dragon: #6f35fc;
+  --type-dark: #705746;
+  --type-steel: #8989af;
+  --type-fairy: #ce6d9d;
+  --type-unknown: #8d8d84;
+}
+
+/*
+ * Dark surfaces. Same three entry points as styles.css (OS preference unless
+ * the Classic theme forces light, or data-theme='dark'), plus
+ * data-type-surface for themes with a fixed scheme or a single dark panel
+ * inside a light page.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) {
+    --type-normal: #a8a77a;
+    --type-fire: #ee8130;
+    --type-water: #6390f0;
+    --type-electric: #f7d02c;
+    --type-grass: #7ac74c;
+    --type-ice: #96d9d6;
+    --type-fighting: #dd5d58;
+    --type-poison: #c361c1;
+    --type-ground: #e2bf65;
+    --type-flying: #a98ff3;
+    --type-psychic: #f95587;
+    --type-bug: #a6b91a;
+    --type-rock: #b6a136;
+    --type-ghost: #947cb3;
+    --type-dragon: #956afd;
+    --type-dark: #a17f69;
+    --type-steel: #b7b7ce;
+    --type-fairy: #d685ad;
+    --type-unknown: #9a9a92;
+  }
+}
+
+:root[data-theme='dark'],
+:root[data-type-surface='dark'],
+[data-type-surface='dark'] {
+  --type-normal: #a8a77a;
+  --type-fire: #ee8130;
+  --type-water: #6390f0;
+  --type-electric: #f7d02c;
+  --type-grass: #7ac74c;
+  --type-ice: #96d9d6;
+  --type-fighting: #dd5d58;
+  --type-poison: #c361c1;
+  --type-ground: #e2bf65;
+  --type-flying: #a98ff3;
+  --type-psychic: #f95587;
+  --type-bug: #a6b91a;
+  --type-rock: #b6a136;
+  --type-ghost: #947cb3;
+  --type-dragon: #956afd;
+  --type-dark: #a17f69;
+  --type-steel: #b7b7ce;
+  --type-fairy: #d685ad;
+  --type-unknown: #9a9a92;
+}
+
+/*
+ * Light override, last so it wins on :root over both dark rules above (a
+ * light-only theme such as Battle on a dark-mode OS), and for a light panel
+ * inside a dark page.
+ */
+:root[data-type-surface='light'],
+[data-type-surface='light'] {
+  --type-normal: #908f5f;
+  --type-fire: #e16a12;
+  --type-water: #5a89ef;
+  --type-electric: #a88906;
+  --type-grass: #5a9d31;
+  --type-ice: #389b96;
+  --type-fighting: #c22e28;
+  --type-poison: #a33ea1;
+  --type-ground: #af8721;
+  --type-flying: #9778f1;
+  --type-psychic: #f9497f;
+  --type-bug: #859415;
+  --type-rock: #9e8c2f;
+  --type-ghost: #735797;
+  --type-dragon: #6f35fc;
+  --type-dark: #705746;
+  --type-steel: #8989af;
+  --type-fairy: #ce6d9d;
+  --type-unknown: #8d8d84;
+}

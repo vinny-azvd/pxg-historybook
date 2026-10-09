@@ -1,0 +1,840 @@
+/*
+ * Skin "cards" - Cartas: fixed DARK. Deep felt green, gold frames, tab-style
+ * menu, Barlow body + Barlow Condensed headings (no pixel font).
+ *
+ * Every rule is scoped under :root[data-skin='cards'] (specificity 0,2,0 beats
+ * the :root blocks of styles.css, including its OS dark-mode media block, so
+ * the fixed color-scheme cannot be overridden by the system preference).
+ * Contract and the list of selectors a skin may rely on: src/themes/README.md.
+ * The skin runtime also sets html[data-type-surface='dark'], which
+ * themes/types.css keys the --type-<tipo> tokens off (used to tint the cards).
+ *
+ * Contrast notes (WCAG, measured with the repo scripts):
+ *   --text-secondary / --text-muted on --surface-1 .... 11.7 / 8.6 (>= 4.5)
+ *   --text-muted on the lightest felt (#1c4d57) ........ 5.0
+ *   gold #f2c94c on --surface-1 ........................ 10.2
+ *   dark ink #14120c on the lightest/darkest card tint .. >= 7.6 (all 18 types)
+ *   --series-1..8 (dark mode) vs --surface-1 (#0c2429) .. validate_palette PASS
+ *     (see the comment above the series tokens). #0c2429 is an OPAQUE token,
+ *     never a translucent overlay: every chart sits on .card / .rares-*.
+ */
+
+:root[data-skin='cards'] {
+  color-scheme: dark;
+
+  /* Surfaces: --surface-1 is the opaque panel every chart/table sits on. */
+  --page: #0c252a;
+  --surface-1: #0c2429;
+  --felt: #12343b;
+  --felt-2: #0c252a;
+  --felt-glow: #1c4d57;
+
+  --text-primary: #eef6f4;
+  --text-secondary: #c3d8d3;
+  --text-muted: #a9c3bd;
+  --selection: #ffffff;
+  --gridline: #1f444b;
+  --baseline: #5a8089;
+  --border: rgba(255, 255, 255, 0.16);
+  --control-border: #5e8790;
+  --success: #35d07f;
+  --danger: #f07a7a;
+
+  --gold: #f2c94c;
+  --gold-2: #d9a520;
+  --gold-ink: #2a2210;
+  --focus-ring: #ffe27a;
+
+  /*
+   * Series, dark mode. node validate_palette.js "<8 hex>" --mode dark
+   * --surface "#0c2429": lightness band, chroma floor, adjacent CVD
+   * (worst #c98500<->#199e70 dE 8.4, in the legal 6-8 band: legend + direct
+   * end labels + marker shapes are the secondary encoding), normal-vision
+   * floor (worst adjacent dE 19.3) and contrast >= 3:1 all PASS.
+   * (#204047, the old chart panel, failed 3:1 for orange/green/magenta.)
+   */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+
+  --party-badge-bg: #332417;
+  --party-badge-text: #e8a869;
+  --jade: #2ecc94;
+  --jade-soft: #3f8f6c;
+  --jade-badge-bg: #123527;
+  --jade-badge-text: #6fe3b3;
+  --rare-drop: #e0b400;
+  --rare-drop-badge-bg: #3a2e05;
+  --rare-drop-badge-text: #ffcf4d;
+
+  --font-display: 'Barlow Condensed', 'Barlow', system-ui, sans-serif;
+  --font-body: 'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --radius-card: 16px;
+  --radius-control: 10px;
+}
+
+/* ---------- page: felt with a very faint pattern ---------- */
+:root[data-skin='cards'] body {
+  min-height: 100vh;
+  font-family: var(--font-body);
+  background: radial-gradient(ellipse at 50% -10%, var(--felt-glow) 0%, var(--felt) 45%, var(--felt-2) 100%) fixed;
+  background-color: var(--page);
+}
+
+:root[data-skin='cards'] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: radial-gradient(circle at 50% 50%, transparent 18px, #fff 19px, #fff 22px, transparent 23px),
+    linear-gradient(transparent 48%, #fff 48% 52%, transparent 52%);
+  background-size: 90px 90px;
+}
+
+/* ---------- header: gold rule + tab-style menu ---------- */
+:root[data-skin='cards'] .topbar {
+  align-items: flex-end;
+  gap: 6px 20px;
+  padding: 12px 24px 0;
+  background: linear-gradient(180deg, #08191d, #0c2429);
+  border-bottom: 4px solid var(--gold);
+}
+
+:root[data-skin='cards'] .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+:root[data-skin='cards'] .brand::before {
+  content: '';
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: conic-gradient(from 45deg, #f2c94c, #ff6bd5, #6fd3ff, #7cf29b, #f2c94c);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+:root[data-skin='cards'] .nav {
+  align-items: flex-end;
+  gap: 4px;
+}
+
+:root[data-skin='cards'] .nav a {
+  padding: 10px 16px 14px;
+  margin-bottom: -4px;
+  border-radius: 12px 12px 0 0;
+  background: rgba(255, 255, 255, 0.07);
+  color: #bdd3ce;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+:root[data-skin='cards'] .nav a:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+:root[data-skin='cards'] .nav a.active,
+:root[data-skin='cards'] .nav a[aria-current='page'] {
+  background: var(--gold);
+  color: var(--gold-ink);
+}
+
+:root[data-skin='cards'] .topbar-filters {
+  padding-bottom: 10px;
+}
+
+:root[data-skin='cards'] .theme-picker {
+  padding-bottom: 10px;
+}
+
+:root[data-skin='cards'] .theme-picker-popover {
+  background: var(--surface-1);
+  border: 2px solid var(--gold);
+  border-radius: 16px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-skin='cards'] .theme-picker-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+:root[data-skin='cards'] .theme-option:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-skin='cards'] .theme-option[aria-selected='true'] {
+  border-color: var(--gold);
+}
+
+:root[data-skin='cards'] .theme-option-check {
+  color: var(--gold);
+}
+
+/* ---------- typography ---------- */
+:root[data-skin='cards'] .page-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  margin-bottom: 6px;
+}
+
+:root[data-skin='cards'] .page-subtitle {
+  color: var(--text-secondary);
+}
+
+:root[data-skin='cards'] .section-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+}
+
+:root[data-skin='cards'] .modal-card h2 {
+  font-family: var(--font-display);
+  font-size: 26px;
+  letter-spacing: 0.02em;
+}
+
+:root[data-skin='cards'] .muted-link,
+:root[data-skin='cards'] .stat-tile .sub a {
+  color: var(--text-secondary);
+}
+
+:root[data-skin='cards'] .data-table a {
+  color: #ffe08a;
+}
+
+/* ---------- panels ---------- */
+:root[data-skin='cards'] .card {
+  background: var(--surface-1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-card);
+  padding: 16px 18px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+}
+
+/* The three "highlight" cards: gold-tinted. The tint sits over the opaque
+   panel colour, never replaces it. */
+:root[data-skin='cards'] .highlight-grid > .card {
+  background: linear-gradient(135deg, rgba(242, 201, 76, 0.16), rgba(255, 255, 255, 0.04)), var(--surface-1);
+  border-color: rgba(242, 201, 76, 0.45);
+}
+
+:root[data-skin='cards'] .highlight-grid > .card .section-title {
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+:root[data-skin='cards'] .highlight-grid > .card a {
+  color: #ffe08a;
+}
+
+/* KPI tiles: dark translucent panels with a round gold accent (no icon). */
+:root[data-skin='cards'] .stat-tile {
+  position: relative;
+  background: rgba(5, 22, 26, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-card);
+  padding: 12px 16px 12px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+}
+
+:root[data-skin='cards'] .stat-tile::before {
+  content: '';
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.85), transparent 45%), var(--gold);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.2), 0 0 0 3px rgba(242, 201, 76, 0.22);
+}
+
+:root[data-skin='cards'] .stat-tile .label {
+  padding-right: 26px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+:root[data-skin='cards'] .stat-tile .value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 32px;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+}
+
+:root[data-skin='cards'] .stat-tile .sub {
+  color: var(--text-muted);
+}
+
+:root[data-skin='cards'] .stat-tile.clickable:hover {
+  border-color: var(--gold);
+}
+
+/* ---------- controls ---------- */
+:root[data-skin='cards'] select,
+:root[data-skin='cards'] input[type='date'],
+:root[data-skin='cards'] input[type='text'],
+:root[data-skin='cards'] input[type='number'],
+:root[data-skin='cards'] textarea {
+  font-family: var(--font-body);
+  background: #08191d;
+  color: var(--text-primary);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+}
+
+:root[data-skin='cards'] ::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+:root[data-skin='cards'] button {
+  background: linear-gradient(180deg, #f8dc78, #e2b43a);
+  color: var(--gold-ink);
+  border: 1px solid #b68515;
+  border-radius: var(--radius-control);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+}
+
+:root[data-skin='cards'] button:hover:not(:disabled) {
+  background: linear-gradient(180deg, #fde68d, #eabf4c);
+}
+
+:root[data-skin='cards'] button.secondary {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-primary);
+  border: 1px solid var(--control-border);
+  box-shadow: none;
+}
+
+:root[data-skin='cards'] button.secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* Segmented toggles (Dashboard/Histórico/Importar, bucket, metric...). */
+:root[data-skin='cards'] .bucket-toggle {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+}
+
+:root[data-skin='cards'] .bucket-toggle button {
+  padding: 5px 13px;
+  font-size: 15px;
+  border-color: transparent;
+}
+
+:root[data-skin='cards'] .bucket-toggle button.secondary {
+  background: transparent;
+  border-color: transparent;
+  color: #bdd3ce;
+}
+
+:root[data-skin='cards'] .bucket-toggle button.secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+:root[data-skin='cards'] .period-nav button {
+  font-size: 15px;
+}
+
+:root[data-skin='cards'] .filters-toggle-count {
+  background: var(--gold-ink);
+  color: var(--gold);
+}
+
+/* Chart tooltips are styled inline by the chart components (surface-1 +
+   text-primary tokens, already dark here); only the frame is themed. */
+:root[data-skin='cards'] .recharts-tooltip-wrapper > div {
+  border-color: rgba(242, 201, 76, 0.55) !important;
+  border-radius: 12px !important;
+}
+
+/* ---------- tables, legends ---------- */
+:root[data-skin='cards'] .data-table th {
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+:root[data-skin='cards'] .data-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+:root[data-skin='cards'] .item-icon {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-skin='cards'] .badge {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- overlays and boxes ---------- */
+:root[data-skin='cards'] .modal-overlay {
+  background: rgba(2, 10, 12, 0.72);
+}
+
+:root[data-skin='cards'] .modal-card {
+  background: var(--surface-1);
+  border: 3px solid var(--gold);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+:root[data-skin='cards'] .upload-drop {
+  border: 3px dashed var(--gold);
+  border-radius: 20px;
+  background: rgba(242, 201, 76, 0.06);
+  color: var(--text-secondary);
+}
+
+:root[data-skin='cards'] .upload-drop.dragging {
+  background: rgba(242, 201, 76, 0.16);
+  border-color: #ffe27a;
+  color: var(--text-primary);
+}
+
+:root[data-skin='cards'] .error-box {
+  background: rgba(240, 122, 122, 0.1);
+  border-color: var(--danger);
+  border-radius: 12px;
+}
+
+:root[data-skin='cards'] .success-box {
+  background: rgba(53, 208, 127, 0.1);
+  border-color: var(--success);
+  border-radius: 12px;
+}
+
+/* Galeria de Raros: the same golden-framed card as the hunt cards, tinted by
+   the species' first type (RareGallery sets --t), sprite in an art window. */
+:root[data-skin='cards'] .rares-gallery {
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 22px 16px;
+}
+
+:root[data-skin='cards'] .rares-gallery-card {
+  --t: #b9b3a0;
+  /* Inside the card the page is light: dark ink tokens, like .hunt-card. */
+  --text-primary: #14120c;
+  --text-secondary: #2a2418;
+  --text-muted: #3b3222;
+  --gridline: rgba(20, 18, 12, 0.16);
+  --border: rgba(20, 18, 12, 0.24);
+  --focus-ring: #14120c;
+  --jade-badge-bg: #e3f7ee;
+  --jade-badge-text: #0a5a3c;
+  --rare-drop-badge-bg: #fff4d6;
+  --rare-drop-badge-text: #5c3f00;
+
+  color: var(--text-primary);
+  padding: 8px 8px 10px;
+  border: 8px solid transparent;
+  border-radius: 16px;
+  background: #e8e2d0;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--t) 44%, #fff), color-mix(in srgb, var(--t) 66%, #fff)) padding-box,
+    linear-gradient(135deg, #fbe38a, #d9a520 40%, #f6d765 62%, #b98511) border-box;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-skin='cards'] .rares-gallery-sprite {
+  width: 100%;
+  height: 116px;
+  padding: 8px;
+  object-fit: contain;
+  box-sizing: border-box;
+  border: 3px solid #c9a227;
+  border-radius: 6px;
+  background: radial-gradient(circle at 50% 62%, #fff 0%, color-mix(in srgb, var(--t) 40%, #fff) 72%);
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.18);
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.22));
+}
+
+:root[data-skin='cards'] .rares-gallery-name {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 19px;
+  color: var(--text-primary);
+}
+
+:root[data-skin='cards'] .rares-gallery-count {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 21px;
+}
+
+:root[data-skin='cards'] .rares-gallery-seen {
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   CARDS (Hunts, MD, Terror). Golden frame around an inner panel tinted by the
+   Pokémon's first type, a sprite "art window", the SAME information as the
+   classic card, expanding in place. HuntCard/MdCard write data-type; TerrorCard
+   has no Pokémon, so it stays neutral. Layout is by flex `order` because the
+   art slot is the first DOM child.
+   ========================================================================== */
+:root[data-skin='cards'] .hunt-card-grid {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 24px 18px;
+  align-items: start;
+}
+
+:root[data-skin='cards'] .hunt-card {
+  --t: #b9b3a0;
+  /* Inside the card the page is light: dark ink tokens, so the inline
+     styles (color: var(--text-muted) ...) and the shared badges follow. */
+  --text-primary: #14120c;
+  --text-secondary: #2a2418;
+  --text-muted: #3b3222;
+  --gridline: rgba(20, 18, 12, 0.16);
+  --border: rgba(20, 18, 12, 0.24);
+  --focus-ring: #14120c;
+  --party-badge-bg: rgba(255, 255, 255, 0.94);
+  --party-badge-text: #14120c;
+  --jade: #3ddba1;
+  --jade-badge-bg: #e3f7ee;
+  --jade-badge-text: #0a5a3c;
+  --rare-drop-badge-bg: #fff4d6;
+  --rare-drop-badge-text: #5c3f00;
+
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px 10px;
+  color: var(--text-primary);
+  border: 9px solid transparent;
+  border-radius: 18px;
+  background: #e8e2d0;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--t) 44%, #fff), color-mix(in srgb, var(--t) 66%, #fff)) padding-box,
+    linear-gradient(135deg, #fbe38a, #d9a520 40%, #f6d765 62%, #b98511) border-box;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-skin='cards'] .hunt-card:has(> .card-toggle:focus-visible) {
+  outline: 3px solid #fff2b8;
+  outline-offset: 4px;
+}
+
+:root[data-skin='cards'] .hunt-card-header {
+  order: 1;
+  flex-wrap: wrap;
+  gap: 0 10px;
+  margin-bottom: 4px;
+}
+
+:root[data-skin='cards'] .hunt-card-header a {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 23px;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
+}
+
+:root[data-skin='cards'] .hunt-card-header a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Art window */
+:root[data-skin='cards'] .hunt-card-art {
+  order: 2;
+  height: 124px;
+  margin: 2px 0 6px;
+  border: 3px solid #c9a227;
+  border-radius: 6px;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 62%, #fff 0%, color-mix(in srgb, var(--t) 40%, #fff) 72%);
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.18);
+}
+
+:root[data-skin='cards'] .hunt-card-art .pokemon-sprite {
+  width: 96px;
+  height: 96px;
+  filter: drop-shadow(0 6px 5px rgba(0, 0, 0, 0.28));
+}
+
+/* Duration / treinadores / party: a gold strip under the art. */
+:root[data-skin='cards'] .hunt-card > div:not([class]) {
+  order: 3;
+  margin-bottom: 6px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-align: center;
+  background: linear-gradient(90deg, #d9b443, #f6e08a, #d9b443);
+  color: #2a2210;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+:root[data-skin='cards'] .hunt-card-badges {
+  order: 4;
+  gap: 5px;
+  margin: 0 0 6px;
+}
+
+:root[data-skin='cards'] .hunt-card-badges:empty {
+  display: none;
+}
+
+:root[data-skin='cards'] .hunt-card .badge {
+  border: 1px solid rgba(20, 18, 12, 0.28);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  font-size: 11.5px;
+}
+
+/* Stat plates. Also used by the week summaries of MD/Terror (a plain .card,
+   dark): light ink + dark plate there, dark ink + light plate inside a card. */
+:root[data-skin='cards'] .hunt-card-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 2px;
+}
+
+:root[data-skin='cards'] .hunt-card-stats > div {
+  padding: 4px 9px 5px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 7px;
+}
+
+:root[data-skin='cards'] .hunt-card-stats dt {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+:root[data-skin='cards'] .hunt-card-stats dd {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 21px;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+:root[data-skin='cards'] .hunt-card .hunt-card-stats {
+  order: 5;
+}
+
+:root[data-skin='cards'] .hunt-card .hunt-card-stats > div {
+  background: rgba(255, 255, 255, 0.46);
+  border-color: rgba(20, 18, 12, 0.16);
+}
+
+/* Expands in place: free height, no flip. */
+:root[data-skin='cards'] .hunt-card-expanded {
+  order: 6;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(20, 18, 12, 0.2);
+  border-radius: 8px;
+  color: var(--text-primary);
+}
+
+/* Type tint: first type of the Pokémon, from the dark-surface type tokens. */
+:root[data-skin='cards'] .hunt-card[data-type='normal'] { --t: var(--type-normal); }
+:root[data-skin='cards'] .hunt-card[data-type='fire'] { --t: var(--type-fire); }
+:root[data-skin='cards'] .hunt-card[data-type='water'] { --t: var(--type-water); }
+:root[data-skin='cards'] .hunt-card[data-type='electric'] { --t: var(--type-electric); }
+:root[data-skin='cards'] .hunt-card[data-type='grass'] { --t: var(--type-grass); }
+:root[data-skin='cards'] .hunt-card[data-type='ice'] { --t: var(--type-ice); }
+:root[data-skin='cards'] .hunt-card[data-type='fighting'] { --t: var(--type-fighting); }
+:root[data-skin='cards'] .hunt-card[data-type='poison'] { --t: var(--type-poison); }
+:root[data-skin='cards'] .hunt-card[data-type='ground'] { --t: var(--type-ground); }
+:root[data-skin='cards'] .hunt-card[data-type='flying'] { --t: var(--type-flying); }
+:root[data-skin='cards'] .hunt-card[data-type='psychic'] { --t: var(--type-psychic); }
+:root[data-skin='cards'] .hunt-card[data-type='bug'] { --t: var(--type-bug); }
+:root[data-skin='cards'] .hunt-card[data-type='rock'] { --t: var(--type-rock); }
+:root[data-skin='cards'] .hunt-card[data-type='ghost'] { --t: var(--type-ghost); }
+:root[data-skin='cards'] .hunt-card[data-type='dragon'] { --t: var(--type-dragon); }
+:root[data-skin='cards'] .hunt-card[data-type='dark'] { --t: var(--type-dark); }
+:root[data-skin='cards'] .hunt-card[data-type='steel'] { --t: var(--type-steel); }
+:root[data-skin='cards'] .hunt-card[data-type='fairy'] { --t: var(--type-fairy); }
+
+/* Pointer tilt + holographic shine: mouse-like pointers only, and never with
+   "reduce motion" (then the cards are flat). --mx/--my (0-100%) and --tx/--ty
+   (-1..1) come from theme/usePointerGlow. A card with open details only shines
+   (tilting text under the reader's eyes is not worth it). */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :root[data-skin='cards'] .hunt-card {
+    transition: transform 0.15s ease-out, box-shadow 0.2s ease-out;
+  }
+
+  :root[data-skin='cards'] .hunt-card:hover {
+    transform: perspective(900px) rotateX(calc(var(--ty, 0) * -7deg)) rotateY(calc(var(--tx, 0) * 7deg)) scale(1.02);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.55);
+  }
+
+  :root[data-skin='cards'] .hunt-card:has(.hunt-card-expanded):hover {
+    transform: none;
+  }
+
+  :root[data-skin='cards'] .hunt-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    border-radius: inherit;
+    pointer-events: none;
+    mix-blend-mode: color-dodge;
+    opacity: 0;
+    transition: opacity 0.2s;
+    background:
+      radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.5), transparent 45%),
+      linear-gradient(
+        115deg,
+        transparent 20%,
+        rgba(255, 107, 213, 0.3) 35%,
+        rgba(111, 211, 255, 0.3) 50%,
+        rgba(124, 242, 155, 0.3) 65%,
+        transparent 80%
+      );
+    background-size: 100% 100%, 250% 250%;
+    background-position: center, calc(100% - var(--mx, 50%)) calc(100% - var(--my, 50%));
+  }
+
+  :root[data-skin='cards'] .hunt-card:hover::after {
+    opacity: 0.7;
+  }
+
+  :root[data-skin='cards'] .hunt-card-art .pokemon-sprite {
+    transition: transform 0.3s;
+  }
+
+  :root[data-skin='cards'] .hunt-card:hover .hunt-card-art .pokemon-sprite {
+    transform: scale(1.06);
+  }
+}
+
+/* ---------- phones: ONE compact bar (<= 56px, set by styles.css) ---------- */
+@media (max-width: 720px) {
+  :root[data-skin='cards'] .topbar {
+    align-items: center;
+    gap: 6px;
+    padding: 0 8px;
+    border-bottom-width: 3px;
+  }
+
+  :root[data-skin='cards'] .brand {
+    padding-bottom: 0;
+    font-size: 22px;
+  }
+
+  :root[data-skin='cards'] .brand::before {
+    display: none;
+  }
+
+  /* offsetParent of the links: App.tsx centres the active tab with
+     offsetLeft, which is only right when the nav itself is positioned. */
+  :root[data-skin='cards'] .nav {
+    position: relative;
+    align-items: center;
+  }
+
+  :root[data-skin='cards'] .nav a {
+    margin-bottom: 0;
+    padding: 0 12px;
+    border-radius: 10px;
+    font-size: 16px;
+  }
+
+  :root[data-skin='cards'] .topbar-filters {
+    padding: 12px 16px 16px;
+    background: var(--surface-1);
+    border-bottom: 3px solid var(--gold);
+  }
+
+  :root[data-skin='cards'] .theme-picker {
+    padding-bottom: 0;
+  }
+
+  :root[data-skin='cards'] .page-title {
+    font-size: 34px;
+  }
+
+  :root[data-skin='cards'] .hunt-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :root[data-skin='cards'] .stat-tile .value {
+    font-size: 28px;
+  }
+
+  :root[data-skin='cards'] .bucket-toggle button {
+    min-height: 36px;
+  }
+}
+
+/* ===== Bosses: MD banner in the art window + Terror boss gallery (bossImages) ===== */
+/* Two columns on phones (the Raros gallery's 168px minimum would give one huge card). */
+:root[data-skin='cards'] .rares-gallery.boss-gallery {
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 18px 12px;
+}
+
+:root[data-skin='cards'] .hunt-card-art.has-banner .boss-banner {
+  width: 114px;
+  height: 114px;
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.25));
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :root[data-skin='cards'] .hunt-card-art .boss-banner {
+    transition: transform 0.3s;
+  }
+
+  :root[data-skin='cards'] .hunt-card:hover .hunt-card-art .boss-banner {
+    transform: scale(1.06);
+  }
+}
+/* ===== fim de Bosses ===== */

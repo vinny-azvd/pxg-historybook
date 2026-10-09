@@ -16,24 +16,9 @@ interface PreferencesState extends CardPreferences {
   setRareDropThreshold: (value: number) => void;
   setVisibleField: (field: keyof VisibleFields, value: boolean) => void;
   setPlayerColor: (playerId: string, color: string) => void;
-  getPlayerColor: (playerId: string, fallbackIndex: number) => string;
 }
 
 const STORAGE_KEY = 'pxg-hunts:card-preferences';
-
-// A concrete, fixed hex palette (not the --series-N CSS vars) so a per-player
-// default color is always a valid value to hand to a native <input
-// type="color"> picker - CSS custom properties aren't valid color-input values.
-export const DEFAULT_PLAYER_PALETTE = [
-  '#2a78d6',
-  '#eb6834',
-  '#1baf7a',
-  '#eda100',
-  '#e87ba4',
-  '#008300',
-  '#4a3aa7',
-  '#e34948',
-];
 
 const DEFAULT_PREFERENCES: CardPreferences = {
   rareDropThreshold: 1_000_000,
@@ -93,11 +78,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const getPlayerColor = (playerId: string, fallbackIndex: number) =>
-    prefs.playerColors[playerId] ?? DEFAULT_PLAYER_PALETTE[fallbackIndex % DEFAULT_PLAYER_PALETTE.length];
-
   const value = useMemo(
-    () => ({ ...prefs, setRareDropThreshold, setVisibleField, setPlayerColor, getPlayerColor }),
+    () => ({ ...prefs, setRareDropThreshold, setVisibleField, setPlayerColor }),
     [prefs]
   );
 

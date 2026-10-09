@@ -4,6 +4,7 @@ import type { Filters, MdListItem, MdWeeklySummary } from '../api/types';
 import { bucketRange } from '../dates';
 import { formatBucketLabel, formatCompact } from '../format';
 import { MdCard } from './MdCard';
+import { countByBoss } from './mdDefeats';
 
 interface MdWeekCardProps {
   summary: MdWeeklySummary;
@@ -20,6 +21,7 @@ export function MdWeekCard({ summary, filters }: MdWeekCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   const single = summary.mdCount === 1;
+  const defeatsByBoss = countByBoss(items ?? []);
 
   useEffect(() => {
     if (!single && !expanded) return;
@@ -32,7 +34,7 @@ export function MdWeekCard({ summary, filters }: MdWeekCardProps) {
 
   if (single) {
     if (!items) return <div className="empty-state">Carregando...</div>;
-    return items[0] ? <MdCard md={items[0]} /> : null;
+    return items[0] ? <MdCard md={items[0]} defeats={countByBoss(items).get(items[0].md_name ?? '')} /> : null;
   }
 
   return (
@@ -68,7 +70,7 @@ export function MdWeekCard({ summary, filters }: MdWeekCardProps) {
           {loading || !items ? (
             <div className="empty-state">Carregando...</div>
           ) : (
-            items.map((md) => <MdCard key={md.id} md={md} />)
+            items.map((md) => <MdCard key={md.id} md={md} defeats={defeatsByBoss.get(md.md_name ?? '')} />)
           )}
         </div>
       )}
