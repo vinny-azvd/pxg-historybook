@@ -1,11 +1,25 @@
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { CartesianGrid, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { NameCount, TopDrop } from '../../api/types';
 import { fillBucketStarts, isPartialBucket } from '../../dates';
 import { formatBucketLabel, formatCompact, formatFull } from '../../format';
 import { getRareDrops } from '../HuntBadges';
 import { TooltipNames, tooltipDetailStyle } from './TooltipNames';
 import { SeriesKey, seriesDash } from './seriesDash';
-import { ChartFrame, ChartMarker, MarkerLegend, niceScale, tooltipBoxStyle, tooltipHintStyle, type MarkerKind } from './chartKit';
+import {
+  ChartFrame,
+  ChartMarker,
+  MarkerLegend,
+  axisTickLabel,
+  niceScale,
+  useAxisTicks,
+  tooltipBoxStyle,
+  tooltipHintStyle,
+  useChartZoom,
+  ZOOM_HINT,
+  ZOOM_HINT_SINGLE,
+  ZoomCaption,
+  type MarkerKind,
+} from './chartKit';
 
 type PlayerTrendMetric = 'avgProfitPerHour' | 'avgProfit' | 'totalProfit';
 type Bucket = 'day' | 'week' | 'month' | 'hunt' | 'terror' | 'md';
@@ -54,8 +68,10 @@ interface MultiSeriesTrendChartProps {
   series: PlayerSeries[];
   bucket: Bucket;
   metricKey?: PlayerTrendMetric;
-  onPointClick?: (bucketStart: string) => void;
-  selectedBucketStart?: string | null;
+  /** Click (tap) on a day/week/month point: zoom into that period. */
+  onZoom?: (bucketStart: string) => void;
+  /** Mouse drag across several points: zoom into the selected span. */
+  onZoomSpan?: (first: string, last: string) => void;
   rareDropThreshold?: number;
   /** The period being browsed, so empty days/weeks/months keep their slot. */
   range?: { from?: string; to?: string };
@@ -69,22 +85,27 @@ function fieldFor(playerId: number) {
   return `p${playerId}`;
 }
 
-export function MultiSeriesTrendChart({
+export function MultiSeriesTrendChart(props: MultiSeriesTrendChartProps) {
+  if (!props.series.some((s) => s.points.length > 0)) {
+    return <div className="chart-empty-state">Sem registros para o período selecionado.</div>;
+  }
+  return <MultiSeriesTrendPlot {...props} />;
+}
+
+function MultiSeriesTrendPlot({
   series,
   bucket,
   metricKey = 'avgProfitPerHour',
-  onPointClick,
-  selectedBucketStart,
+  onZoom: onZoomProp,
+  onZoomSpan: onZoomSpanProp,
   rareDropThreshold = 1_000_000,
   range,
 }: MultiSeriesTrendChartProps) {
   const dataStarts = [...new Set(series.flatMap((s) => s.points.map((p) => p.bucketStart)))].sort();
-
-  if (dataStarts.length === 0) {
-    return <div className="chart-empty-state">Sem registros para o período selecionado.</div>;
-  }
-
   const isEntryBucket = bucket === 'hunt' || bucket === 'terror' || bucket === 'md';
+  // Nothing is finer than one hunt/MD/terror, so those points do not zoom.
+  const onZoom = isEntryBucket ? undefined : onZoomProp;
+  const onZoomSpan = isEntryBucket ? undefined : onZoomSpanProp;
   const bucketStarts = isEntryBucket ? dataStarts : fillBucketStarts(dataStarts, bucket, range);
   // A summed total of zero is a real value (nothing earned that day); an
   // average/rate of an empty day is not, so those lines break instead.
@@ -113,6 +134,15 @@ export function MultiSeriesTrendChart({
     }
   }
 
+  const dataStartSet = new Set(dataStarts);
+  const zoom = useChartZoom({
+    labels: bucketStarts,
+    onZoom,
+    onZoomSpan,
+    isEmpty: (label) => !dataStartSet.has(label),
+  });
+
+  const axis = useAxisTicks(bucketStarts, bucket);
   const values = rows.flatMap((r) => series.map((s) => r[fieldFor(s.playerId)])).filter((v): v is number => typeof v === 'number');
   const scale = niceScale(Math.max(0, ...values));
   const lastIndexBySeries = new Map(
@@ -143,6 +173,8 @@ export function MultiSeriesTrendChart({
     numericColumns: series.map((_, i) => i + 1),
     rows: rows.map((r) => ({
       key: String(r.bucketStart),
+      label: formatBucketLabel(String(r.bucketStart), bucket),
+      onExpand: onZoom && dataStartSet.has(String(r.bucketStart)) ? () => onZoom(String(r.bucketStart)) : undefined,
       cells: [
         `${formatBucketLabel(String(r.bucketStart), bucket)}${isEntryBucket && huntNameByBucket.get(String(r.bucketStart)) ? ` · ${huntNameByBucket.get(String(r.bucketStart))}` : ''}`,
         ...series.map((s) => {
@@ -155,131 +187,146 @@ export function MultiSeriesTrendChart({
 
   return (
     <ChartFrame caption="Comparação por treinador" table={table}>
-      <ResponsiveContainer width="100%" height={280}>
-        <LineChart
-          data={rows}
-          accessibilityLayer
-          margin={{ top: 12, right: showDirectLabels ? labelRoom : 16, left: 0, bottom: 0 }}
-          style={onPointClick ? { cursor: 'pointer' } : undefined}
-          onClick={(state) => {
-            const label = state?.activeLabel;
-            if (onPointClick && typeof label === 'string') onPointClick(label);
-          }}
-        >
-          <CartesianGrid stroke="var(--gridline)" vertical={false} />
-          <XAxis
-            dataKey="bucketStart"
-            tickFormatter={(v) => formatBucketLabel(v, bucket)}
-            stroke="var(--baseline)"
-            tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
-            tickLine={false}
-          />
-          <YAxis
-            domain={scale.domain}
-            ticks={scale.ticks}
-            tickFormatter={(v) => formatCompact(v)}
-            stroke="var(--baseline)"
-            tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
-            tickLine={false}
-            axisLine={false}
-            width={56}
-          />
-          <Tooltip
-            content={({ active, payload, label }) => {
-              if (!active || !payload || payload.length === 0) return null;
-              const visible = series.filter((s) => {
-                const entry = payload.find((p: any) => p.dataKey === fieldFor(s.playerId));
-                return entry && entry.value !== null && entry.value !== undefined;
-              });
-              const partial = !isEntryBucket && isPartialBucket(String(label), bucket as 'day' | 'week' | 'month');
-              return (
-                <div style={tooltipBoxStyle}>
-                  <div style={{ color: 'var(--text-secondary)', marginBottom: 4 }}>
-                    {bucket === 'week' ? 'Semana de ' : ''}
-                    {isEntryBucket && huntNameByBucket.get(String(label)) ? `${huntNameByBucket.get(String(label))} · ` : ''}
-                    {formatBucketLabel(String(label), bucket)}
-                    {partial && ' (parcial)'}
-                  </div>
-                  {visible.length === 0 && <div style={{ color: 'var(--text-muted)' }}>Sem hunts neste período</div>}
-                  {visible.map((s, index) => {
-                    const entry = payload.find((p: any) => p.dataKey === fieldFor(s.playerId));
-                    const point = pointByPlayerBucket.get(`${s.playerId}::${String(label)}`);
-                    const rareDrops = pointRareDrops(point, rareDropThreshold);
-                    const value = Number(entry?.value);
-                    return (
-                      <div key={s.playerId} style={{ marginTop: index > 0 && !isEntryBucket ? 4 : 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <SeriesKey color={s.color} index={series.indexOf(s)} />
-                          {s.playerName}: <strong title={formatFull(value)}>{formatCompact(value)}</strong>
-                        </div>
-                        {!isEntryBucket && (
-                          <div style={{ paddingLeft: 20 }}>
-                            {point?.details
-                              ? point.details.map((d) =>
-                                  d.names && d.names.length > 0 ? (
-                                    <TooltipNames key={d.label} prefix={`${d.label} ${formatCompact(d.value)} —`} names={d.names} />
-                                  ) : (
-                                    <div key={d.label} style={tooltipDetailStyle}>
-                                      {d.label} {formatCompact(d.value)}
-                                    </div>
-                                  )
-                                )
-                              : <TooltipNames names={point?.names} />}
-                          </div>
-                        )}
-                        {rareDrops.map((drop) => (
-                          <div key={drop.item} style={{ paddingLeft: 20, color: 'var(--rare-drop-badge-text)' }}>
-                            💎 {drop.item} ({formatCompact(drop.unitPrice)}/un.)
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                  {onPointClick && visible.length > 0 && <div style={tooltipHintStyle}>Clique para filtrar por este período</div>}
-                </div>
-              );
-            }}
-          />
-          {series.map((s, seriesIndex) => (
-            <Line
-              key={s.playerId}
-              type="linear"
-              dataKey={fieldFor(s.playerId)}
-              name={s.playerName}
-              stroke={s.color}
-              strokeWidth={2}
-              style={{ strokeDasharray: seriesDash(s.color, seriesIndex) }}
-              dot={(props: any) => (
-                <ChartMarker
-                  key={props.key}
-                  cx={props.value === null || props.value === undefined ? undefined : props.cx}
-                  cy={props.cy}
-                  kind={kindFor(s.playerId, props.payload?.bucketStart)}
-                  color={s.color}
-                  keepSeriesFill
-                  selected={props.payload?.bucketStart === selectedBucketStart}
-                />
-              )}
-              label={
-                showDirectLabels
-                  ? (props: any) =>
-                      props.index === lastIndexBySeries.get(s.playerId) ? (
-                        <text key={`label-${s.playerId}`} x={props.x + 10} y={props.y + 4} fontSize={12} fill="var(--text-secondary)">
-                          {s.playerName}
-                        </text>
-                      ) : (
-                        <g key={`label-${s.playerId}-${props.index}`} />
-                      )
-                  : undefined
-              }
-              activeDot={{ r: 6, stroke: 'var(--surface-1)', strokeWidth: 2 }}
-              connectNulls={false}
-              isAnimationActive={false}
+      <div {...zoom.areaProps}>
+        <ResponsiveContainer width="100%" height={280} onResize={axis.onResize}>
+          <LineChart
+            data={rows}
+            accessibilityLayer
+            aria-label="Gráfico de linhas: comparação por treinador. Para expandir um período pelo teclado, use Ver tabela."
+            margin={{ top: 12, right: showDirectLabels ? labelRoom : 16, left: 0, bottom: 0 }}
+            {...zoom.chartProps}
+          >
+            <CartesianGrid stroke="var(--gridline)" vertical={false} />
+            <XAxis
+              dataKey="bucketStart"
+              tickFormatter={(v) => axisTickLabel(v, bucket)}
+              stroke="var(--baseline)"
+              tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+              tickLine={false}
+              {...axis.xAxis}
             />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
+            <YAxis
+              domain={scale.domain}
+              ticks={scale.ticks}
+              tickFormatter={(v) => formatCompact(v)}
+              stroke="var(--baseline)"
+              tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+              tickLine={false}
+              axisLine={false}
+              width={56}
+            />
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (!active || !payload || payload.length === 0) return null;
+                const visible = series.filter((s) => {
+                  const entry = payload.find((p: any) => p.dataKey === fieldFor(s.playerId));
+                  return entry && entry.value !== null && entry.value !== undefined;
+                });
+                const partial = !isEntryBucket && isPartialBucket(String(label), bucket as 'day' | 'week' | 'month');
+                return (
+                  <div style={tooltipBoxStyle}>
+                    <div style={{ color: 'var(--text-secondary)', marginBottom: 4 }}>
+                      {bucket === 'week' ? 'Semana de ' : ''}
+                      {isEntryBucket && huntNameByBucket.get(String(label)) ? `${huntNameByBucket.get(String(label))} · ` : ''}
+                      {formatBucketLabel(String(label), bucket)}
+                      {partial && ' (parcial)'}
+                    </div>
+                    {visible.length === 0 && <div style={{ color: 'var(--text-muted)' }}>Sem hunts neste período</div>}
+                    {visible.map((s, index) => {
+                      const entry = payload.find((p: any) => p.dataKey === fieldFor(s.playerId));
+                      const point = pointByPlayerBucket.get(`${s.playerId}::${String(label)}`);
+                      const rareDrops = pointRareDrops(point, rareDropThreshold);
+                      const value = Number(entry?.value);
+                      return (
+                        <div key={s.playerId} style={{ marginTop: index > 0 && !isEntryBucket ? 4 : 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <SeriesKey color={s.color} index={series.indexOf(s)} />
+                            {s.playerName}: <strong title={formatFull(value)}>{formatCompact(value)}</strong>
+                          </div>
+                          {!isEntryBucket && (
+                            <div style={{ paddingLeft: 20 }}>
+                              {point?.details
+                                ? point.details.map((d) =>
+                                    d.names && d.names.length > 0 ? (
+                                      <TooltipNames key={d.label} prefix={`${d.label} ${formatCompact(d.value)} —`} names={d.names} />
+                                    ) : (
+                                      <div key={d.label} style={tooltipDetailStyle}>
+                                        {d.label} {formatCompact(d.value)}
+                                      </div>
+                                    )
+                                  )
+                                : <TooltipNames names={point?.names} />}
+                            </div>
+                          )}
+                          {rareDrops.map((drop) => (
+                            <div key={drop.item} style={{ paddingLeft: 20, color: 'var(--rare-drop-badge-text)' }}>
+                              💎 {drop.item} ({formatCompact(drop.unitPrice)}/un.)
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                    {visible.length > 0 && onZoom && (
+                      <div style={tooltipHintStyle}>{onZoomSpan ? ZOOM_HINT : ZOOM_HINT_SINGLE}</div>
+                    )}
+                  </div>
+                );
+              }}
+            />
+            {zoom.selection && (
+              <ReferenceArea
+                x1={zoom.selection.from}
+                x2={zoom.selection.to}
+                fill="var(--selection)"
+                fillOpacity={0.16}
+                stroke="var(--selection)"
+                strokeOpacity={0.6}
+                strokeDasharray="4 3"
+                ifOverflow="visible"
+              />
+            )}
+            {series.map((s, seriesIndex) => (
+              <Line
+                key={s.playerId}
+                type="linear"
+                dataKey={fieldFor(s.playerId)}
+                name={s.playerName}
+                stroke={s.color}
+                strokeWidth={2}
+                style={{ strokeDasharray: seriesDash(s.color, seriesIndex) }}
+                dot={(props: any) => (
+                  <ChartMarker
+                    key={props.key}
+                    cx={props.value === null || props.value === undefined ? undefined : props.cx}
+                    cy={props.cy}
+                    kind={kindFor(s.playerId, props.payload?.bucketStart)}
+                    color={s.color}
+                    keepSeriesFill
+                  />
+                )}
+                label={
+                  showDirectLabels
+                    ? (props: any) =>
+                        props.index === lastIndexBySeries.get(s.playerId) ? (
+                          <text key={`label-${s.playerId}`} x={props.x + 10} y={props.y + 4} fontSize={12} fill="var(--text-secondary)">
+                            {s.playerName}
+                          </text>
+                        ) : (
+                          <g key={`label-${s.playerId}-${props.index}`} />
+                        )
+                    : undefined
+                }
+                // The hover dot must not take the mousedown (see TrendChart).
+                activeDot={{ r: 6, stroke: 'var(--surface-1)', strokeWidth: 2, style: { pointerEvents: 'none' } }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
       <MarkerLegend kinds={kinds} />
+      {onZoom && <ZoomCaption span={Boolean(onZoomSpan)} />}
     </ChartFrame>
   );
 }

@@ -221,7 +221,9 @@ export default function App() {
       </main>
       <footer className="app-credits">
         Projeto de fã, sem fins lucrativos. Imagens de Pokémon:{' '}
-        <a href="https://github.com/PokeAPI/sprites" target="_blank" rel="noreferrer">PokeAPI/sprites</a>. Pokémon e seus
+        <a href="https://github.com/PokeAPI/sprites" target="_blank" rel="noreferrer">PokeAPI/sprites</a>. Banners de
+        bosses:{' '}
+        <a href="https://wiki.pokexgames.com" target="_blank" rel="noreferrer">wiki.pokexgames.com</a>. Pokémon e seus
         personagens são marcas de Nintendo, Creatures Inc. e GAME FREAK inc. (© The Pokémon Company); os nomes de
         hunts e variantes pertencem ao PokéXGames.
       </footer>

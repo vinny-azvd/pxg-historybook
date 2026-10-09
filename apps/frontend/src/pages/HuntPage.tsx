@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type DragEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
@@ -16,21 +16,12 @@ import { MultiSeriesTrendChart } from '../components/charts/MultiSeriesTrendChar
 import { NameBreakdownChart, type NameBreakdownMetric } from '../components/charts/NameBreakdownChart';
 import { PlayerLegend } from '../components/PlayerLegend';
 import { PeriodCards } from '../components/themes/PeriodCards';
+import { ScopeBreadcrumb, ScopeToolbar, bucketNoun, useChartScope } from '../chartScope';
 import type { HuntListItem, NameBreakdownRow, OverviewStats, PlayerTrendPoint, RareKillRow, TrendPoint } from '../api/types';
-import { formatBucketLabel, formatCompact, formatDateTime, formatHours, formatInt, formatRate } from '../format';
-import { bucketRange, inferPeriodScope, periodRangeForDate, type PeriodScope } from '../dates';
+import { formatCompact, formatDateTime, formatHours, formatInt, formatRate } from '../format';
+import { inferPeriodScope, periodRangeForDate, type PeriodScope } from '../dates';
 
 type Tab = 'dashboard' | 'history' | 'upload';
-type Bucket = 'all' | 'day' | 'week' | 'month' | 'hunt';
-
-const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
-  { value: 'all', label: 'Tudo' },
-  { value: 'day', label: 'Dia' },
-  { value: 'week', label: 'Semana' },
-  { value: 'month', label: 'Mês' },
-  { value: 'hunt', label: 'Por hunt' },
-];
-
 type NameRange = PeriodScope;
 
 const NAME_RANGE_OPTIONS: { value: NameRange; label: string }[] = [
@@ -53,13 +44,6 @@ const NAME_METRIC_OPTIONS: {
   { value: 'avgRareKillsPerHour', label: 'Raros/h médio', title: 'Raros/h médio por hunt', formatValue: formatRate },
   { value: 'totalDurationSeconds', label: 'Horas caçadas', title: 'Horas caçadas por hunt', formatValue: formatHours },
 ];
-
-const CHART_BUCKET_LABEL: Record<Exclude<Bucket, 'all'>, string> = {
-  day: 'dia',
-  week: 'semana',
-  month: 'mês',
-  hunt: 'hunt',
-};
 
 // Reserves room for 2 lines so the highlight cards don't change height
 // depending on whether their text wraps (a long hunt name/date) or is a
@@ -113,89 +97,39 @@ function HuntDashboardTab() {
   const [totalHuntCount, setTotalHuntCount] = useState<number | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [playerTrend, setPlayerTrend] = useState<PlayerTrendPoint[]>([]);
+  // The bucket and range the loaded trend rows are for: a granularity switch or
+  // a step with the arrows must not plot the old rows under the new axis labels.
+  const [trendBucket, setTrendBucket] = useState<string | null>(null);
   const [byName, setByName] = useState<NameBreakdownRow[]>([]);
   const [nameMetric, setNameMetric] = useState<HuntNameMetric>('avgProfitPerHour');
   // "Personalizado" can line up with a whole day/week/month by coincidence
   // while the user is still typing dates - keep the inputs open regardless.
   const [nameRangeCustomOpen, setNameRangeCustomOpen] = useState(false);
-  const [bucket, setBucket] = useState<Bucket>('week');
-  // A click on the chart drills the stat cards into that single point without
-  // touching the chart's own (wider) range - otherwise the chart would be
-  // left with just the one point it was just narrowed to, with nothing else
-  // left to click. Resets whenever the broader filter/granularity changes,
-  // since a specific day/week/month only makes sense relative to those.
-  const [pointFilter, setPointFilter] = useState<{ from: string; to: string } | null>(null);
-  const [dayTrend, setDayTrend] = useState<TrendPoint[]>([]);
-  const [dayHunts, setDayHunts] = useState<HuntListItem[]>([]);
-  const [dayHuntsLoading, setDayHuntsLoading] = useState(false);
+  // The chart is either a comparison over time (granularity, zoom: see
+  // chartScope) or the ranking by hunt name ("Por hunt").
+  const [view, setView] = useState<'time' | 'name'>('time');
+  const scope = useChartScope({ entryBucket: 'hunt' });
   const [showRareKills, setShowRareKills] = useState(false);
   const [rareKills, setRareKills] = useState<RareKillRow[]>([]);
   const [rareKillsLoading, setRareKillsLoading] = useState(false);
-  const drillDownRef = useRef<HTMLDivElement>(null);
 
   // No single character selected - color-code the main chart per player
-  // instead of blending everyone into one averaged line. The per-hunt
-  // granularity already colors its points by jade/rare-drop, so it keeps its
+  // instead of blending everyone into one averaged line. Zoomed down to single
+  // hunts the points are colored by jade/rare-drop, so that level keeps its
   // own single line rather than layering both signals into one chart.
-  const showPlayerBreakdown = !player && bucket !== 'hunt';
-  const showNameBreakdown = bucket === 'hunt';
+  const showNameBreakdown = view === 'name';
+  const chartBucket = scope.chartBucket as 'day' | 'week' | 'month' | 'hunt';
+  const showPlayerBreakdown = !player && !showNameBreakdown && !scope.isEntryLevel;
 
-  // The bucket toggle picks which single period you're browsing (a day, a
-  // week, a month), but the chart itself always drills one level finer than
-  // that: a week shows its days, a month shows its weeks, a day shows its
-  // individual hunts, and "Tudo" shows every month on record. "Por hunt"
-  // isn't a time axis at all - it groups by hunt name (Sudowoodo, Raichu, ...)
-  // across whatever the outer date filter is, comparing each spot's average
-  // against the others.
-  const chartBucket: Exclude<Bucket, 'all'> =
-    bucket === 'all' ? 'month' : bucket === 'day' ? 'hunt' : bucket === 'week' ? 'day' : bucket === 'month' ? 'week' : 'hunt';
-
-  // Switching the bucket toggle always lands on the current day/week/month
-  // (or clears the range for "Tudo") rather than one derived from the range
-  // already in view - deriving it from a past month dropped "Semana" onto
-  // that month's first week, often an empty one.
-  function selectBucket(next: Bucket) {
-    setBucket(next);
-    setNameRangeCustomOpen(false);
-    if (next === 'hunt') return;
-    if (next === 'all') setDateRange({ from: '', to: '' });
-    else setDateRange(periodRangeForDate(new Date(), next));
-  }
-
-  // Same pinning, but only for the very first render, and only if the date
-  // filter hasn't been touched yet (from/to still empty) - respects a filter
-  // the user already had set (e.g. arriving from another page) instead of
-  // silently overriding it.
-  useEffect(() => {
-    if (bucket !== 'hunt' && bucket !== 'all' && !from && !to) {
-      setDateRange(periodRangeForDate(new Date(), bucket));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Clearing the range from elsewhere ("Limpar filtro de período", the
-  // header's "Todo o período") leaves no single day/week/month to browse, so
-  // follow it to "Tudo" instead of labelling an all-time chart as one week.
-  // Only reacts to a set range becoming empty, so the initial empty range
-  // (before the mount effect above pins the default one) doesn't count.
-  const prevRangeRef = useRef({ from, to });
-  useEffect(() => {
-    const prev = prevRangeRef.current;
-    prevRangeRef.current = { from, to };
-    const wasSet = Boolean(prev.from || prev.to);
-    if (wasSet && !from && !to && (bucket === 'day' || bucket === 'week' || bucket === 'month')) setBucket('all');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, to]);
-
-  useEffect(() => {
-    setPointFilter(null);
-  }, [player, sessionType, from, to, bucket]);
+  // "Por hunt" isn't a time axis at all - it groups by hunt name (Sudowoodo,
+  // Raichu, ...) across whatever the period filter is, comparing each spot's
+  // average against the others.
 
   useEffect(() => {
     if (!from && !to) setNameRangeCustomOpen(false);
   }, [from, to]);
 
-  const overviewRange = pointFilter ?? { from, to };
+  const overviewRange = { from, to };
 
   useEffect(() => {
     if (!showRareKills) return;
@@ -242,11 +176,15 @@ function HuntDashboardTab() {
       });
     } else if (showPlayerBreakdown) {
       api.getTrendsByPlayer({ player, sessionType, from, to, bucket: chartBucket }).then((res) => {
-        if (!ignore) setPlayerTrend(res);
+        if (ignore) return;
+        setPlayerTrend(res);
+        setTrendBucket(`player:${chartBucket}:${from}:${to}`);
       });
     } else {
       api.getTrends({ player, sessionType, from, to, bucket: chartBucket }).then((res) => {
-        if (!ignore) setTrend(res);
+        if (ignore) return;
+        setTrend(res);
+        setTrendBucket(`single:${chartBucket}:${from}:${to}`);
       });
     }
     return () => {
@@ -254,6 +192,7 @@ function HuntDashboardTab() {
     };
   }, [player, sessionType, from, to, chartBucket, showPlayerBreakdown, showNameBreakdown]);
 
+  const trendReady = trendBucket === `${showPlayerBreakdown ? 'player' : 'single'}:${chartBucket}:${from}:${to}`;
   const nameRange: NameRange = nameRangeCustomOpen ? 'custom' : inferPeriodScope(from, to);
   const nameMetricOption = NAME_METRIC_OPTIONS.find((opt) => opt.value === nameMetric)!;
   const sortedByName = useMemo(
@@ -279,66 +218,6 @@ function HuntDashboardTab() {
       .map((entry) => ({ ...entry, color: getPlayerColor(entry.playerId) }));
   }, [playerTrend, getPlayerColor]);
 
-  // Drilling into a clicked point also breaks it down hunt-by-hunt: how many
-  // hunts happened that day/week/month, each with its own jade/rare-drop
-  // indicator, instead of just the narrowed averages in the stat tiles above.
-  useEffect(() => {
-    if (!pointFilter) {
-      setDayTrend([]);
-      setDayHunts([]);
-      return;
-    }
-    let ignore = false;
-    setDayHuntsLoading(true);
-    Promise.all([
-      api.getTrends({ player, sessionType, from: pointFilter.from, to: pointFilter.to, bucket: 'hunt' }),
-      api.getHunts({
-        player,
-        sessionType,
-        from: pointFilter.from,
-        to: pointFilter.to,
-        sort: 'start_time',
-        order: 'asc',
-        page: 1,
-        pageSize: 100,
-      }),
-    ])
-      .then(([trendRes, huntsRes]) => {
-        if (ignore) return;
-        setDayTrend(trendRes);
-        setDayHunts(huntsRes.items);
-        // Scroll only once the drilled-down content (chart + hunt cards) has
-        // actually rendered at full height - scrolling right when the click
-        // happens targets the still-collapsed "Carregando..." placeholder
-        // and stops short of where the real content ends up.
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            drillDownRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          });
-        });
-      })
-      .finally(() => {
-        if (!ignore) setDayHuntsLoading(false);
-      });
-    return () => {
-      ignore = true;
-    };
-  }, [player, sessionType, pointFilter?.from, pointFilter?.to]);
-
-  function handlePointClick(bucketStart: string) {
-    if (chartBucket === 'hunt') return;
-    const range = bucketRange(bucketStart, chartBucket);
-    setPointFilter((prev) => (prev && prev.from === range.from && prev.to === range.to ? null : range));
-  }
-
-  const knownBucketStarts = showPlayerBreakdown ? playerTrend.map((p) => p.bucketStart) : trend.map((p) => p.bucketStart);
-  const selectedBucketStart = pointFilter && chartBucket !== 'hunt'
-    ? knownBucketStarts.find((bucketStart) => {
-        const range = bucketRange(bucketStart, chartBucket);
-        return range.from === pointFilter.from && range.to === pointFilter.to;
-      })
-    : undefined;
-
   if (!overview || totalHuntCount === null) return <div className="empty-state">Carregando...</div>;
 
   if (totalHuntCount === 0) {
@@ -354,16 +233,15 @@ function HuntDashboardTab() {
       <BattleScene overview={overview} />
       <p className="page-subtitle">
         {overview.huntCount} hunt{overview.huntCount === 1 ? '' : 's'} no período selecionado.
-        {pointFilter && selectedBucketStart && <> · {formatBucketLabel(selectedBucketStart, chartBucket)}</>}
-        {(pointFilter || from || to) && (
+        {(from || to) && (
           <>
             {' '}
             <button
               className="secondary"
               style={{ fontSize: 11.5, padding: '2px 8px', marginLeft: 4 }}
-              onClick={() => (pointFilter ? setPointFilter(null) : setDateRange({ from: '', to: '' }))}
+              onClick={() => scope.setGranularity('all')}
             >
-              {pointFilter ? 'Voltar ao período completo' : 'Limpar filtro de período'}
+              Ver todo o período
             </button>
           </>
         )}
@@ -505,34 +383,28 @@ function HuntDashboardTab() {
       </div>
 
       <div className="section">
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 12,
-            gap: 12,
-            flexWrap: 'wrap',
-          }}
-        >
+        <div className="scope-head">
           <h2 className="section-title" style={{ margin: 0 }}>
-            {showNameBreakdown ? nameMetricOption.title : `Profit/h por ${CHART_BUCKET_LABEL[chartBucket]}`}
+            {showNameBreakdown ? nameMetricOption.title : `Profit/h por ${bucketNoun(chartBucket, 'hunt')}`}
           </h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            {(bucket === 'day' || bucket === 'week' || bucket === 'month') && <PeriodNavigator bucket={bucket} />}
-            <div className="bucket-toggle">
-              {BUCKET_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  className={bucket === opt.value ? '' : 'secondary'}
-                  onClick={() => selectBucket(opt.value)}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <ScopeToolbar
+            scope={scope}
+            onGranularity={(granularity) => {
+              setView('time');
+              scope.setGranularity(granularity);
+            }}
+            extra={{
+              label: 'Por hunt',
+              title: 'Ranking por nome de hunt no período',
+              active: showNameBreakdown,
+              onSelect: () => {
+                setView('name');
+                setNameRangeCustomOpen(false);
+              },
+            }}
+          />
         </div>
+        {!showNameBreakdown && <ScopeBreadcrumb scope={scope} />}
         {showNameBreakdown && (
           <div className="chart-toolbar">
             <div className="chart-toolbar-group">
@@ -594,6 +466,8 @@ function HuntDashboardTab() {
               unitLabel="hunt"
               formatValue={nameMetricOption.formatValue}
             />
+          ) : !trendReady ? (
+            <div className="chart-empty-state">Carregando...</div>
           ) : showPlayerBreakdown ? (
             <>
               <PlayerLegend entries={playerSeries.map((s) => ({ id: s.playerId, name: s.playerName, color: s.color }))} />
@@ -601,9 +475,9 @@ function HuntDashboardTab() {
                 rareDropThreshold={rareDropThreshold}
                 series={playerSeries}
                 bucket={chartBucket}
-                range={{ from, to }}
-                onPointClick={chartBucket === 'hunt' ? undefined : handlePointClick}
-                selectedBucketStart={selectedBucketStart}
+                range={scope.range}
+                onZoom={scope.canZoom ? scope.zoom : undefined}
+                onZoomSpan={scope.canZoom ? scope.zoomSpan : undefined}
               />
             </>
           ) : (
@@ -613,51 +487,16 @@ function HuntDashboardTab() {
               seriesLabel={chartBucket === 'hunt' ? 'Profit/h' : 'Profit/h médio'}
               seriesColor="var(--series-1)"
               bucket={chartBucket}
-              range={{ from, to }}
-              onPointClick={chartBucket === 'hunt' ? undefined : handlePointClick}
-              selectedBucketStart={selectedBucketStart}
+              range={scope.range}
+              onZoom={scope.canZoom ? scope.zoom : undefined}
+              onZoomSpan={scope.canZoom ? scope.zoomSpan : undefined}
               rareDropThreshold={rareDropThreshold}
             />
           )}
         </div>
       </div>
 
-      <PeriodCards kind="hunt" />
-
-      {pointFilter && (
-        <div className="section" ref={drillDownRef} style={{ scrollMarginTop: 96 }}>
-          <h2 className="section-title">
-            Hunts em{' '}
-            <span className="num">
-              {selectedBucketStart ? formatBucketLabel(selectedBucketStart, chartBucket) : ''}
-              {!dayHuntsLoading && <> ({dayHunts.length})</>}
-            </span>
-          </h2>
-          {dayHuntsLoading ? (
-            <div className="empty-state">Carregando...</div>
-          ) : dayHunts.length === 0 ? (
-            <div className="empty-state">Nenhuma hunt nesse período.</div>
-          ) : (
-            <>
-              <div className="card" style={{ marginBottom: 14 }}>
-                <TrendChart
-                  data={dayTrend}
-                  metricKey="avgProfitPerHour"
-                  seriesLabel="Profit/h"
-                  seriesColor="var(--series-1)"
-                  bucket="hunt"
-                  rareDropThreshold={rareDropThreshold}
-                />
-              </div>
-              <div className="hunt-card-grid">
-                {dayHunts.map((hunt) => (
-                  <HuntCard key={hunt.id} hunt={hunt} />
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )}
+      <PeriodCards kind="hunt" entryLevel={!showNameBreakdown && scope.isEntryLevel} periodLabel={scope.label} />
     </div>
   );
 }

@@ -1650,3 +1650,190 @@ button {
 .app-credits a {
   color: inherit;
 }
+
+/* ================= Bosses (banners do wiki) ================= */
+
+/* Round wiki banners: smooth scaling, never the pixelated look of the sprites. */
+.boss-banner {
+  object-fit: contain;
+  image-rendering: auto;
+}
+
+/* Galeria de bosses do Terror (reaproveita .rares-gallery-card dos skins). */
+.boss-gallery {
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+}
+
+.boss-gallery-card .boss-banner {
+  width: 100%;
+  max-width: 132px;
+  height: auto;
+  aspect-ratio: 308 / 309;
+}
+
+.boss-gallery-card .rares-gallery-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.boss-gallery-badge {
+  margin-top: 2px;
+}
+
+.boss-gallery-credit {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+/* Banner in the art slot of the MD cards (non-Classic skins; the skins size the window). */
+.hunt-card-art.has-banner .boss-banner {
+  width: 72px;
+  height: 72px;
+}
+
+/* ================= fim de Bosses ================= */
+
+/* ================= Escopo do gráfico (chartScope) =================
+   Toolbar (granularidade + setas + rótulo), breadcrumb do zoom, dica de
+   clique/arraste e botão "Expandir" da tabela. Os botões reaproveitam
+   .bucket-toggle / .period-nav, então cada skin já os estiliza. */
+.scope-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.scope-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+/* Raros: the toolbar sits in the filter row, beside its "Período" label. */
+.rares-filters .scope-toolbar {
+  justify-content: flex-start;
+}
+
+.scope-label:focus-visible {
+  outline: 2px solid var(--selection, currentColor);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.scope-label {
+  min-width: 0;
+  max-width: 100%;
+  text-align: center;
+}
+
+/* Breadcrumb: "Tudo › out/2026 › 05/10–11/10". Buttons here are links, not the
+   solid skin buttons, hence the !important on the visual reset (the skins style
+   plain `button` with more specificity than a utility class can match). */
+.scope-crumbs {
+  margin: 0 0 8px;
+}
+
+.scope-crumbs ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 0;
+}
+
+.scope-crumbs li {
+  display: inline-flex;
+  align-items: center;
+}
+
+.scope-crumbs .scope-crumb {
+  font-family: var(--font-body, inherit);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  padding: 3px 6px;
+  min-height: 0;
+  border-radius: 6px;
+  color: var(--text-secondary);
+}
+
+:root .scope-crumbs button.scope-crumb {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+  color: var(--text-secondary) !important;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-family: var(--font-body, inherit) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  min-height: 0 !important;
+  padding: 3px 6px !important;
+}
+
+:root .scope-crumbs button.scope-crumb:hover {
+  color: var(--text-primary) !important;
+  background: var(--gridline) !important;
+}
+
+.scope-crumbs .scope-crumb-current {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.scope-crumb-sep {
+  color: var(--text-muted);
+  padding: 0 1px;
+}
+
+@media (pointer: coarse) {
+  :root .scope-crumbs button.scope-crumb,
+  .scope-crumbs .scope-crumb-current {
+    padding: 9px 8px !important;
+  }
+}
+
+/* The area a drag selects across: no text selection while dragging. */
+.chart-zoom-area {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.chart-zoom-caption {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin: 4px 0 0;
+  text-align: center;
+}
+
+.chart-zoom-caption .hint-coarse {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .chart-zoom-caption .hint-fine {
+    display: none;
+  }
+  .chart-zoom-caption .hint-coarse {
+    display: inline;
+  }
+}
+
+.scope-expand-btn {
+  padding: 2px 10px;
+  font-size: 12px;
+}
+/* ================= fim de Escopo do gráfico ================= */

@@ -915,3 +915,14 @@
     font-size: 24px;
   }
 }
+
+/* ===== Bosses: MD banner next to the name (bossImages / MdCard) ===== */
+:root[data-skin='battle'] .hunt-card:has(> .hunt-card-art.has-banner) {
+  grid-template-columns: 100px minmax(0, 1fr);
+}
+
+:root[data-skin='battle'] .hunt-card-art.has-banner .boss-banner {
+  width: 96px;
+  height: 96px;
+}
+/* ===== fim de Bosses ===== */

@@ -9,6 +9,8 @@ import { useCardProps } from '../theme/useCardProps';
 import { formatCompact, formatDateTime, formatDuration, formatInt, formatRate } from '../format';
 import { ItemIcon } from './ItemIcon';
 import { PokemonSprite } from './PokemonSprite';
+import { BossBanner } from './bosses/BossBanner';
+import { mdBanner } from '../bossImages';
 import { cardType } from './themes/cardType';
 import { RareDropBadge } from './HuntBadges';
 
@@ -34,14 +36,20 @@ export function MdCard({ md }: MdCardProps) {
   const cardProps = useCardProps(toggle);
   const expandedId = useId();
 
+  const banner = mdBanner(md.md_name);
+
   const rareEnemies = detail?.enemiesDefeated.filter((e) => e.rare) ?? [];
   const rareDropLines = detail?.drops.filter((d) => d.unit_price >= rareDropThreshold) ?? [];
 
   return (
     <div className="hunt-card" data-type={cardType(md.md_name)} {...cardProps}>
       {skin !== 'classic' && (
-        <div className="hunt-card-art" aria-hidden="true">
-          <PokemonSprite name={md.md_name ?? ''} width={72} alt="" />
+        <div className={banner ? 'hunt-card-art has-banner' : 'hunt-card-art'} aria-hidden={banner ? undefined : true}>
+          {banner ? (
+            <BossBanner src={banner.src} alt={`Banner da dungeon ${banner.name}`} fallbackName={md.md_name ?? ''} width={72} />
+          ) : (
+            <PokemonSprite name={md.md_name ?? ''} width={72} alt="" />
+          )}
         </div>
       )}
       <div className="hunt-card-header">

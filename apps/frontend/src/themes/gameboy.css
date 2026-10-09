@@ -924,3 +924,16 @@
    no-preference); the global rule in styles.css zeroes transitions/animations
    for everything else. No transforms are forced off here: Recharts positions
    its ticks and labels with SVG transforms. */
+
+/* ===== Bosses: MD banner in the art window (bossImages / MdCard) ===== */
+:root[data-skin='gameboy'] .hunt-card-art.has-banner {
+  width: 106px;
+  height: 106px;
+}
+
+:root[data-skin='gameboy'] .hunt-card-art.has-banner .boss-banner {
+  width: 96px;
+  height: 96px;
+  image-rendering: auto;
+}
+/* ===== fim de Bosses ===== */

@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
 import { StatTile } from '../components/StatTile';
-import { PeriodNavigator } from '../components/PeriodNavigator';
+import { ScopeBreadcrumb, ScopeToolbar, useChartScope } from '../chartScope';
 import { RareSpeciesChart } from '../components/rares/RareSpeciesChart';
 import { RareCategoryBar } from '../components/rares/RareCategoryBar';
 import { RareEntryChart } from '../components/rares/RareEntryChart';
@@ -14,9 +14,8 @@ import { RareBadges, RareSprite, baseName } from '../components/rares/RareSprite
 import { ORIGIN_LABEL, entryPath, teammateRareKills } from '../components/rares/rareUtils';
 import type { RaresFilters, RaresSummary } from '../api/types';
 import { formatDateTime, formatHours, formatInt, formatRate, formatRelativeDate, formatShare } from '../format';
-import { inferPeriodScope, periodRangeForDate, type PeriodScope } from '../dates';
 
-type Bucket = 'all' | 'day' | 'week' | 'month';
+type TimeBucket = 'day' | 'week' | 'month';
 type Origin = NonNullable<RaresFilters['origin']>;
 
 // Origin lives in the URL (?origin=hunt|md) so a link can open the page
@@ -26,43 +25,33 @@ function parseOrigin(value: string | null): Origin {
   return value === 'hunt' || value === 'md' ? value : 'all';
 }
 
-const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
-  { value: 'all', label: 'Tudo' },
-  { value: 'day', label: 'Dia' },
-  { value: 'week', label: 'Semana' },
-  { value: 'month', label: 'Mês' },
-];
-
 const ORIGIN_OPTIONS: { value: Origin; label: string }[] = [
   { value: 'all', label: 'Tudo' },
   { value: 'hunt', label: 'Hunts' },
   { value: 'md', label: 'MD' },
 ];
 
-// The timeline drills one level finer than the period being browsed (a month
-// shows its weeks, a week its days); "Tudo" uses weeks, which keeps a few
-// months of play readable. A custom range picks by its length.
-function timelineBucket(bucket: PeriodScope, from: string, to: string): 'day' | 'week' | 'month' {
-  if (bucket === 'all' || bucket === 'month') return 'week';
-  if (bucket === 'week' || bucket === 'day') return 'day';
-  const days = from && to ? (new Date(`${to}T00:00:00`).getTime() - new Date(`${from}T00:00:00`).getTime()) / 86_400_000 : 365;
-  return days <= 31 ? 'day' : days <= 190 ? 'week' : 'month';
-}
-
 export function RaresPage() {
-  const { player, sessionType, from, to, setDateRange } = useFilters();
+  const { player, sessionType, from, to } = useFilters();
   const [searchParams, setSearchParams] = useSearchParams();
   const origin = parseOrigin(searchParams.get('origin'));
-  const [summary, setSummary] = useState<RaresSummary | null>(null);
+  // What the summary on screen was requested for: a refetch keeps the previous
+  // numbers (faded), and the timeline must be drawn with the bucket and range
+  // its rows belong to, not the ones the toolbar already moved on to.
+  const [loaded, setLoaded] = useState<{ summary: RaresSummary; bucket: TimeBucket; from: string; to: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // The toggle is read off the shared from/to range instead of kept as local
-  // state, so it stays right when the range changes elsewhere (header filter,
-  // another dashboard pinning the current week); a range that isn't exactly
-  // one day/week/month lights no button.
-  const bucket = inferPeriodScope(from, to);
-  const chartBucket = timelineBucket(bucket, from, to);
+  // The period controls are the shared chart scope (granularity, moving window,
+  // zoom by click/drag, breadcrumb); the global from/to stays the source of
+  // truth, so every section below follows the visible range. The timeline's
+  // finest level is one column per day: zooming into a day keeps that column
+  // and only narrows the other sections.
+  const scope = useChartScope({ entryBucket: 'hunt', entryIsDay: true });
+  const chartBucket: TimeBucket = scope.isEntryLevel ? 'day' : (scope.chartBucket as TimeBucket);
+  // The hook writes the range into the global filter right after it changes;
+  // wait for the two to agree instead of fetching an in-between range.
+  const inSync = from === scope.range.from && to === scope.range.to;
 
   function selectOrigin(next: Origin) {
     setSearchParams(
@@ -76,19 +65,15 @@ export function RaresPage() {
     );
   }
 
-  function selectBucket(next: Bucket) {
-    if (next === 'all') setDateRange({ from: '', to: '' });
-    else setDateRange(periodRangeForDate(new Date(), next));
-  }
-
   useEffect(() => {
+    if (!inSync) return;
     let ignore = false;
     setLoading(true);
     setError(null);
     api
       .getRares({ player, sessionType, from, to, origin, bucket: chartBucket })
       .then((res) => {
-        if (!ignore) setSummary(res);
+        if (!ignore) setLoaded({ summary: res, bucket: chartBucket, from, to });
       })
       .catch((err: unknown) => {
         if (!ignore) setError(err instanceof Error ? err.message : 'Erro ao carregar os raros.');
@@ -99,7 +84,12 @@ export function RaresPage() {
     return () => {
       ignore = true;
     };
-  }, [player, sessionType, from, to, origin, chartBucket]);
+  }, [player, sessionType, from, to, origin, chartBucket, inSync]);
+
+  const summary = loaded?.summary ?? null;
+  // Zoom only on a chart that matches the current scope (not a stale one).
+  const zoomable =
+    scope.canZoom && loaded !== null && loaded.bucket === chartBucket && loaded.from === from && loaded.to === to;
 
   const hasRange = Boolean(from || to);
 
@@ -113,20 +103,7 @@ export function RaresPage() {
       <div className="chart-toolbar rares-filters">
         <div className="chart-toolbar-group">
           <span className="chart-toolbar-label">Período</span>
-          <div className="bucket-toggle">
-            {BUCKET_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                className={bucket === opt.value ? '' : 'secondary'}
-                aria-pressed={bucket === opt.value}
-                onClick={() => selectBucket(opt.value)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-          {(bucket === 'day' || bucket === 'week' || bucket === 'month') && <PeriodNavigator bucket={bucket} />}
-          {bucket === 'custom' && <span className="rares-filter-note">Período personalizado (filtro do topo)</span>}
+          <ScopeToolbar scope={scope} />
         </div>
         <div className="chart-toolbar-group">
           <span className="chart-toolbar-label">Origem</span>
@@ -144,6 +121,7 @@ export function RaresPage() {
           </div>
         </div>
       </div>
+      <ScopeBreadcrumb scope={scope} />
 
       {error && <div className="error-box">{error}</div>}
 
@@ -164,7 +142,7 @@ export function RaresPage() {
                 .
               </p>
               {hasRange && (
-                <button className="secondary" onClick={() => setDateRange({ from: '', to: '' })}>
+                <button className="secondary" onClick={() => scope.setGranularity('all')}>
                   Ver todo o período
                 </button>
               )}
@@ -207,10 +185,11 @@ export function RaresPage() {
                 <div className="card">
                   <RareTimelineChart
                     timeline={summary.timeline}
-                    bucket={chartBucket}
-                    range={{ from, to }}
-                    scope={bucket}
+                    bucket={loaded!.bucket}
+                    range={{ from: loaded!.from, to: loaded!.to }}
                     origin={origin}
+                    onZoom={zoomable ? scope.zoom : undefined}
+                    onZoomSpan={zoomable ? scope.zoomSpan : undefined}
                   />
                 </div>
               </section>

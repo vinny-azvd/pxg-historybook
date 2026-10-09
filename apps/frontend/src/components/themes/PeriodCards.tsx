@@ -11,6 +11,9 @@ type Kind = 'hunt' | 'md' | 'terror';
 
 // A page of cards is plenty for a dashboard: the Histórico tab lists them all.
 const PAGE_SIZE = 12;
+// Zoomed down to individual entries (a day, a short selection) the list IS the
+// answer to "what happened then", so it gets more room.
+const ENTRY_PAGE_SIZE = 24;
 
 const TITLES: Record<Kind, string> = {
   hunt: 'Hunts do período',
@@ -18,23 +21,46 @@ const TITLES: Record<Kind, string> = {
   terror: 'Rotações do período',
 };
 
+const ENTRY_TITLES: Record<Kind, string> = {
+  hunt: 'Hunts',
+  md: 'MDs',
+  terror: 'Rotações',
+};
+
 type Row = { kind: 'hunt'; item: HuntListItem } | { kind: 'md'; item: MdListItem } | { kind: 'terror'; item: TerrorListItem };
+
+interface PeriodCardsProps {
+  kind: Kind;
+  /** The chart is zoomed to one point per hunt/MD/terror: list that period's
+   * entries as cards in EVERY skin (up to 24, newest first). Otherwise only the
+   * Cartas skin shows the period as a spread of cards under the chart. */
+  entryLevel?: boolean;
+  /** Names the zoomed period in the title ("Hunts · Dia · 07/10/2026"). */
+  periodLabel?: string;
+}
 
 // The Cartas skin shows the period as a spread of cards right under the chart
 // (the card grid is otherwise only in the Histórico tab), most recent first.
-// Other skins keep the dashboard as it was, so this renders nothing there.
-export function PeriodCards({ kind }: { kind: Kind }) {
+// The other skins keep the dashboard as it was - until the chart is zoomed
+// down to single entries, where the cards are the natural next level.
+export function PeriodCards({ kind, entryLevel = false, periodLabel }: PeriodCardsProps) {
   const { skin } = useSkin();
+  const visible = skin === 'cards' || entryLevel;
+  const pageSize = entryLevel ? ENTRY_PAGE_SIZE : PAGE_SIZE;
   const { player, sessionType, from, to } = useFilters();
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  // What the rows on screen were fetched for: the title and the range move on
+  // right away, the rows arrive a moment later.
+  const [loadedKey, setLoadedKey] = useState('');
+  const requestKey = `${kind}|${player}|${sessionType}|${from}|${to}|${pageSize}`;
 
   useEffect(() => {
-    if (skin !== 'cards') return;
+    if (!visible) return;
     let ignore = false;
     setLoading(true);
-    const filters = { player, sessionType, from, to, sort: 'start_time', order: 'desc', page: 1, pageSize: PAGE_SIZE };
+    const filters = { player, sessionType, from, to, sort: 'start_time', order: 'desc', page: 1, pageSize };
     const request =
       kind === 'hunt'
         ? api.getHunts(filters).then((r) => ({ total: r.total, rows: r.items.map((item): Row => ({ kind: 'hunt', item })) }))
@@ -46,6 +72,14 @@ export function PeriodCards({ kind }: { kind: Kind }) {
         if (ignore) return;
         setRows(res.rows);
         setTotal(res.total);
+        setLoadedKey(requestKey);
+      })
+      .catch(() => {
+        // A failed fetch must not leave the previous period's cards under the new title.
+        if (ignore) return;
+        setRows([]);
+        setTotal(0);
+        setLoadedKey(requestKey);
       })
       .finally(() => {
         if (!ignore) setLoading(false);
@@ -53,17 +87,21 @@ export function PeriodCards({ kind }: { kind: Kind }) {
     return () => {
       ignore = true;
     };
-  }, [skin, kind, player, sessionType, from, to]);
+  }, [visible, pageSize, kind, player, sessionType, from, to, requestKey]);
 
-  if (skin !== 'cards') return null;
+  if (!visible) return null;
 
+  // Per-entry lists name their period: never show another period's cards under
+  // that name. The dashboard spread (Cartas) keeps its cards, faded, meanwhile.
+  const stale = loadedKey !== requestKey;
+  const title = entryLevel ? `${ENTRY_TITLES[kind]}${periodLabel ? ` · ${periodLabel}` : ''}` : TITLES[kind];
   return (
-    <section className="section period-cards" aria-label={TITLES[kind]}>
+    <section className="section period-cards" aria-label={title} aria-busy={stale} style={stale && !entryLevel ? { opacity: 0.6 } : undefined}>
       <h2 className="section-title">
-        {TITLES[kind]}
-        {!loading && ` (${total})`}
+        {title}
+        {!stale && !loading && <span className="num"> ({total})</span>}
       </h2>
-      {loading && rows.length === 0 ? (
+      {(loading && rows.length === 0) || (stale && entryLevel) ? (
         <div className="empty-state">Carregando...</div>
       ) : rows.length === 0 ? (
         <div className="empty-state">Nenhum registro no período selecionado.</div>
