@@ -16,6 +16,7 @@ import {
   maxOf,
   mostFrequentName,
   nameCounts,
+  perHour,
   sum,
   topDrops,
 } from './shared';
@@ -80,6 +81,7 @@ export function computeWeeklyGroups(
     mdCount: docs.length,
     totalProfit: sum(docs, (m) => m.profit),
     avgProfit: avg(docs, (m) => m.profit),
+    avgRareKillsPerHour: perHour(docs, (m) => m.rare_kills),
   }));
 
   return { items, total };

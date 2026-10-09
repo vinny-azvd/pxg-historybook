@@ -3,6 +3,7 @@ import { bucketTopDrops, parseTopDropsRaw } from './bucketDrops.js';
 import { namesConcat, withNameCounts } from './nameCounts.js';
 import { buildMdFilter, type MdFilterQuery } from './mdFilters.js';
 import type { NameBreakdownRow } from './statsAggregation.js';
+import { perHourSql } from './rates.js';
 
 export interface MdOverviewStats {
   mdCount: number;
@@ -111,6 +112,7 @@ export interface MdWeeklySummary {
   mdCount: number;
   totalProfit: number;
   avgProfit: number | null;
+  avgRareKillsPerHour: number | null;
 }
 
 // Grouped by week for the same reason as Terror's history list: one card
@@ -135,7 +137,7 @@ export function computeMdWeeklyGroups(
          COUNT(*) AS mdCount,
          COALESCE(SUM(t.profit), 0) AS totalProfit,
          AVG(t.profit) AS avgProfit,
-         SUM(t.rare_kills) * 3600.0 / NULLIF(SUM(t.duration_seconds), 0) AS avgRareKillsPerHour
+         ${perHourSql('t', 'rare_kills')} AS avgRareKillsPerHour
        FROM mds t
        ${whereClause}
        GROUP BY weekStart
@@ -299,8 +301,9 @@ export function computeMdByName(filter: MdFilterQuery): NameBreakdownRow[] {
          COUNT(*) AS count,
          COALESCE(SUM(t.duration_seconds), 0) AS totalDurationSeconds,
          COALESCE(SUM(t.profit), 0) AS totalProfit,
-         SUM(t.profit_per_hour * t.duration_seconds) * 1.0 / NULLIF(SUM(t.duration_seconds), 0) AS avgProfitPerHour,
-         AVG(t.profit) AS avgProfit
+         ${perHourSql('t', 'profit')} AS avgProfitPerHour,
+         AVG(t.profit) AS avgProfit,
+         ${perHourSql('t', 'rare_kills')} AS avgRareKillsPerHour
        FROM mds t
        ${whereClause}
        GROUP BY name

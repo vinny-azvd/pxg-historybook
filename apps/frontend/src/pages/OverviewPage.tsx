@@ -1,28 +1,24 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useFilters } from '../FiltersContext';
 import { usePreferences } from '../PreferencesContext';
+import { usePlayerColor } from '../playerColors';
 import { StatTile } from '../components/StatTile';
-import { PeriodNavigator } from '../components/PeriodNavigator';
 import { PlayerLegend } from '../components/PlayerLegend';
+import { PeriodCards } from '../components/themes/PeriodCards';
+import { ScopeBreadcrumb, ScopeToolbar, bucketNoun, useChartScope } from '../chartScope';
 import { MultiSeriesTrendChart, type PointDetail } from '../components/charts/MultiSeriesTrendChart';
 import type { MdOverviewStats, OverviewStats, PlayerTrendPoint, TerrorOverviewStats } from '../api/types';
 import { formatCompact, formatDateTime, formatHours, formatInt } from '../format';
-import { periodRangeForDate } from '../dates';
-
-type Bucket = 'all' | 'day' | 'week' | 'month';
-
-const BUCKET_OPTIONS: { value: Bucket; label: string }[] = [
-  { value: 'all', label: 'Tudo' },
-  { value: 'day', label: 'Dia' },
-  { value: 'week', label: 'Semana' },
-  { value: 'month', label: 'Mês' },
-];
-
-const CHART_BUCKET_LABEL: Record<Exclude<Bucket, 'all'>, string> = { day: 'dia', week: 'semana', month: 'mês' };
 
 type ContentKey = 'hunts' | 'terror' | 'md';
+
+// Name of the per-entry bucket on each content's trends endpoint, and how a
+// single entry is called in the chart (tooltip / table) once zoomed down to it.
+const ENTRY_BUCKET = { terror: 'terror', md: 'md' } as const;
+const ENTRY_LABEL: Record<ContentKey, string> = { hunts: 'Hunt', terror: 'Terror', md: 'MD' };
+
 
 const CONTENT_OPTIONS: { key: ContentKey; label: string }[] = [
   { key: 'hunts', label: 'Hunts' },
@@ -35,8 +31,9 @@ const CONTENT_OPTIONS: { key: ContentKey; label: string }[] = [
 const highlightTextStyle: CSSProperties = { margin: 0, fontSize: 14, minHeight: 40, lineHeight: '20px' };
 
 export function OverviewPage() {
-  const { player, sessionType, from, to, setDateRange } = useFilters();
-  const { getPlayerColor, rareDropThreshold } = usePreferences();
+  const { player, sessionType, from, to } = useFilters();
+  const { rareDropThreshold } = usePreferences();
+  const getPlayerColor = usePlayerColor();
   const [huntsOverview, setHuntsOverview] = useState<OverviewStats | null>(null);
   const [terrorOverview, setTerrorOverview] = useState<TerrorOverviewStats | null>(null);
   const [mdOverview, setMdOverview] = useState<MdOverviewStats | null>(null);
@@ -47,7 +44,13 @@ export function OverviewPage() {
   const [huntTrend, setHuntTrend] = useState<PlayerTrendPoint[]>([]);
   const [terrorTrend, setTerrorTrend] = useState<PlayerTrendPoint[]>([]);
   const [mdTrend, setMdTrend] = useState<PlayerTrendPoint[]>([]);
-  const [bucket, setBucket] = useState<Bucket>('week');
+  // Granularity, window and zoom of the chart (see chartScope). One point per
+  // hunt/terror/MD once zoomed down to a day or a short selection.
+  const scope = useChartScope({ entryBucket: 'hunt' });
+  const chartBucket = scope.chartBucket as 'day' | 'week' | 'month' | 'hunt';
+  // The bucket and range the loaded trend rows are for: a granularity switch or
+  // a step with the arrows must not plot the old rows under the new axis labels.
+  const [trendBucket, setTrendBucket] = useState<string | null>(null);
   // Lets the chart be narrowed to just one or two content types (e.g. "only
   // Terror") without leaving the page, instead of always blending all three.
   const [contentFilter, setContentFilter] = useState<Record<ContentKey, boolean>>({
@@ -55,47 +58,6 @@ export function OverviewPage() {
     terror: true,
     md: true,
   });
-
-  // The bucket toggle picks which single period the outer date filter is
-  // pinned to (a day, a week, a month), but the chart itself always drills
-  // one level finer than that - otherwise, with the filter already narrowed
-  // to exactly one week, every point in the week collapses into a single
-  // "week" bucket (that week's Monday) and the chart shows nothing useful.
-  // "Tudo" shows every month on record. Same pattern the Hunts/Terror/MD
-  // dashboards already use.
-  const chartBucket: Exclude<Bucket, 'all'> = bucket === 'all' ? 'month' : bucket === 'month' ? 'week' : 'day';
-
-  // Switching the bucket toggle always lands on the current day/week/month
-  // (or clears the range for "Tudo") - deriving it from the range already in
-  // view drifted to unrelated periods when hopping between granularities.
-  function selectBucket(next: Bucket) {
-    setBucket(next);
-    if (next === 'all') setDateRange({ from: '', to: '' });
-    else setDateRange(periodRangeForDate(new Date(), next));
-  }
-
-  // Pin to the current week on first render, same pattern as the 3
-  // content-specific dashboards - only if the filter hasn't been touched yet.
-  useEffect(() => {
-    if (bucket !== 'all' && !from && !to) {
-      setDateRange(periodRangeForDate(new Date(), bucket));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Clearing the range from elsewhere ("Limpar filtro de período", the
-  // header's "Todo o período") leaves no single day/week/month to browse, so
-  // follow it to "Tudo" instead of labelling an all-time chart as one week.
-  // Only reacts to a set range becoming empty, so the initial empty range
-  // (before the mount effect above pins the default one) doesn't count.
-  const prevRangeRef = useRef({ from, to });
-  useEffect(() => {
-    const prev = prevRangeRef.current;
-    prevRangeRef.current = { from, to };
-    const wasSet = Boolean(prev.from || prev.to);
-    if (wasSet && !from && !to && bucket !== 'all') setBucket('all');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, to]);
 
   useEffect(() => {
     let ignore = false;
@@ -128,22 +90,25 @@ export function OverviewPage() {
     };
   }, [player, sessionType, from, to]);
 
+  const entry = scope.isEntryLevel;
+
   useEffect(() => {
     let ignore = false;
     Promise.all([
       api.getTrendsByPlayer({ player, sessionType, from, to, bucket: chartBucket }),
-      api.getTerrorTrendsByPlayer({ player, sessionType, from, to, bucket: chartBucket }),
-      api.getMdTrendsByPlayer({ player, sessionType, from, to, bucket: chartBucket }),
+      api.getTerrorTrendsByPlayer({ player, sessionType, from, to, bucket: entry ? ENTRY_BUCKET.terror : chartBucket }),
+      api.getMdTrendsByPlayer({ player, sessionType, from, to, bucket: entry ? ENTRY_BUCKET.md : chartBucket }),
     ]).then(([h, t, m]) => {
       if (ignore) return;
       setHuntTrend(h);
       setTerrorTrend(t);
       setMdTrend(m);
+      setTrendBucket(`${chartBucket}:${from}:${to}`);
     });
     return () => {
       ignore = true;
     };
-  }, [player, sessionType, from, to, chartBucket]);
+  }, [player, sessionType, from, to, chartBucket, entry]);
 
   // Hunts, Terror and MD are measured in incompatible units (profit/hour vs.
   // profit per rotation), so the only metric that can be combined into one
@@ -154,28 +119,40 @@ export function OverviewPage() {
   // share (and the names behind it) is kept as a detail line for the tooltip.
   const playerSeries = useMemo(() => {
     const activeSources = [
-      { label: 'Hunts', rows: contentFilter.hunts ? huntTrend : [] },
-      { label: 'Terror', rows: contentFilter.terror ? terrorTrend : [] },
-      { label: 'MD', rows: contentFilter.md ? mdTrend : [] },
+      { key: 'hunts' as ContentKey, label: 'Hunts', rows: contentFilter.hunts ? huntTrend : [] },
+      { key: 'terror' as ContentKey, label: 'Terror', rows: contentFilter.terror ? terrorTrend : [] },
+      { key: 'md' as ContentKey, label: 'MD', rows: contentFilter.md ? mdTrend : [] },
     ];
     const totals = new Map<
       string,
-      { playerId: number; playerName: string; bucketStart: string; totalProfit: number; details: PointDetail[] }
+      {
+        playerId: number;
+        playerName: string;
+        bucketStart: string;
+        totalProfit: number;
+        huntName: string | null;
+        details: PointDetail[];
+      }
     >();
-    for (const { label, rows } of activeSources) {
+    for (const { key: source, label, rows } of activeSources) {
       for (const row of rows) {
         const key = `${row.playerId}::${row.bucketStart}`;
         const detail = { label, value: row.totalProfit, names: row.names, topDrops: row.topDrops };
+        // Zoomed down to single entries each point is one hunt/terror/MD: its
+        // name says which content it came from ("MD · Cyber World").
+        const entryName = scope.isEntryLevel ? `${ENTRY_LABEL[source]}${row.huntName ? ` · ${row.huntName}` : ''}` : null;
         const existing = totals.get(key);
         if (existing) {
           existing.totalProfit += row.totalProfit;
           existing.details.push(detail);
+          if (entryName) existing.huntName = existing.huntName ? `${existing.huntName} + ${entryName}` : entryName;
         } else {
           totals.set(key, {
             playerId: row.playerId,
             playerName: row.playerName,
             bucketStart: row.bucketStart,
             totalProfit: row.totalProfit,
+            huntName: entryName,
             details: [detail],
           });
         }
@@ -183,18 +160,18 @@ export function OverviewPage() {
     }
     const byPlayer = new Map<
       number,
-      { playerId: number; playerName: string; points: { bucketStart: string; totalProfit: number; details: PointDetail[] }[] }
+      { playerId: number; playerName: string; points: { bucketStart: string; totalProfit: number; huntName: string | null; details: PointDetail[] }[] }
     >();
     for (const t of totals.values()) {
       const existing = byPlayer.get(t.playerId);
-      const point = { bucketStart: t.bucketStart, totalProfit: t.totalProfit, details: t.details };
+      const point = { bucketStart: t.bucketStart, totalProfit: t.totalProfit, huntName: t.huntName, details: t.details };
       if (existing) existing.points.push(point);
       else byPlayer.set(t.playerId, { playerId: t.playerId, playerName: t.playerName, points: [point] });
     }
     return [...byPlayer.values()]
       .sort((a, b) => a.playerId - b.playerId)
-      .map((entry, index) => ({ ...entry, color: getPlayerColor(String(entry.playerId), index) }));
-  }, [huntTrend, terrorTrend, mdTrend, contentFilter, getPlayerColor]);
+      .map((entry) => ({ ...entry, color: getPlayerColor(entry.playerId) }));
+  }, [huntTrend, terrorTrend, mdTrend, contentFilter, getPlayerColor, scope.isEntryLevel]);
 
   if (!huntsOverview || !terrorOverview || !mdOverview || !totalCounts) {
     return <div className="empty-state">Carregando...</div>;
@@ -226,9 +203,9 @@ export function OverviewPage() {
             <button
               className="secondary"
               style={{ fontSize: 11.5, padding: '2px 8px', marginLeft: 4 }}
-              onClick={() => setDateRange({ from: '', to: '' })}
+              onClick={() => scope.setGranularity('all')}
             >
-              Limpar filtro de período
+              Ver todo o período
             </button>
           </>
         )}
@@ -290,34 +267,13 @@ export function OverviewPage() {
       </div>
 
       <div className="section">
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 12,
-            gap: 12,
-            flexWrap: 'wrap',
-          }}
-        >
+        <div className="scope-head">
           <h2 className="section-title" style={{ margin: 0 }}>
-            Profit total por {CHART_BUCKET_LABEL[chartBucket]}
+            Profit total por {bucketNoun(chartBucket, 'evento')}
           </h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            {bucket !== 'all' && <PeriodNavigator bucket={bucket} />}
-            <div className="bucket-toggle">
-              {BUCKET_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  className={bucket === opt.value ? '' : 'secondary'}
-                  onClick={() => selectBucket(opt.value)}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <ScopeToolbar scope={scope} />
         </div>
+        <ScopeBreadcrumb scope={scope} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
           <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>Conteúdos:</span>
           <div className="bucket-toggle">
@@ -334,14 +290,33 @@ export function OverviewPage() {
         </div>
         <div className="card">
           <PlayerLegend entries={playerSeries.map((s) => ({ id: s.playerId, name: s.playerName, color: s.color }))} />
-          <MultiSeriesTrendChart
-            series={playerSeries}
-            bucket={chartBucket}
-            metricKey="totalProfit"
-            rareDropThreshold={rareDropThreshold}
-          />
+          {trendBucket !== `${chartBucket}:${from}:${to}` ? (
+            <div className="chart-empty-state">Carregando...</div>
+          ) : (
+            <MultiSeriesTrendChart
+              series={playerSeries}
+              bucket={chartBucket}
+              range={scope.range}
+              metricKey="totalProfit"
+              rareDropThreshold={rareDropThreshold}
+              onZoom={scope.canZoom ? scope.zoom : undefined}
+              onZoomSpan={scope.canZoom ? scope.zoomSpan : undefined}
+            />
+          )}
         </div>
       </div>
+
+      {/* Zoomed down to single entries: what happened in that period, per content
+          (only the contents that have something there, so no empty lists). */}
+      {scope.isEntryLevel && contentFilter.hunts && huntsOverview.huntCount > 0 && (
+        <PeriodCards kind="hunt" entryLevel periodLabel={scope.label} />
+      )}
+      {scope.isEntryLevel && contentFilter.terror && terrorOverview.terrorCount > 0 && (
+        <PeriodCards kind="terror" entryLevel periodLabel={scope.label} />
+      )}
+      {scope.isEntryLevel && contentFilter.md && mdOverview.mdCount > 0 && (
+        <PeriodCards kind="md" entryLevel periodLabel={scope.label} />
+      )}
     </div>
   );
 }

@@ -5,24 +5,45 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const frontendRoot = path.resolve(__dirname, '..');
 const bdDir = path.resolve(frontendRoot, '../../bd');
-const destDir = path.join(frontendRoot, 'public', 'static', 'items');
 
+// ---- Item icons: bd/image-database.json + bd/images -> public/static/items ----
+const destDir = path.join(frontendRoot, 'public', 'static', 'items');
 const srcJson = path.join(bdDir, 'image-database.json');
 const srcImages = path.join(bdDir, 'images');
 
 if (!fs.existsSync(srcJson) || !fs.existsSync(srcImages)) {
   console.warn(`[copy-icons] bd/ não encontrado em ${bdDir}, pulando cópia de ícones (modo local ficará sem ícones).`);
-  process.exit(0);
+} else {
+  // icon_url (built in apps/frontend/src/api/local/icons.ts, mirroring the
+  // backend's seedItemIcons.ts) strips the leading "images/" off each entry's
+  // `path` - e.g. "images/itens/Water Gem.png" -> ".../static/items/itens/Water
+  // Gem.png". So bd/images' CONTENTS must land directly under static/items/,
+  // not nested under an extra static/items/images/ folder.
+  fs.rmSync(destDir, { recursive: true, force: true });
+  fs.mkdirSync(destDir, { recursive: true });
+  fs.copyFileSync(srcJson, path.join(destDir, 'image-database.json'));
+  fs.cpSync(srcImages, destDir, { recursive: true });
+
+  console.log(`[copy-icons] copiado bd/image-database.json + bd/images -> ${path.relative(frontendRoot, destDir)}`);
 }
 
-// icon_url (built in apps/frontend/src/api/local/icons.ts, mirroring the
-// backend's seedItemIcons.ts) strips the leading "images/" off each entry's
-// `path` - e.g. "images/itens/Water Gem.png" -> ".../static/items/itens/Water
-// Gem.png". So bd/images' CONTENTS must land directly under static/items/,
-// not nested under an extra static/items/images/ folder.
-fs.rmSync(destDir, { recursive: true, force: true });
-fs.mkdirSync(destDir, { recursive: true });
-fs.copyFileSync(srcJson, path.join(destDir, 'image-database.json'));
-fs.cpSync(srcImages, destDir, { recursive: true });
+// ---- Boss banners: bd/bosses/{md,terror} -> public/static/bosses ----
+// Independent of the item icons above, but not optional for the BUILD:
+// src/bossImages.ts imports bd/bosses/index.json at build time (it is bundled, so
+// it is not copied to public). Only the banner images are served from here; when
+// they are missing the app falls back to the Pokémon sprites (MD cards) and
+// hides the Terror gallery.
+const bossesSrc = path.join(bdDir, 'bosses');
+const bossesDest = path.join(frontendRoot, 'public', 'static', 'bosses');
 
-console.log(`[copy-icons] copiado bd/image-database.json + bd/images -> ${path.relative(frontendRoot, destDir)}`);
+if (!fs.existsSync(path.join(bossesSrc, 'index.json'))) {
+  console.warn(`[copy-icons] bd/bosses não encontrado em ${bossesSrc}, pulando cópia dos banners de bosses.`);
+} else {
+  fs.rmSync(bossesDest, { recursive: true, force: true });
+  fs.mkdirSync(bossesDest, { recursive: true });
+  for (const sub of ['md', 'terror']) {
+    const from = path.join(bossesSrc, sub);
+    if (fs.existsSync(from)) fs.cpSync(from, path.join(bossesDest, sub), { recursive: true });
+  }
+  console.log(`[copy-icons] copiado bd/bosses/{md,terror} -> ${path.relative(frontendRoot, bossesDest)}`);
+}

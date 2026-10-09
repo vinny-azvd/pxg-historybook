@@ -2,16 +2,25 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { MdDetail } from '../api/types';
+import { DetailNotFound } from '../components/DetailNotFound';
 import { ItemIcon } from '../components/ItemIcon';
 import { StatTile } from '../components/StatTile';
 import { RareDropBadge } from '../components/HuntBadges';
 import { usePreferences } from '../PreferencesContext';
-import { formatCompact, formatDateTime, formatDuration, formatInt } from '../format';
+import { mdBanner, normalizeBossName } from '../bossImages';
+import { formatClock, formatCompact, formatDateTime, formatInt, formatRate } from '../format';
+
+// The wiki names the dungeon, the export the boss ("Noctu" = "Defeat The Darkness").
+function dungeonNameOf(mdName: string | null): string | null {
+  const banner = mdBanner(mdName);
+  return banner && normalizeBossName(banner.name) !== normalizeBossName(mdName ?? '') ? banner.name : null;
+}
 
 export function MdDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [detail, setDetail] = useState<MdDetail | null>(null);
+  const [missing, setMissing] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
@@ -21,9 +30,14 @@ export function MdDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    api.getMd(Number(id)).then(setDetail);
+    setMissing(false);
+    api
+      .getMd(Number(id))
+      .then(setDetail)
+      .catch(() => setMissing(true));
   }, [id]);
 
+  if (missing) return <DetailNotFound to="/md" linkLabel="Voltar para MD" />;
   if (!detail) return <div className="empty-state">Carregando...</div>;
 
   const { md, players, damage, supplies, drops, enemiesDefeated } = detail;
@@ -81,6 +95,9 @@ export function MdDetailPage() {
           ) : (
             <h1 className="page-title">
               {md.md_name ?? 'MD'}
+              {dungeonNameOf(md.md_name) && (
+                <small style={{ fontSize: '0.55em', fontWeight: 500, color: 'var(--text-muted)', marginLeft: 10 }}>{dungeonNameOf(md.md_name)}</small>
+              )}
               {md.session_type === 'party' && (
                 <>
                   {' '}
@@ -105,7 +122,7 @@ export function MdDetailPage() {
           )}
           <p className="page-subtitle">
             {formatDateTime(md.start_time)} · {players.map((p) => p.name).join(', ')} · Duração{' '}
-            {formatDuration(md.duration_seconds)}
+            {formatClock(md.duration_seconds)}
           </p>
         </div>
         <button className="secondary" onClick={handleDelete}>
@@ -120,7 +137,7 @@ export function MdDetailPage() {
         <StatTile
           label="Raros"
           value={formatInt(md.rare_kills)}
-          sub={`${formatInt(md.rare_kills_per_hour)}/h`}
+          sub={`${formatRate(md.rare_kills_per_hour)}/h`}
           onClick={() => setShowRareDetail((v) => !v)}
         />
         <StatTile label="Exp/h" value={formatCompact(md.experience_per_hour)} />
@@ -131,7 +148,7 @@ export function MdDetailPage() {
 
       {showRareDetail && (
         <div className="section">
-          <h2 className="section-title">Raros mortos ({rareEnemies.length})</h2>
+          <h2 className="section-title">Raros mortos <span className="num">({rareEnemies.length})</span></h2>
           <div className="card">
             {rareEnemies.length === 0 ? (
               <div className="empty-state">Nenhum raro nessa MD.</div>
@@ -150,13 +167,13 @@ export function MdDetailPage() {
 
       <div className="two-col">
         <div className="section">
-          <h2 className="section-title">Drops ({drops.length})</h2>
+          <h2 className="section-title">Drops <span className="num">({drops.length})</span></h2>
           <div className="card">
             <ItemTable items={drops} />
           </div>
         </div>
         <div className="section">
-          <h2 className="section-title">Suprimentos usados ({supplies.length})</h2>
+          <h2 className="section-title">Suprimentos usados <span className="num">({supplies.length})</span></h2>
           <div className="card">
             <ItemTable items={supplies} />
           </div>
@@ -169,24 +186,26 @@ export function MdDetailPage() {
           {enemiesDefeated.length === 0 ? (
             <div className="empty-state">Sem dados.</div>
           ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Inimigo</th>
-                  <th>Quantidade</th>
-                  <th>Raro</th>
-                </tr>
-              </thead>
-              <tbody>
-                {enemiesDefeated.map((e) => (
-                  <tr key={e.id}>
-                    <td>{e.enemy}</td>
-                    <td>{formatInt(e.count)}</td>
-                    <td>{e.rare ? 'Sim' : '—'}</td>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Inimigo</th>
+                    <th>Quantidade</th>
+                    <th>Raro</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {enemiesDefeated.map((e) => (
+                    <tr key={e.id}>
+                      <td>{e.enemy}</td>
+                      <td>{formatInt(e.count)}</td>
+                      <td>{e.rare ? 'Sim' : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -197,26 +216,28 @@ export function MdDetailPage() {
           {damage.length === 0 ? (
             <div className="empty-state">Sem dados.</div>
           ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Inimigo</th>
-                  <th>Elemento</th>
-                  <th>Dano causado</th>
-                  <th>Dano recebido</th>
-                </tr>
-              </thead>
-              <tbody>
-                {damage.map((d) => (
-                  <tr key={d.id}>
-                    <td>{d.enemy}</td>
-                    <td>{d.element}</td>
-                    <td>{formatInt(d.damage_dealt)}</td>
-                    <td>{formatInt(d.damage_taken)}</td>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Inimigo</th>
+                    <th>Elemento</th>
+                    <th>Dano causado</th>
+                    <th>Dano recebido</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {damage.map((d) => (
+                    <tr key={d.id}>
+                      <td>{d.enemy}</td>
+                      <td>{d.element}</td>
+                      <td>{formatInt(d.damage_dealt)}</td>
+                      <td>{formatInt(d.damage_taken)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -242,30 +263,32 @@ export function MdDetailPage() {
 function ItemTable({ items }: { items: MdDetail['drops'] }) {
   if (items.length === 0) return <div className="empty-state">Sem itens.</div>;
   return (
-    <table className="data-table">
-      <thead>
-        <tr>
-          <th>Item</th>
-          <th>Qtd</th>
-          <th>Preço unit.</th>
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((item) => (
-          <tr key={item.id}>
-            <td>
-              <div className="item-cell">
-                <ItemIcon name={item.item} iconUrl={item.icon_url} />
-                {item.item}
-              </div>
-            </td>
-            <td>{formatInt(item.count)}</td>
-            <td>{formatCompact(item.unit_price)}</td>
-            <td>{formatCompact(item.total_price)}</td>
+    <div className="table-scroll">
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Qtd</th>
+            <th>Preço unit.</th>
+            <th>Total</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.id}>
+              <td>
+                <div className="item-cell">
+                  <ItemIcon name={item.item} iconUrl={item.icon_url} />
+                  {item.item}
+                </div>
+              </td>
+              <td>{formatInt(item.count)}</td>
+              <td>{formatCompact(item.unit_price)}</td>
+              <td>{formatCompact(item.total_price)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

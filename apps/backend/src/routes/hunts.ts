@@ -3,6 +3,7 @@ import { db, withTransaction } from '../db/connection.js';
 import { validateHuntExport } from '../services/huntValidation.js';
 import { DuplicateHuntError, ingestHunt } from '../services/huntIngestion.js';
 import { buildHuntFilter } from '../services/huntFilters.js';
+import { rareKillsPerHourOrZeroSql, withRareKillsPerHour } from '../services/rates.js';
 
 export const huntsRouter = Router();
 
@@ -13,7 +14,9 @@ const SORTABLE_COLUMNS: Record<string, string> = {
   profit_per_hour: 'h.profit_per_hour',
   kills: 'h.kills',
   kills_per_hour: 'h.kills_per_hour',
-  rare_kills_per_hour: 'h.rare_kills_per_hour',
+  // Recomputed from rare_kills/duration (see rates.ts), so the order follows
+  // the Raros/h the cards show rather than the export's floored column.
+  rare_kills_per_hour: rareKillsPerHourOrZeroSql('h'),
   duration_seconds: 'h.duration_seconds',
 };
 
@@ -41,7 +44,7 @@ huntsRouter.post('/', (req, res) => {
   const rawJson = JSON.stringify(huntPayload);
   try {
     const result = ingestHunt(rawJson, parsed.data, huntNameOverride, nightmareCrystalSelections);
-    const summary = db.prepare('SELECT * FROM hunts WHERE id = ?').get(result.id);
+    const summary = withRareKillsPerHour(db.prepare('SELECT * FROM hunts WHERE id = ?').get(result.id));
     res.status(201).json({ ...result, summary });
   } catch (err) {
     if (err instanceof DuplicateHuntError) {
@@ -70,7 +73,7 @@ huntsRouter.get('/', (req, res) => {
   const rows = db
     .prepare(
       `SELECT h.id, h.hunt_name, h.session_type, h.status, h.start_time, h.duration_seconds, h.kills, h.kills_per_hour,
-              h.rare_kills, h.rare_kills_per_hour, h.experience_per_hour, h.supplies_cost, h.supplies_per_hour,
+              h.rare_kills, ${rareKillsPerHourOrZeroSql('h')} AS rare_kills_per_hour, h.experience_per_hour, h.supplies_cost, h.supplies_per_hour,
               h.profit, h.profit_per_hour, h.jade_totem_count,
               h.damage_dealt_per_second, h.damage_taken_per_second,
               CASE WHEN h.jade_totem_count > 0 AND (h.jade_totem_count * 3600) < h.duration_seconds THEN 1 ELSE 0 END AS jade_severe,
@@ -102,7 +105,7 @@ huntsRouter.get('/', (req, res) => {
 
 huntsRouter.get('/:id', (req, res) => {
   const id = Number(req.params.id);
-  const hunt = db.prepare('SELECT * FROM hunts WHERE id = ?').get(id);
+  const hunt = withRareKillsPerHour(db.prepare('SELECT * FROM hunts WHERE id = ?').get(id));
   if (!hunt) return res.status(404).json({ error: 'not_found' });
 
   const players = db
@@ -162,7 +165,7 @@ huntsRouter.patch('/:id', (req, res) => {
   }
   const result = db.prepare('UPDATE hunts SET hunt_name = ? WHERE id = ?').run(huntName, id);
   if (result.changes === 0) return res.status(404).json({ error: 'not_found' });
-  const hunt = db.prepare('SELECT * FROM hunts WHERE id = ?').get(id);
+  const hunt = withRareKillsPerHour(db.prepare('SELECT * FROM hunts WHERE id = ?').get(id));
   res.json({ hunt });
 });
 

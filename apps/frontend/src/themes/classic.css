@@ -1,0 +1,17 @@
+/*
+ * Skin "classic" - the original look.
+ *
+ * Intentionally (almost) empty: styles.css IS the classic skin and keeps
+ * following the system light/dark preference (and html[data-theme] when set).
+ * Add rules only under :root[data-skin='classic'] if Classic ever needs a
+ * tweak that must not leak into the other skins. Contract:
+ * src/themes/README.md.
+ */
+
+:root[data-skin='classic'] {
+  /* tokens introduced by the skin infra, same values as the :root defaults */
+  --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --radius-card: 10px;
+  --radius-control: 6px;
+}

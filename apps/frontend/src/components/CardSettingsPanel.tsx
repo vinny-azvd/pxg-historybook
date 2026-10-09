@@ -6,7 +6,7 @@ export function CardSettingsPanel() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="card-settings" style={{ position: 'relative' }}>
       <button className="secondary" onClick={() => setOpen((v) => !v)}>
         ⚙ Exibição
       </button>
