@@ -517,3 +517,17 @@ export interface NameBreakdownRow {
   avgProfit: number | null;
   avgRareKillsPerHour: number | null;
 }
+
+/** Terror rotations in a period and, per enemy, in how many of them damage was
+ * dealt to it (the way to tell which bosses were done: the export lists the
+ * whole rotation, not only the kills). */
+export interface TerrorBossFight {
+  enemy: string;
+  count: number;
+  lastAt: string;
+}
+
+export interface TerrorBossFights {
+  rotations: number;
+  fights: TerrorBossFight[];
+}

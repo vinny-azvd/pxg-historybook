@@ -3,6 +3,7 @@
 // static: species data comes from the committed src/data/pokedex.json and the
 // small sprites are copied into public/static/pokemon at build time
 // (scripts/pokemon/), so nothing here calls pokeapi.co.
+import { canonicalEnemyName } from './enemyNames';
 import pokedexJson from './data/pokedex.json';
 import spritesCommit from '../scripts/pokemon/sprites-commit.json';
 
@@ -127,9 +128,11 @@ const REGION_PREFIXES: Record<string, PokemonRegion> = {
 
 const parseCache = new Map<string, ParsedPokemonName>();
 
-export function parsePokemonName(name: string): ParsedPokemonName {
-  const cached = parseCache.get(name);
+export function parsePokemonName(rawName: string): ParsedPokemonName {
+  const cached = parseCache.get(rawName);
   if (cached) return cached;
+  // Golden Sudowoodo / Golden Steelix are really the shiny.
+  const name = canonicalEnemyName(rawName);
 
   // A trailing "[NC]" (Nightmare Crystal) is an annotation, not part of the
   // name; the NC badge comes from the from_nightmare_crystal flag instead.
@@ -195,7 +198,7 @@ export function parsePokemonName(name: string): ParsedPokemonName {
     megaSuffix: entry ? megaSuffix : null,
     megaId: entry ? megaId : null,
   };
-  parseCache.set(name, result);
+  parseCache.set(rawName, result);
   return result;
 }
 

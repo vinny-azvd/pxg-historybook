@@ -172,12 +172,14 @@ export function RaresPage() {
                   </div>
                 </section>
 
-                <section className="section">
-                  <h2 className="section-title">Raros/h por {origin === 'md' ? 'MD' : origin === 'hunt' ? 'hunt' : 'hunt e MD'}</h2>
-                  <div className="card">
-                    <RareEntryChart entries={summary.byEntry} showOrigin={origin === 'all'} />
-                  </div>
-                </section>
+                {origin !== 'md' && (
+                  <section className="section">
+                    <h2 className="section-title">Raros/h por hunt</h2>
+                    <div className="card">
+                      <RareEntryChart entries={summary.byEntry} />
+                    </div>
+                  </section>
+                )}
               </div>
 
               <section className="section">

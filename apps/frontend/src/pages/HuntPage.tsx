@@ -1,3 +1,4 @@
+import { canonicalEnemyName } from '../enemyNames';
 import { useEffect, useMemo, useState, type CSSProperties, type DragEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -312,7 +313,7 @@ function HuntDashboardTab() {
                       </td>
                       <td>{formatDateTime(rk.startTime)}</td>
                       <td>
-                        {rk.enemy}
+                        {canonicalEnemyName(rk.enemy)}
                         {rk.fromNightmareCrystal && (
                           <>
                             {' '}

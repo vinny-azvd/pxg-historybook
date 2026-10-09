@@ -6,6 +6,7 @@ import { DetailNotFound } from '../components/DetailNotFound';
 import { ItemIcon } from '../components/ItemIcon';
 import { StatTile } from '../components/StatTile';
 import { RareDropBadge } from '../components/HuntBadges';
+import { terrorEnemyLabel } from '../terrorNames';
 import { usePreferences } from '../PreferencesContext';
 import { formatClock, formatCompact, formatDateTime, formatInt, formatRate } from '../format';
 
@@ -140,7 +141,7 @@ export function TerrorDetailPage() {
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5 }}>
                 {rareEnemies.map((e) => (
                   <li key={e.id}>
-                    {e.enemy} × {formatInt(e.count)}
+                    {terrorEnemyLabel(e.enemy)} × {formatInt(e.count)}
                   </li>
                 ))}
               </ul>
@@ -182,7 +183,7 @@ export function TerrorDetailPage() {
                 <tbody>
                   {enemiesDefeated.map((e) => (
                     <tr key={e.id}>
-                      <td>{e.enemy}</td>
+                      <td>{terrorEnemyLabel(e.enemy)}</td>
                       <td>{formatInt(e.count)}</td>
                       <td>{e.rare ? 'Sim' : '—'}</td>
                     </tr>
@@ -213,7 +214,7 @@ export function TerrorDetailPage() {
                 <tbody>
                   {damage.map((d) => (
                     <tr key={d.id}>
-                      <td>{d.enemy}</td>
+                      <td>{terrorEnemyLabel(d.enemy)}</td>
                       <td>{d.element}</td>
                       <td>{formatInt(d.damage_dealt)}</td>
                       <td>{formatInt(d.damage_taken)}</td>

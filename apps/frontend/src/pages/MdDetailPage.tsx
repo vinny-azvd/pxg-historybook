@@ -7,7 +7,14 @@ import { ItemIcon } from '../components/ItemIcon';
 import { StatTile } from '../components/StatTile';
 import { RareDropBadge } from '../components/HuntBadges';
 import { usePreferences } from '../PreferencesContext';
+import { mdBanner, normalizeBossName } from '../bossImages';
 import { formatClock, formatCompact, formatDateTime, formatInt, formatRate } from '../format';
+
+// The wiki names the dungeon, the export the boss ("Noctu" = "Defeat The Darkness").
+function dungeonNameOf(mdName: string | null): string | null {
+  const banner = mdBanner(mdName);
+  return banner && normalizeBossName(banner.name) !== normalizeBossName(mdName ?? '') ? banner.name : null;
+}
 
 export function MdDetailPage() {
   const { id } = useParams();
@@ -88,6 +95,9 @@ export function MdDetailPage() {
           ) : (
             <h1 className="page-title">
               {md.md_name ?? 'MD'}
+              {dungeonNameOf(md.md_name) && (
+                <small style={{ fontSize: '0.55em', fontWeight: 500, color: 'var(--text-muted)', marginLeft: 10 }}>{dungeonNameOf(md.md_name)}</small>
+              )}
               {md.session_type === 'party' && (
                 <>
                   {' '}

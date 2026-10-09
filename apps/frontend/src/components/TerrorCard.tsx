@@ -1,3 +1,4 @@
+import { terrorEnemyLabel } from '../terrorNames';
 import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -109,7 +110,7 @@ export function TerrorCard({ terror }: TerrorCardProps) {
                 <ul style={{ margin: '0 0 10px', paddingLeft: 18, fontSize: 12.5 }}>
                   {rareEnemies.map((e) => (
                     <li key={e.id}>
-                      {e.enemy} × {formatInt(e.count)}
+                      {terrorEnemyLabel(e.enemy)} × {formatInt(e.count)}
                     </li>
                   ))}
                 </ul>

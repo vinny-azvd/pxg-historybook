@@ -5,6 +5,7 @@ import { useFilters } from '../../FiltersContext';
 import { useSkin } from '../../theme/ThemeContext';
 import { HuntCard } from '../HuntCard';
 import { MdCard } from '../MdCard';
+import { countByBoss } from '../mdDefeats';
 import { TerrorCard } from '../TerrorCard';
 
 type Kind = 'hunt' | 'md' | 'terror';
@@ -51,6 +52,9 @@ export function PeriodCards({ kind, entryLevel = false, periodLabel }: PeriodCar
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  // Times each boss was defeated in the whole period (unique MD records), not
+  // just among the cards on screen.
+  const [defeats, setDefeats] = useState<Map<string, number>>(new Map());
   // What the rows on screen were fetched for: the title and the range move on
   // right away, the rows arrive a moment later.
   const [loadedKey, setLoadedKey] = useState('');
@@ -89,6 +93,22 @@ export function PeriodCards({ kind, entryLevel = false, periodLabel }: PeriodCar
     };
   }, [visible, pageSize, kind, player, sessionType, from, to, requestKey]);
 
+  useEffect(() => {
+    if (!visible || kind !== 'md') return;
+    let ignore = false;
+    api
+      .getMds({ player, sessionType, from, to, page: 1, pageSize: 200 })
+      .then((r) => {
+        if (!ignore) setDefeats(countByBoss(r.items));
+      })
+      .catch(() => {
+        if (!ignore) setDefeats(new Map());
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [visible, kind, player, sessionType, from, to]);
+
   if (!visible) return null;
 
   // Per-entry lists name their period: never show another period's cards under
@@ -112,7 +132,7 @@ export function PeriodCards({ kind, entryLevel = false, periodLabel }: PeriodCar
               row.kind === 'hunt' ? (
                 <HuntCard key={`h${row.item.id}`} hunt={row.item} />
               ) : row.kind === 'md' ? (
-                <MdCard key={`m${row.item.id}`} md={row.item} />
+                <MdCard key={`m${row.item.id}`} md={row.item} defeats={defeats.get(row.item.md_name ?? '')} />
               ) : (
                 <TerrorCard key={`t${row.item.id}`} terror={row.item} />
               ),

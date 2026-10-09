@@ -1,3 +1,4 @@
+import { canonicalEnemyName } from '../enemyNames';
 import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -119,7 +120,7 @@ export function HuntCard({ hunt }: HuntCardProps) {
                 <ul style={{ margin: '0 0 10px', paddingLeft: 18, fontSize: 12.5 }}>
                   {rareEnemies.map((e) => (
                     <li key={e.id}>
-                      {e.enemy} × {formatInt(e.count)}
+                      {canonicalEnemyName(e.enemy)} × {formatInt(e.count)}
                       {!!e.from_nightmare_crystal && (
                         <>
                           {' '}

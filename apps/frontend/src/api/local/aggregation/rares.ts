@@ -3,6 +3,7 @@
 // the per-enemy rare rows, and how the "unidentified" gap is measured.
 import type { RareEntryRow, RareEvent, RareOrigin, RareSpeciesRow, RaresFilters, RaresSummary, RareTimelinePoint } from '../../types';
 import type { StoredEnemyDefeatedRow, StoredHunt, StoredMd } from '../storedTypes';
+import { canonicalEnemyName } from '../../../enemyNames';
 import { bucketFn, buildFilterPredicate, dateOnly, perHour, sum } from './shared';
 
 /** Name of the "crystal" enemy row a broken Nightmare Crystal leaves behind
@@ -71,7 +72,7 @@ function loadOrigin(origin: RareOrigin, sessions: RareSession[], filter: RaresFi
           entryId: session.id,
           entryName: session.name,
           startTime: session.start_time,
-          enemy: row.enemy,
+          enemy: canonicalEnemyName(row.enemy),
           count: row.count,
           fromNightmareCrystal: !!row.from_nightmare_crystal,
         });

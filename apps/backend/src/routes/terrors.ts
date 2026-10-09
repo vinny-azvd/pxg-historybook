@@ -49,6 +49,34 @@ terrorsRouter.post('/', (req, res) => {
   }
 });
 
+// Which bosses were fought in the period, and in how many rotations. A boss
+// counts once per rotation (export) where damage was dealt to it. With a
+// player filter only that player's own damage rows count, like the rares
+// summary. Declared before '/:id' so 'bosses' isn't read as an id.
+terrorsRouter.get('/bosses', (req, res) => {
+  const { player, from, to, sessionType } = req.query as Record<string, string>;
+  const { whereClause, params } = buildTerrorFilter({ player, from, to, sessionType });
+  const ownRows = player ? 'AND td.player_id = @player' : '';
+
+  const rotations = (db.prepare(`SELECT COUNT(*) AS c FROM terrors t ${whereClause}`).get(params) as { c: number }).c;
+  const fights = db
+    .prepare(
+      `SELECT enemy, COUNT(*) AS count, MAX(start_time) AS lastAt
+       FROM (
+         SELECT td.enemy AS enemy, td.terror_id AS terrorId, t.start_time AS start_time
+         FROM terror_damage td
+         JOIN terrors t ON t.id = td.terror_id
+         ${whereClause || 'WHERE 1 = 1'} ${ownRows}
+         GROUP BY td.terror_id, td.enemy
+         HAVING SUM(td.damage_dealt) > 0
+       )
+       GROUP BY enemy
+       ORDER BY count DESC, enemy`
+    )
+    .all(params);
+  res.json({ rotations, fights });
+});
+
 terrorsRouter.get('/', (req, res) => {
   const { player, from, to, sessionType, sort = 'start_time', order = 'desc', page = '1', pageSize = '25' } = req.query as Record<string, string>;
 

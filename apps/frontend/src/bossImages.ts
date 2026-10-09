@@ -95,12 +95,17 @@ const mdByKey = new Map(mdEntries.map((e) => [e.key, e]));
  *   - Overqwil         -> "Alpha Overqwil"     (also found by the "Alpha X" rule; kept explicit)
  *   - Mamoswine        -> "Below Zero"         (the dungeon's boss is a Mamoswine)
  *   - Cyber Porygon-Z  -> "Cyber World"        (the dungeon's boss is Cyber Porygon-Z)
+ *   - Giant Mamoswine  -> "Below Zero"         (same dungeon, newer exports name the giant)
+ *   - Noctu            -> "Defeat The Darkness"
+ * Add a line here when an MD shows no banner or no dungeon name.
  */
 const MD_ALIASES: Record<string, string> = {
   dorabelle: "Dorabelle's Wrath",
   overqwil: 'Alpha Overqwil',
   mamoswine: 'Below Zero',
   'cyber porygon z': 'Cyber World',
+  'giant mamoswine': 'Below Zero',
+  noctu: 'Defeat The Darkness',
 };
 
 function entryFor(wikiName: string): MdEntry | null {

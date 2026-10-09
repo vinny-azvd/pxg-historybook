@@ -1,3 +1,4 @@
+import { canonicalEnemyName } from '../enemyNames';
 import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -10,15 +11,19 @@ import { formatCompact, formatDateTime, formatDuration, formatInt, formatRate } 
 import { ItemIcon } from './ItemIcon';
 import { PokemonSprite } from './PokemonSprite';
 import { BossBanner } from './bosses/BossBanner';
-import { mdBanner } from '../bossImages';
+import { mdBanner, normalizeBossName } from '../bossImages';
 import { cardType } from './themes/cardType';
 import { RareDropBadge } from './HuntBadges';
 
 interface MdCardProps {
   md: MdListItem;
+  /** How many times this boss was defeated in the period the card is listed
+   * under: the number of unique MD records for it (an MD is a weekly boss
+   * battle, so kills/h says nothing). */
+  defeats?: number;
 }
 
-export function MdCard({ md }: MdCardProps) {
+export function MdCard({ md, defeats }: MdCardProps) {
   const { rareDropThreshold, visibleFields } = usePreferences();
   const { skin } = useSkin();
   const [expanded, setExpanded] = useState(false);
@@ -37,6 +42,8 @@ export function MdCard({ md }: MdCardProps) {
   const expandedId = useId();
 
   const banner = mdBanner(md.md_name);
+  // The wiki names the dungeon, the export the boss ("Noctu" = "Defeat The Darkness").
+  const dungeonName = banner && normalizeBossName(banner.name) !== normalizeBossName(md.md_name ?? '') ? banner.name : null;
 
   const rareEnemies = detail?.enemiesDefeated.filter((e) => e.rare) ?? [];
   const rareDropLines = detail?.drops.filter((d) => d.unit_price >= rareDropThreshold) ?? [];
@@ -58,6 +65,7 @@ export function MdCard({ md }: MdCardProps) {
         </Link>
         <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{formatDateTime(md.start_time)}</span>
       </div>
+      {dungeonName && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{dungeonName}</div>}
       <CardToggle expanded={expanded} controlsId={expandedId} label={md.md_name ?? 'MD'} onToggle={toggle} />
 
       <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
@@ -90,8 +98,8 @@ export function MdCard({ md }: MdCardProps) {
           <dd>{formatCompact(md.profit_per_hour)}</dd>
         </div>
         <div>
-          <dt>Kills/h</dt>
-          <dd>{formatInt(md.kills_per_hour)}</dd>
+          <dt>Derrotado</dt>
+          <dd>{defeats === undefined ? '—' : `${formatInt(defeats)}×`}</dd>
         </div>
         <div>
           <dt>Raros/h</dt>
@@ -132,7 +140,7 @@ export function MdCard({ md }: MdCardProps) {
                 <ul style={{ margin: '0 0 10px', paddingLeft: 18, fontSize: 12.5 }}>
                   {rareEnemies.map((e) => (
                     <li key={e.id}>
-                      {e.enemy} × {formatInt(e.count)}
+                      {canonicalEnemyName(e.enemy)} × {formatInt(e.count)}
                     </li>
                   ))}
                 </ul>

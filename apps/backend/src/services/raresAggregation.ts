@@ -2,6 +2,7 @@ import { db } from '../db/connection.js';
 import { buildHuntFilter, type HuntFilterQuery } from './huntFilters.js';
 import { buildMdFilter } from './mdFilters.js';
 import type { NameCount } from './nameCounts.js';
+import { canonicalEnemyName } from './enemyNames.js';
 import { perHourSql } from './rates.js';
 
 // Backs the "Raros" page: hunts and MDs side by side. A rare is whatever the
@@ -214,6 +215,7 @@ function loadOrigin(source: OriginSource, filter: RaresFilterQuery): OriginData 
     // The session id is part of the key so it has the same shape as in
     // standalone mode, where enemy rows are numbered from 1 in each document.
     id: `${source.origin}-${row.entryId}-${row.rowId}`,
+    enemy: canonicalEnemyName(row.enemy),
     origin: source.origin,
     fromNightmareCrystal: !!row.fromNightmareCrystal,
   }));

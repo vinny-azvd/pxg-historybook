@@ -1,3 +1,4 @@
+import { canonicalEnemyName } from '../enemyNames';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -171,7 +172,7 @@ export function HuntDetailPage() {
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5 }}>
                 {rareEnemies.map((e) => (
                   <li key={e.id}>
-                    {e.enemy} × {formatInt(e.count)}
+                    {canonicalEnemyName(e.enemy)} × {formatInt(e.count)}
                     {!!e.from_nightmare_crystal && (
                       <>
                         {' '}
@@ -227,7 +228,7 @@ export function HuntDetailPage() {
                   checked={crystalDraft.has(e.id)}
                   onChange={() => toggleCrystalDraft(e.id)}
                 />
-                {e.enemy} (× {e.count})
+                {canonicalEnemyName(e.enemy)} (× {e.count})
               </label>
             ))}
             <div className="modal-actions" style={{ marginTop: 10 }}>
@@ -256,7 +257,7 @@ export function HuntDetailPage() {
                 <tbody>
                   {enemiesDefeated.map((e) => (
                     <tr key={e.id}>
-                      <td>{e.enemy}</td>
+                      <td>{canonicalEnemyName(e.enemy)}</td>
                       <td>{formatInt(e.count)}</td>
                       <td>
                         {e.rare ? 'Sim' : '—'}
