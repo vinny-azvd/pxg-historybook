@@ -1,13 +1,27 @@
 import { z } from 'zod';
 
-const itemLineSchema = z.object({
+// The analyzer emits "Variable" (string) as the unit price for items without a
+// fixed price (e.g. Charm Boost). Derive it from Total price / Count instead.
+const itemLineSchema = z.preprocess((val) => {
+  if (val && typeof val === 'object') {
+    const row = val as Record<string, unknown>;
+    if (typeof row['Unit price'] !== 'number') {
+      const total = row['Total price'];
+      const count = row.Count;
+      const derived =
+        typeof total === 'number' && typeof count === 'number' && count > 0 ? total / count : 0;
+      return { ...row, 'Unit price': derived };
+    }
+  }
+  return val;
+}, z.object({
   Item: z.string(),
   'Total price': z.number(),
   Ignored: z.union([z.boolean(), z.null()]).optional(),
   Count: z.number(),
   Player: z.string(),
   'Unit price': z.number(),
-});
+}));
 
 const damageLineSchema = z.object({
   Enemy: z.string(),

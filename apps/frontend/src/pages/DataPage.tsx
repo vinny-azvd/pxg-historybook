@@ -1,7 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { parseHuntJson } from '../jsonParse';
 import { exportAllAsJson, importFromJson } from '../api/local/backup';
 import { getDb } from '../api/local/db';
+import { deletePlayerData, listPlayerDataSummaries, type PlayerDataSummary } from '../api/local/playerData';
+import { useFilters } from '../FiltersContext';
 
 type PreviewState =
   | { kind: 'idle' }
@@ -38,6 +40,38 @@ export function DataPage() {
   const [busy, setBusy] = useState(false);
   const [confirmingReplace, setConfirmingReplace] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { player, setPlayer, refreshPlayers } = useFilters();
+  const [summaries, setSummaries] = useState<PlayerDataSummary[] | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(null);
+  const [deleteMsg, setDeleteMsg] = useState<ResultState>({ kind: 'idle' });
+
+  async function reloadSummaries() {
+    setSummaries(await listPlayerDataSummaries());
+  }
+
+  useEffect(() => {
+    reloadSummaries().catch(() => setSummaries([]));
+  }, []);
+
+  async function doDeletePlayer(p: PlayerDataSummary) {
+    setBusy(true);
+    setDeleteMsg({ kind: 'idle' });
+    try {
+      const res = await deletePlayerData(p.id);
+      if (player === String(p.id)) setPlayer('');
+      refreshPlayers();
+      await reloadSummaries();
+      setConfirmingDeleteId(null);
+      setDeleteMsg({
+        kind: 'success',
+        message: `${p.name} excluído: ${res.deletedSessions} sessões apagadas e removido de ${res.scrubbedSessions} sessões de grupo.`,
+      });
+    } catch (err) {
+      setDeleteMsg({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleFile(file: File) {
     setResult({ kind: 'idle' });
@@ -91,6 +125,8 @@ export function DataPage() {
       });
       setPreview({ kind: 'idle' });
       setConfirmingReplace(false);
+      refreshPlayers();
+      reloadSummaries().catch(() => {});
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
       setResult({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
@@ -210,6 +246,56 @@ export function DataPage() {
               </span>
             )}
           </div>
+        )}
+      </div>
+
+      <div className="card" style={{ marginTop: 14 }}>
+        <h2 className="section-title">Treinadores salvos</h2>
+        <p className="page-subtitle">
+          Lista de todos os personagens que existem neste navegador. Excluir um treinador apaga as hunts, terrors e
+          MDs dele e remove o nome dele das sessões de grupo de outras pessoas.
+        </p>
+
+        {deleteMsg.kind === 'error' && <div className="error-box">{deleteMsg.message}</div>}
+        {deleteMsg.kind === 'success' && <div className="success-box">{deleteMsg.message}</div>}
+
+        {summaries === null ? (
+          <p>Carregando…</p>
+        ) : summaries.length === 0 ? (
+          <p>Nenhum treinador salvo.</p>
+        ) : (
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+            {summaries.map((p) => (
+              <li
+                key={p.id}
+                style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, padding: '8px 0' }}
+              >
+                <span style={{ flex: '1 1 200px' }}>
+                  <strong>{p.name}</strong>
+                  <br />
+                  <span className="page-subtitle">
+                    {p.ownedHunts} hunts, {p.ownedTerrors} terrors, {p.ownedMds} MDs
+                    {p.memberSessions > 0 ? `, em ${p.memberSessions} sessões de outros` : ''}
+                  </span>
+                </span>
+                {confirmingDeleteId !== p.id ? (
+                  <button className="secondary" disabled={busy} onClick={() => setConfirmingDeleteId(p.id)}>
+                    Excluir dados deste treinador
+                  </button>
+                ) : (
+                  <span>
+                    Apagar {p.ownedHunts + p.ownedTerrors + p.ownedMds} sessões de {p.name}? Não pode ser desfeito.{' '}
+                    <button disabled={busy} onClick={() => doDeletePlayer(p)}>
+                      Sim, excluir
+                    </button>{' '}
+                    <button className="secondary" disabled={busy} onClick={() => setConfirmingDeleteId(null)}>
+                      Cancelar
+                    </button>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </div>
