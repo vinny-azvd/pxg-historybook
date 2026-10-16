@@ -174,6 +174,16 @@
   box-shadow: none;
 }
 
+/* Icon-only: the global battle button padding (5px 14px) made it a 52px pill
+   with the palette off-center; keep it a square like in the other skins. */
+:root[data-skin='battle'] .topbar .theme-picker-button {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+}
+
 :root[data-skin='battle'] .topbar .filters-toggle:hover:not(:disabled),
 :root[data-skin='battle'] .topbar .theme-picker-button:hover:not(:disabled) {
   background: #34497a;
