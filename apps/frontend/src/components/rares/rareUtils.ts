@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import type { RareOrigin, RareSpeciesRow, RaresSummary } from '../../api/types';
-import { parsePokemonName } from '../../pokemon';
+import type { RareEntryRow, RareEvent, RareOrigin, RareSpeciesRow, RaresSummary } from '../../api/types';
+import { parsePokemonName, pokemonTypes, type PokemonType } from '../../pokemon';
+import { tierOf, type ShinyTier } from '../../shinyTiers';
 import { niceScale } from '../charts/chartKit';
 
 export const ORIGIN_LABEL: Record<RareOrigin, string> = { hunt: 'Hunt', md: 'MD' };
@@ -111,4 +112,92 @@ export function countScale(max: number) {
  * be measured before they're drawn. */
 export function approxTextWidth(text: string, px = 12): number {
   return text.length * px * 0.58;
+}
+
+const SPECIES_CHART_TIERS = new Set(['1A', '1B', '1C', '1H']);
+
+/** "Raros por espécie" shows Shinies of the Tier 1 roulette tiers (1A/1B/1C/1H)
+ * and any Mega; Shinies of Tier 2, Tier 3 or outside the roulette are left
+ * out (they live in the Shinies tab and the full table). Every other rare -
+ * Giant, Golden, Cyber... - stays. */
+export function showInSpeciesChart(enemy: string): boolean {
+  const { variants } = parsePokemonName(enemy);
+  if (variants.includes('mega') || !variants.includes('shiny')) return true;
+  const tier = tierOf(enemy).tier;
+  return tier !== null && SPECIES_CHART_TIERS.has(tier);
+}
+
+/** Element filter: with nothing selected everything passes; otherwise a rare
+ * passes when ANY of its types is selected. Names the Pokédex has no types for
+ * (unknown forms) can't be classified, so they never pass an active filter. */
+export function matchesTypes(enemy: string, selected: ReadonlySet<PokemonType>): boolean {
+  if (selected.size === 0) return true;
+  return pokemonTypes(enemy).some((t) => selected.has(t));
+}
+
+/** Type a rare is drawn with: the first of its types, except under an element
+ * filter, where it is the first SELECTED one - so a Ghost/Poison Gengar seen
+ * through "Venenoso" wears the Poison colour the legend and chips name. */
+export function displayType(enemy: string, selected: ReadonlySet<PokemonType>): PokemonType | null {
+  const types = pokemonTypes(enemy);
+  return types.find((t) => selected.has(t)) ?? types[0] ?? null;
+}
+
+/** Raros/h per hunt row once only the rares the page shows are counted. */
+export interface VisibleEntryRows {
+  rows: RareEntryRow[];
+  /** Hunts left out because none of their visible rares remain. */
+  hiddenHunts: number;
+}
+
+/** Re-counts each hunt NAME from its visible rare events instead of the session
+ * `rare_kills` (which also counts Tier 2/3 shinies and unidentified rares that
+ * are only a hunt's complement). Sessions and duration are the group's own. */
+export function visibleEntryRows(
+  entries: RareEntryRow[],
+  events: RareEvent[],
+  visible: (enemy: string) => boolean
+): VisibleEntryRows {
+  const kills = new Map<string, number>();
+  for (const e of events) {
+    if (e.origin !== 'hunt' || !visible(e.enemy)) continue;
+    const name = e.entryName ?? 'Sem nome';
+    kills.set(name, (kills.get(name) ?? 0) + e.count);
+  }
+  const rows: RareEntryRow[] = [];
+  let hiddenHunts = 0;
+  for (const entry of entries) {
+    if (entry.origin !== 'hunt') continue;
+    const rareKills = kills.get(entry.name) ?? 0;
+    if (rareKills === 0) {
+      hiddenHunts += 1;
+      continue;
+    }
+    rows.push({
+      ...entry,
+      rareKills,
+      rareKillsPerHour: entry.durationSeconds > 0 ? (rareKills * 3600) / entry.durationSeconds : null,
+    });
+  }
+  // Best rate first, no-time rows last (the chart re-sorts small samples after).
+  rows.sort((a, b) => {
+    if (a.rareKillsPerHour === b.rareKillsPerHour) return b.rareKills - a.rareKills || a.name.localeCompare(b.name, 'pt-BR');
+    if (a.rareKillsPerHour === null) return 1;
+    if (b.rareKillsPerHour === null) return -1;
+    return b.rareKillsPerHour - a.rareKillsPerHour;
+  });
+  return { rows, hiddenHunts };
+}
+
+/** What the Raros tier filter selects: a roulette tier, or 'out' for a Shiny/Mega
+ * the roulette doesn't have. */
+export type RareTierKey = ShinyTier | 'out';
+
+/** Tier a rare falls under for the tier filter. Only Shiny and Mega belong to
+ * the roulette's catalog; Giant, Golden, Cyber... have no tier (null) and drop
+ * out whenever a tier is selected. */
+export function rareTierKey(enemy: string): RareTierKey | null {
+  const { variants } = parsePokemonName(enemy);
+  if (!variants.includes('shiny') && !variants.includes('mega')) return null;
+  return tierOf(enemy).tier ?? 'out';
 }

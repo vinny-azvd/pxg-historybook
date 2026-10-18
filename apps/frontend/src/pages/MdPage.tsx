@@ -264,6 +264,7 @@ function MdDashboardTab() {
                 metricKey="avgProfit"
                 onZoom={scope.canZoom ? scope.zoom : undefined}
                 onZoomSpan={scope.canZoom ? scope.zoomSpan : undefined}
+                onZoomOut={scope.depth > 0 ? () => scope.goTo(scope.depth - 1) : undefined}
               />
             </>
           ) : (
@@ -277,6 +278,7 @@ function MdDashboardTab() {
               unitLabel="md"
               onZoom={scope.canZoom ? scope.zoom : undefined}
               onZoomSpan={scope.canZoom ? scope.zoomSpan : undefined}
+              onZoomOut={scope.depth > 0 ? () => scope.goTo(scope.depth - 1) : undefined}
               rareDropThreshold={rareDropThreshold}
             />
           )}

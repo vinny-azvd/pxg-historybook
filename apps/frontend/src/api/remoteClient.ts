@@ -12,6 +12,8 @@ import type {
   RareKillRow,
   RaresFilters,
   RaresSummary,
+  ShinyFilters,
+  ShinyStats,
   TerrorBossFights,
   TerrorDetail,
   TerrorListResponse,
@@ -68,6 +70,11 @@ export const api = {
     });
     if (!res.ok) throw new Error('Falha ao salvar a seleção do Nightmare Crystal');
     return res.json() as Promise<{ enemiesDefeated: EnemyDefeatedLine[] }>;
+  },
+
+  // The Shinies tab has no backend counterpart: production is local-only.
+  setShinyTarget: async (_id: number, _shinyTarget: string | null): Promise<void> => {
+    throw new Error('A aba Shinies está disponível apenas no modo local.');
   },
 
   deleteHunt: async (id: number) => {
@@ -207,4 +214,8 @@ export const api = {
     request<MdWeeklyResponse>(`/api/md-stats/weekly${toQuery(filters)}`),
 
   getRares: (filters: RaresFilters) => request<RaresSummary>(`/api/rares${toQuery(filters)}`),
+
+  getShinyStats: async (_filters: ShinyFilters): Promise<ShinyStats> => {
+    throw new Error('A aba Shinies está disponível apenas no modo local.');
+  },
 };

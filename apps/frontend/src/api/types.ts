@@ -169,6 +169,8 @@ export interface RareEvent {
   enemy: string; // raw exported name, e.g. "Shiny Muk"
   count: number;
   fromNightmareCrystal: boolean; // user annotation, hunts only
+  /** From the old roulette's history: `entryId` is not a hunt id, so there is no page to link. */
+  legacy?: boolean;
 }
 
 /** Every rare with the same exported enemy name, aggregated. */
@@ -195,6 +197,9 @@ export interface RareTimelinePoint {
   bucketStart: string;
   hunt: number;
   md: number;
+  /** Sum of the sessions' duration in this bucket (real + legacy hunts, MDs):
+   * a rare count alone isn't comparable between buckets without the time played. */
+  durationSeconds: number;
 }
 
 export interface RaresSummary {
@@ -291,6 +296,93 @@ export interface CompareResponse {
     avgExperiencePerHour: CompareDelta | null;
     totalProfit: CompareDelta | null;
   };
+}
+
+// ---------- Página Shinies ----------
+// Built from hunts whose `shiny_target` was confirmed on import (local mode
+// only). Tiers come from the roulette catalog (shinyTiers.ts). "Kills por
+// shiny" divides the kills of the Pokémon's own species (normal + shiny/mega
+// rows) by its shinies, so a shared hunt isn't charged to every find; the
+// shinies/h rate only exists for targets, because the session time belongs to
+// what was being farmed. All rates are ratio-of-sums, null when undefined.
+import type { ShinyTier } from '../shinyTiers';
+import type { PokemonType } from '../pokemon';
+
+/** Shinies filters: the shared ones plus an optional tier selection ("out" =
+ * "Fora da roleta"). Empty or missing = every tier. */
+export type ShinyTierFilter = ShinyTier | 'out';
+/** `types` = optional element selection (a find qualifies with ANY selected
+ * type); combined with `tiers` by AND. Empty or missing = every element. */
+export type ShinyFilters = Filters & { tiers?: ShinyTierFilter[]; types?: PokemonType[] };
+
+export interface ShinyPokemonRow {
+  /** Canonical name: "Shiny Gengar", "Mega Scizor". */
+  name: string;
+  tier: ShinyTier | null;
+  removed: boolean;
+  /** Hunts where it dropped or was the target. */
+  hunts: number;
+  /** Kills of its species in those hunts. */
+  kills: number;
+  shinies: number;
+  killsPerShiny: number | null;
+  /** Hunts where it was the target, with the session time and shinies of those. */
+  targetHunts: number;
+  targetShinies: number;
+  targetDurationSeconds: number;
+  shiniesPerHour: number | null;
+}
+
+export interface ShinyTierRow {
+  /** null = "Fora da roleta". */
+  tier: ShinyTier | null;
+  pokemon: number; // distinct Pokémon with at least one shiny
+  hunts: number;
+  kills: number;
+  shinies: number;
+  killsPerShiny: number | null;
+}
+
+export interface ShinyHuntFind {
+  name: string;
+  count: number;
+  tier: ShinyTier | null;
+  isTarget: boolean;
+  isTargetCompanion: boolean;
+  /** Only set (true) while a tier filter is on and this find is in another tier. */
+  outsideFilter?: boolean;
+}
+
+export interface ShinyHuntRow {
+  /** Hunt id, or the legacy record id when `legacy` (it has no detail page). */
+  id: number;
+  /** From the old roulette's history (loaded once, outside the app), not a real export. */
+  legacy: boolean;
+  huntName: string | null;
+  startTime: string;
+  durationSeconds: number;
+  sessionKills: number;
+  players: string[];
+  targetName: string | null; // "Shiny Gengar"
+  targetTier: ShinyTier | null;
+  targetShinies: number;
+  finds: ShinyHuntFind[]; // target first
+}
+
+export interface ShinyStats {
+  hunts: number;
+  shinies: number;
+  sessionKills: number;
+  durationSeconds: number;
+  /** Over targets only: target kills ÷ target shinies. */
+  killsPerShiny: number | null;
+  shiniesPerHour: number | null;
+  pokemon: ShinyPokemonRow[]; // most shinies first
+  tiers: ShinyTierRow[]; // catalog order, "Fora da roleta" last
+  huntList: ShinyHuntRow[]; // newest first
+  /** Only present while an element filter is on: Pokémon (distinct) left out
+   * because their types are unknown. */
+  unknownTypePokemon?: number;
 }
 
 export interface Filters {

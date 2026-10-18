@@ -72,6 +72,8 @@ interface MultiSeriesTrendChartProps {
   onZoom?: (bucketStart: string) => void;
   /** Mouse drag across several points: zoom into the selected span. */
   onZoomSpan?: (first: string, last: string) => void;
+  /** Click (tap) on an empty part of the plot: back one zoom level (Power BI style). Left out at the root. */
+  onZoomOut?: () => void;
   rareDropThreshold?: number;
   /** The period being browsed, so empty days/weeks/months keep their slot. */
   range?: { from?: string; to?: string };
@@ -98,6 +100,7 @@ function MultiSeriesTrendPlot({
   metricKey = 'avgProfitPerHour',
   onZoom: onZoomProp,
   onZoomSpan: onZoomSpanProp,
+  onZoomOut,
   rareDropThreshold = 1_000_000,
   range,
 }: MultiSeriesTrendChartProps) {
@@ -139,6 +142,7 @@ function MultiSeriesTrendPlot({
     labels: bucketStarts,
     onZoom,
     onZoomSpan,
+    onZoomOut,
     isEmpty: (label) => !dataStartSet.has(label),
   });
 
@@ -186,7 +190,7 @@ function MultiSeriesTrendPlot({
   };
 
   return (
-    <ChartFrame caption="Comparação por treinador" table={table}>
+    <ChartFrame onZoomOut={onZoomOut} caption="Comparação por treinador" table={table}>
       <div {...zoom.areaProps}>
         <ResponsiveContainer width="100%" height={280} onResize={axis.onResize}>
           <LineChart
@@ -326,7 +330,7 @@ function MultiSeriesTrendPlot({
         </ResponsiveContainer>
       </div>
       <MarkerLegend kinds={kinds} />
-      {onZoom && <ZoomCaption span={Boolean(onZoomSpan)} />}
+      <ZoomCaption span={Boolean(onZoomSpan)} canZoom={Boolean(onZoom)} canZoomOut={Boolean(onZoomOut)} />
     </ChartFrame>
   );
 }

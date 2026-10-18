@@ -1,3 +1,4 @@
+import type { ShinyTier } from '../../shinyTiers';
 import type { MdDifficulty } from '../types';
 
 // Denormalized, per-session documents persisted in IndexedDB. Each one holds
@@ -95,6 +96,32 @@ export interface StoredHunt extends StoredSessionBase {
   hunt_name: string | null;
   jade_totem_count: number;
   enemies_defeated: StoredHuntEnemyDefeatedRow[];
+  /** Species key (shinyHunt.ts, e.g. "gengar") the user confirmed as the shiny
+   * hunt's target; null/undefined = not a shiny hunt. Optional on purpose:
+   * older docs and backups don't have it. */
+  shiny_target?: string | null;
+}
+
+/** One hunt of the old roulette's history, loaded once from its CSV outside
+ * the app (there is no importer): only what was typed by hand, so it has no players list, items or profit and lives
+ * in its own store instead of polluting the Hunts pages. Counts only for the
+ * Shinies stats. */
+export interface StoredShinyLegacy {
+  id: number;
+  /** Unique, so loading the same history again adds nothing. */
+  content_hash: string;
+  start_time: string;
+  pokemon: string;
+  tier: ShinyTier | null;
+  kills: number;
+  shinies: number;
+  duration_seconds: number;
+  companion: string | null;
+  companion_shinies: number;
+  /** The Treinador the history belongs to (the CSV has none); null = nobody. */
+  player_id: number | null;
+  player_name: string | null;
+  imported_at: string;
 }
 
 export interface StoredTerror extends StoredSessionBase {

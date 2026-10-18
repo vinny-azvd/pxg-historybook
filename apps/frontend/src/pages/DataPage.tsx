@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { parseHuntJson } from '../jsonParse';
-import { exportAllAsJson, importFromJson } from '../api/local/backup';
-import { getDb } from '../api/local/db';
+import { exportAllAsJson, importFromJson, type MergeSummary } from '../api/local/backup';
 import { deletePlayerData, listPlayerDataSummaries, type PlayerDataSummary } from '../api/local/playerData';
 import { useFilters } from '../FiltersContext';
 
@@ -11,27 +10,41 @@ type PreviewState =
   | {
       kind: 'ready';
       payload: unknown;
-      counts: { players: number; hunts: number; terrors: number; mds: number };
+      counts: { players: number; hunts: number; terrors: number; mds: number; shinyLegacy: number };
       exportedAt: string | null;
-      storesEmpty: boolean;
     };
 
 type ResultState = { kind: 'idle' } | { kind: 'error'; message: string } | { kind: 'success'; message: string };
 
-async function areLocalStoresEmpty(): Promise<boolean> {
-  const db = await getDb();
-  const [players, hunts, terrors, mds] = await Promise.all([
-    db.count('players'),
-    db.count('hunts'),
-    db.count('terrors'),
-    db.count('mds'),
-  ]);
-  return players === 0 && hunts === 0 && terrors === 0 && mds === 0;
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** "3 hunts novas, 2 já existiam" style summary of what a merge did. */
+function mergeMessage(m: MergeSummary): string {
+  const store = (r: { imported: number; skipped: number }, one: string, many: string, masc: boolean) =>
+    `${plural(r.imported, `${one} ${masc ? 'adicionado' : 'adicionada'}`, `${many} ${masc ? 'adicionados' : 'adicionadas'}`)}` +
+    (r.skipped > 0 ? ` (${plural(r.skipped, 'ignorada: já existia ou repetida', 'ignoradas: já existiam ou repetidas')})` : '');
+  const parts = [
+    `${plural(m.players.added, 'treinador novo', 'treinadores novos')}${m.players.matched > 0 ? ` (${plural(m.players.matched, 'já existia', 'já existiam')})` : ''}`,
+    store(m.hunts, 'hunt', 'hunts', false),
+    store(m.terrors, 'terror', 'terrors', true),
+    store(m.mds, 'MD', 'MDs', true),
+  ];
+  if (m.shinyLegacy.imported > 0 || m.shinyLegacy.skipped > 0) {
+    parts.push(store(m.shinyLegacy, 'hunt do histórico da roleta', 'hunts do histórico da roleta', false));
+  }
+  const dropped = m.dropped > 0 ? ` ${plural(m.dropped, 'linha do backup foi ignorada', 'linhas do backup foram ignoradas')} por estar inválida.` : '';
+  return `Mesclado: ${parts.join(', ')}.${dropped}`;
 }
 
 function countsOf(payload: Record<string, unknown>) {
   const arr = (key: string) => (Array.isArray(payload[key]) ? (payload[key] as unknown[]).length : 0);
-  return { players: arr('players'), hunts: arr('hunts'), terrors: arr('terrors'), mds: arr('mds') };
+  return {
+    players: arr('players'),
+    hunts: arr('hunts'),
+    terrors: arr('terrors'),
+    mds: arr('mds'),
+    shinyLegacy: arr('shinyLegacy'),
+  };
 }
 
 export function DataPage() {
@@ -103,13 +116,11 @@ export function DataPage() {
       return;
     }
 
-    const storesEmpty = await areLocalStoresEmpty();
     setPreview({
       kind: 'ready',
       payload,
       counts: countsOf(payload),
       exportedAt: typeof payload.exportedAt === 'string' ? payload.exportedAt : null,
-      storesEmpty,
     });
   }
 
@@ -121,7 +132,11 @@ export function DataPage() {
       const res = await importFromJson(preview.payload, mode);
       setResult({
         kind: 'success',
-        message: `Importado: ${res.counts.players} treinadores, ${res.counts.hunts} hunts, ${res.counts.terrors} terrors, ${res.counts.mds} MDs.`,
+        message: res.merge
+          ? mergeMessage(res.merge)
+          : `Importado: ${res.counts.players} treinadores, ${res.counts.hunts} hunts, ${res.counts.terrors} terrors, ${res.counts.mds} MDs${
+              res.counts.shinyLegacy > 0 ? ` e ${res.counts.shinyLegacy} hunts do histórico da roleta` : ''
+            }.`,
       });
       setPreview({ kind: 'idle' });
       setConfirmingReplace(false);
@@ -216,26 +231,30 @@ export function DataPage() {
             <p>
               Backup {preview.exportedAt ? `de ${preview.exportedAt} ` : ''}
               contém: <strong>{preview.counts.players}</strong> treinadores, <strong>{preview.counts.hunts}</strong>{' '}
-              hunts, <strong>{preview.counts.terrors}</strong> terrors, <strong>{preview.counts.mds}</strong> MDs.
+              hunts, <strong>{preview.counts.terrors}</strong> terrors, <strong>{preview.counts.mds}</strong> MDs
+              {preview.counts.shinyLegacy > 0 && (
+                <>
+                  {' '}
+                  e <strong>{preview.counts.shinyLegacy}</strong> hunts do histórico da roleta
+                </>
+              )}
+              .
             </p>
 
-            {preview.storesEmpty ? (
-              <button disabled={busy} onClick={() => doImport('merge')}>
-                Importar (mesclar)
-              </button>
-            ) : (
-              <p className="error-box">
-                Já existem dados salvos neste navegador. Para importar este backup, use "Substituir tudo" abaixo
-                (apaga o que está salvo aqui antes de importar).
-              </p>
-            )}
+            <p className="page-subtitle">
+              Mesclar adiciona o que falta, mantém o que já está aqui, junta os Treinadores pelo nome e pula o que for
+              repetido.
+            </p>
+            <button disabled={busy} onClick={() => doImport('merge')}>
+              Importar (mesclar)
+            </button>
 
             {!confirmingReplace ? (
-              <button disabled={busy} onClick={() => setConfirmingReplace(true)} style={{ marginLeft: preview.storesEmpty ? 10 : 0 }}>
+              <button disabled={busy} onClick={() => setConfirmingReplace(true)} style={{ marginLeft: 10 }}>
                 Substituir tudo
               </button>
             ) : (
-              <span style={{ marginLeft: preview.storesEmpty ? 10 : 0 }}>
+              <span style={{ marginLeft: 10 }}>
                 Tem certeza? Isso vai apagar tudo que está salvo neste navegador agora e não pode ser desfeito.{' '}
                 <button disabled={busy} onClick={() => doImport('replace')}>
                   Sim, substituir tudo
@@ -275,6 +294,7 @@ export function DataPage() {
                   <br />
                   <span className="page-subtitle">
                     {p.ownedHunts} hunts, {p.ownedTerrors} terrors, {p.ownedMds} MDs
+                    {p.ownedShinyLegacy > 0 ? `, ${p.ownedShinyLegacy} hunts do histórico da roleta` : ''}
                     {p.memberSessions > 0 ? `, em ${p.memberSessions} sessões de outros` : ''}
                   </span>
                 </span>
@@ -284,7 +304,9 @@ export function DataPage() {
                   </button>
                 ) : (
                   <span>
-                    Apagar {p.ownedHunts + p.ownedTerrors + p.ownedMds} sessões de {p.name}? Não pode ser desfeito.{' '}
+                    Apagar {p.ownedHunts + p.ownedTerrors + p.ownedMds} sessões
+                    {p.ownedShinyLegacy > 0 ? ` e ${p.ownedShinyLegacy} hunts do histórico da roleta` : ''} de {p.name}? Não pode
+                    ser desfeito.{' '}
                     <button disabled={busy} onClick={() => doDeletePlayer(p)}>
                       Sim, excluir
                     </button>{' '}

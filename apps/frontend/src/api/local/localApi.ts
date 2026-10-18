@@ -20,11 +20,12 @@ import type {
   MonthBucket,
   NameBreakdownRow,
   OverviewStats,
-  Player,
   PlayerTrendPoint,
   RareKillRow,
   RaresFilters,
   RaresSummary,
+  ShinyFilters,
+  ShinyStats,
   TerrorBossFights,
   TerrorDetail,
   TerrorListItem,
@@ -50,13 +51,16 @@ import {
   terrorsRepo,
 } from './ingestion/ingest';
 import { huntExportSchema, mdExportSchema, terrorExportSchema } from './ingestion/validation';
-import type { StoredHunt, StoredMd, StoredTerror } from './storedTypes';
+import type { StoredHunt, StoredMd, StoredShinyLegacy, StoredTerror } from './storedTypes';
 import * as huntsAgg from './aggregation/hunts';
 import * as terrorsAgg from './aggregation/terrors';
 import * as mdsAgg from './aggregation/mds';
 import * as raresAgg from './aggregation/rares';
 import { computeTerrorBossFights } from './aggregation/terrorBosses';
+import { computeShinyStats } from './aggregation/shinies';
 import { buildFilterPredicate, jadeSevere, nameBreakdown, rareKillsPerHour, topDrops } from './aggregation/shared';
+
+const shinyLegacyRepo = createLocalRepository<StoredShinyLegacy>('shinyLegacy');
 
 const MD_DIFFICULTIES = ['Grand Master', 'Master', 'Hyper', 'Ultra', 'Platinum'] as const;
 
@@ -375,6 +379,15 @@ export const api = {
     return { enemiesDefeated: updatedEnemies };
   },
 
+  // Used when an already-imported hunt (409 duplicate) is confirmed again from
+  // the Shinies tab: only the target changes, never the hunt's data.
+  setShinyTarget: async (id: number, shinyTarget: string | null) => {
+    const hunt = await huntsRepo.get(id);
+    if (!hunt) throw new Error('Falha ao salvar o alvo da hunt shiny');
+    const db = await getDb();
+    await db.put('hunts', { ...hunt, shiny_target: shinyTarget?.trim() || null });
+  },
+
   deleteHunt: async (id: number) => {
     const removed = await huntsRepo.remove(id);
     if (!removed) throw new Error('Falha ao remover hunt');
@@ -387,6 +400,8 @@ export const api = {
       const huntPayload = isWrapped ? (body as { hunt: unknown }).hunt : payload;
       const huntNameOverrideRaw = isWrapped ? (body as { huntName?: unknown }).huntName : undefined;
       const huntNameOverride = typeof huntNameOverrideRaw === 'string' ? huntNameOverrideRaw : undefined;
+      const shinyTargetRaw = isWrapped ? (body as { shinyTarget?: unknown }).shinyTarget : undefined;
+      const shinyTarget = typeof shinyTargetRaw === 'string' ? shinyTargetRaw : undefined;
       const crystalSelectionsRaw = isWrapped
         ? (body as { nightmareCrystalSelections?: unknown }).nightmareCrystalSelections
         : undefined;
@@ -401,7 +416,7 @@ export const api = {
 
       await loadIcons();
       const rawJson = JSON.stringify(huntPayload);
-      const result = await ingestHunt(rawJson, parsed.data, huntNameOverride, nightmareCrystalSelections);
+      const result = await ingestHunt(rawJson, parsed.data, huntNameOverride, nightmareCrystalSelections, shinyTarget);
       const stored = await huntsRepo.get(result.id);
       const summary = stored && { ...stored, rare_kills_per_hour: rareKillsPerHourOrZero(stored) };
       return { ok: true, status: 201, body: { ...result, summary } };
@@ -632,7 +647,16 @@ export const api = {
   // Raros (hunts + MDs) ----------------------------------------------------
 
   getRares: async (filters: RaresFilters): Promise<RaresSummary> => {
-    const [hunts, mds] = await Promise.all([huntsRepo.list(), mdsRepo.list()]);
-    return raresAgg.computeRares(hunts, mds, filters);
+    const [hunts, mds, legacy] = await Promise.all([huntsRepo.list(), mdsRepo.list(), shinyLegacyRepo.list()]);
+    return raresAgg.computeRares(hunts, mds, legacy, filters);
   },
+
+  // Shinies (hunts with a confirmed shiny_target) ---------------------------
+
+  getShinyStats: async (filters: ShinyFilters): Promise<ShinyStats> => {
+    const [hunts, legacy] = await Promise.all([huntsRepo.list(), shinyLegacyRepo.list()]);
+    return computeShinyStats(hunts, legacy, filters);
+  },
+
+
 };

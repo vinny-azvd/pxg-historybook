@@ -1,0 +1,1026 @@
+{
+ "tiers": {
+  "2": [
+   {
+    "name": "Shiny Fearow",
+    "dex": 22
+   },
+   {
+    "name": "Shiny Sandslash",
+    "dex": 28
+   },
+   {
+    "name": "Shiny Nidoqueen",
+    "dex": 31
+   },
+   {
+    "name": "Shiny Nidoking",
+    "dex": 34
+   },
+   {
+    "name": "Shiny Clefable",
+    "dex": 36
+   },
+   {
+    "name": "Shiny Wigglytuff",
+    "dex": 40
+   },
+   {
+    "name": "Shiny Vileplume",
+    "dex": 45
+   },
+   {
+    "name": "Shiny Golduck",
+    "dex": 55
+   },
+   {
+    "name": "Shiny Golem",
+    "dex": 76
+   },
+   {
+    "name": "Shiny Rapidash",
+    "dex": 78
+   },
+   {
+    "name": "Shiny Cloyster",
+    "dex": 91
+   },
+   {
+    "name": "Shiny Hypno",
+    "dex": 97
+   },
+   {
+    "name": "Shiny Kingler",
+    "dex": 99
+   },
+   {
+    "name": "Shiny Electrode",
+    "dex": 101
+   },
+   {
+    "name": "Shiny Weezing",
+    "dex": 110
+   },
+   {
+    "name": "Shiny Starmie",
+    "dex": 121
+   },
+   {
+    "name": "Shiny Giant Magikarp",
+    "dex": 129
+   },
+   {
+    "name": "Shiny Vaporeon",
+    "dex": 134
+   },
+   {
+    "name": "Shiny Jolteon",
+    "dex": 135
+   },
+   {
+    "name": "Shiny Flareon",
+    "dex": 136
+   },
+   {
+    "name": "Shiny Noctowl",
+    "dex": 164
+   },
+   {
+    "name": "Shiny Crobat",
+    "dex": 169
+   },
+   {
+    "name": "Shiny Togetic",
+    "dex": 176
+   },
+   {
+    "name": "Shiny Bellossom",
+    "dex": 182
+   },
+   {
+    "name": "Shiny Azumarill",
+    "dex": 184
+   },
+   {
+    "name": "Shiny Girafarig",
+    "dex": 203
+   },
+   {
+    "name": "Shiny Forretress",
+    "dex": 205
+   },
+   {
+    "name": "Shiny Qwilfish",
+    "dex": 211
+   },
+   {
+    "name": "Shiny Shuckle",
+    "dex": 213
+   },
+   {
+    "name": "Shiny Donphan",
+    "dex": 232
+   },
+   {
+    "name": "Shiny Elekid",
+    "dex": 239
+   },
+   {
+    "name": "Shiny Magby",
+    "dex": 240
+   },
+   {
+    "name": "Shiny Swalot",
+    "dex": 317
+   },
+   {
+    "name": "Shiny Grumpig",
+    "dex": 326
+   },
+   {
+    "name": "Shiny Metang",
+    "dex": 375
+   },
+   {
+    "name": "Shiny Kricketune",
+    "dex": 402
+   },
+   {
+    "name": "Shiny Munchlax",
+    "dex": 446
+   },
+   {
+    "name": "Shiny Lucario",
+    "dex": 448
+   },
+   {
+    "name": "Shiny Lilligant",
+    "dex": 549
+   },
+   {
+    "name": "Shiny Ferrothorn",
+    "dex": 598
+   },
+   {
+    "name": "Shiny Klinklang",
+    "dex": 601
+   },
+   {
+    "name": "Shiny Druddigon",
+    "dex": 621
+   },
+   {
+    "name": "Shiny Hawlucha",
+    "dex": 701
+   },
+   {
+    "name": "Shiny Dedenne",
+    "dex": 702
+   },
+   {
+    "name": "Shiny Carbink",
+    "dex": 703
+   },
+   {
+    "name": "Shiny Togedemaru",
+    "dex": 777
+   },
+   {
+    "name": "Shiny Frosmoth",
+    "dex": 873
+   },
+   {
+    "name": "Mega Beedrill",
+    "dex": 15
+   },
+   {
+    "name": "Mega Slowbro",
+    "dex": 80
+   },
+   {
+    "name": "Hisuian Typhlosion",
+    "dex": 157
+   },
+   {
+    "name": "Mega Medicham",
+    "dex": 308
+   },
+   {
+    "name": "Mega Camerupt",
+    "dex": 323
+   },
+   {
+    "name": "Mega Lopunny",
+    "dex": 428
+   }
+  ],
+  "3": [
+   {
+    "name": "Shiny Butterfree",
+    "dex": 12
+   },
+   {
+    "name": "Shiny Beedrill",
+    "dex": 15
+   },
+   {
+    "name": "Shiny Arbok",
+    "dex": 24
+   },
+   {
+    "name": "Shiny Pikachu",
+    "dex": 25
+   },
+   {
+    "name": "Shiny Parasect",
+    "dex": 47
+   },
+   {
+    "name": "Shiny Dugtrio",
+    "dex": 51
+   },
+   {
+    "name": "Shiny Primeape",
+    "dex": 57
+   },
+   {
+    "name": "Shiny Kadabra",
+    "dex": 64
+   },
+   {
+    "name": "Shiny Machoke",
+    "dex": 67
+   },
+   {
+    "name": "Shiny Victreebel",
+    "dex": 71
+   },
+   {
+    "name": "Shiny Slowbro",
+    "dex": 80
+   },
+   {
+    "name": "Shiny Dewgong",
+    "dex": 87
+   },
+   {
+    "name": "Shiny Haunter",
+    "dex": 93
+   },
+   {
+    "name": "Shiny Ledian",
+    "dex": 166
+   },
+   {
+    "name": "Shiny Jumpluff",
+    "dex": 189
+   },
+   {
+    "name": "Shiny Quagsire",
+    "dex": 195
+   },
+   {
+    "name": "Hisuian Qwilfish",
+    "dex": 211
+   },
+   {
+    "name": "Shiny Delibird",
+    "dex": 225
+   },
+   {
+    "name": "Shiny Beautifly",
+    "dex": 267
+   },
+   {
+    "name": "Shiny Lairon",
+    "dex": 305
+   }
+  ],
+  "1A": [
+   {
+    "name": "Shiny Alakazam",
+    "dex": 65
+   },
+   {
+    "name": "Shiny Electabuzz",
+    "dex": 125
+   },
+   {
+    "name": "Shiny Magmar",
+    "dex": 126
+   },
+   {
+    "name": "Shiny Gyarados",
+    "dex": 130
+   },
+   {
+    "name": "Shiny Snorlax",
+    "dex": 143
+   },
+   {
+    "name": "Golden Sudowoodo",
+    "dex": 185
+   },
+   {
+    "name": "Mega Scizor",
+    "dex": 212
+   }
+  ],
+  "1B": [
+   {
+    "name": "Shiny Arcanine",
+    "dex": 59
+   },
+   {
+    "name": "Shiny Gengar",
+    "dex": 94
+   },
+   {
+    "name": "Shiny Tauros",
+    "dex": 128
+   },
+   {
+    "name": "Shiny Dragonair",
+    "dex": 148
+   },
+   {
+    "name": "Shiny Pupitar",
+    "dex": 247
+   },
+   {
+    "name": "Mega Aggron",
+    "dex": 306
+   },
+   {
+    "name": "Shiny Manectric",
+    "dex": 310
+   },
+   {
+    "name": "Shiny Leafeon",
+    "dex": 470
+   },
+   {
+    "name": "Shiny Glaceon",
+    "dex": 471
+   },
+   {
+    "name": "Shiny Sylveon",
+    "dex": 700
+   }
+  ],
+  "1C": [
+   {
+    "name": "Shiny Venusaur",
+    "dex": 3
+   },
+   {
+    "name": "Shiny Charizard",
+    "dex": 6
+   },
+   {
+    "name": "Shiny Blastoise",
+    "dex": 9
+   },
+   {
+    "name": "Shiny Pidgeot",
+    "dex": 19
+   },
+   {
+    "name": "Shiny Raichu",
+    "dex": 26
+   },
+   {
+    "name": "Shiny Venomoth",
+    "dex": 49
+   },
+   {
+    "name": "Hisuian Arcanine",
+    "dex": 59
+   },
+   {
+    "name": "Shiny Machamp",
+    "dex": 68
+   },
+   {
+    "name": "Shiny Tentacruel",
+    "dex": 73
+   },
+   {
+    "name": "Elite Farfetch'D",
+    "dex": 83
+   },
+   {
+    "name": "Shiny Muk",
+    "dex": 89
+   },
+   {
+    "name": "Shiny Marowak",
+    "dex": 105
+   },
+   {
+    "name": "Shiny Mr.Mime",
+    "dex": 122
+   },
+   {
+    "name": "Shiny Jynx",
+    "dex": 124
+   },
+   {
+    "name": "Shiny Pinsir",
+    "dex": 127
+   },
+   {
+    "name": "Mega Pinsir",
+    "dex": 127
+   },
+   {
+    "name": "Mega Gyarados",
+    "dex": 130
+   },
+   {
+    "name": "Shiny Meganium",
+    "dex": 154
+   },
+   {
+    "name": "Shiny Typhlosion",
+    "dex": 157
+   },
+   {
+    "name": "Shiny Feraligatr",
+    "dex": 160
+   },
+   {
+    "name": "Shiny Lanturn",
+    "dex": 171
+   },
+   {
+    "name": "Shiny Xatu",
+    "dex": 178
+   },
+   {
+    "name": "Shiny Ampharos",
+    "dex": 181
+   },
+   {
+    "name": "Golden Steelix",
+    "dex": 208
+   },
+   {
+    "name": "Shiny Granbull",
+    "dex": 210
+   },
+   {
+    "name": "Shiny Scizor",
+    "dex": 212
+   },
+   {
+    "name": "Mega Heracross",
+    "dex": 214
+   },
+   {
+    "name": "Shiny Magcargo",
+    "dex": 219
+   },
+   {
+    "name": "Shiny Mantine",
+    "dex": 226
+   },
+   {
+    "name": "Mega Houndoom",
+    "dex": 229
+   },
+   {
+    "name": "Shiny Kingdra",
+    "dex": 230
+   },
+   {
+    "name": "Mega Sceptile",
+    "dex": 254
+   },
+   {
+    "name": "Mega Blaziken",
+    "dex": 257
+   },
+   {
+    "name": "Mega Swampert",
+    "dex": 260
+   },
+   {
+    "name": "Mega Gardevoir",
+    "dex": 282
+   },
+   {
+    "name": "Mega Sableye",
+    "dex": 302
+   },
+   {
+    "name": "Mega Manectric",
+    "dex": 310
+   },
+   {
+    "name": "Shiny Torkoal",
+    "dex": 324
+   },
+   {
+    "name": "Mega Banette",
+    "dex": 354
+   },
+   {
+    "name": "Shiny Torterra",
+    "dex": 389
+   },
+   {
+    "name": "Shiny Infernape",
+    "dex": 392
+   },
+   {
+    "name": "Shiny Empoleon",
+    "dex": 395
+   },
+   {
+    "name": "Shiny Luxray",
+    "dex": 405
+   },
+   {
+    "name": "Shiny Honchkrow",
+    "dex": 430
+   },
+   {
+    "name": "Mega Lucario",
+    "dex": 448
+   },
+   {
+    "name": "Mega Abomasnow",
+    "dex": 460
+   },
+   {
+    "name": "Shiny Magnezone",
+    "dex": 462
+   },
+   {
+    "name": "Shiny Gliscor",
+    "dex": 472
+   },
+   {
+    "name": "Mamoswine",
+    "dex": 473
+   },
+   {
+    "name": "Porygon-Z",
+    "dex": 474
+   },
+   {
+    "name": "Shiny Gallade",
+    "dex": 475
+   },
+   {
+    "name": "Shiny Rotom (frost)",
+    "dex": 479
+   },
+   {
+    "name": "Shiny Rotom (mow)",
+    "dex": 479
+   },
+   {
+    "name": "Shiny Eelektross",
+    "dex": 604
+   },
+   {
+    "name": "Shiny Golurk",
+    "dex": 623
+   },
+   {
+    "name": "Shiny Gogoat",
+    "dex": 673
+   },
+   {
+    "name": "Wyrdeer",
+    "dex": 899
+   },
+   {
+    "name": "Bloodmoon Ursaluna",
+    "dex": 901
+   },
+   {
+    "name": "Overqwil",
+    "dex": 904
+   }
+  ],
+  "1H": [
+   {
+    "name": "Mega Pidgeot",
+    "dex": 19
+   },
+   {
+    "name": "Mega Clefable",
+    "dex": 36
+   },
+   {
+    "name": "Mega Victreebel",
+    "dex": 71
+   },
+   {
+    "name": "Shiny Tangela",
+    "dex": 114
+   },
+   {
+    "name": "Mega Starmie",
+    "dex": 121
+   },
+   {
+    "name": "Shiny Scyther",
+    "dex": 123
+   },
+   {
+    "name": "Mega Dragonite",
+    "dex": 149
+   },
+   {
+    "name": "Mega Meganium",
+    "dex": 154
+   },
+   {
+    "name": "Mega Feraligatr",
+    "dex": 160
+   },
+   {
+    "name": "Mega Skarmory",
+    "dex": 227
+   },
+   {
+    "name": "Shiny Skarmory",
+    "dex": 227
+   },
+   {
+    "name": "Shiny Sceptile",
+    "dex": 254
+   },
+   {
+    "name": "Shiny Gardevoir",
+    "dex": 282
+   },
+   {
+    "name": "Shiny Hariyama",
+    "dex": 297
+   },
+   {
+    "name": "Shiny Mawile",
+    "dex": 303
+   },
+   {
+    "name": "Shiny Aggron",
+    "dex": 306
+   },
+   {
+    "name": "Mega Glalie",
+    "dex": 362
+   },
+   {
+    "name": "Shiny Rampardos",
+    "dex": 409
+   },
+   {
+    "name": "Shiny Pachirisu",
+    "dex": 417
+   },
+   {
+    "name": "Shiny Floatzel",
+    "dex": 419
+   },
+   {
+    "name": "Shiny Weavile",
+    "dex": 461
+   },
+   {
+    "name": "Shiny Togekiss",
+    "dex": 468
+   },
+   {
+    "name": "Shiny Yanmega",
+    "dex": 469
+   },
+   {
+    "name": "Mega Froslass",
+    "dex": 478
+   },
+   {
+    "name": "Mega Scolipede",
+    "dex": 545
+   },
+   {
+    "name": "Shiny Krookodile",
+    "dex": 553
+   },
+   {
+    "name": "Shiny Garbodor",
+    "dex": 569
+   },
+   {
+    "name": "Zoroark",
+    "dex": 571
+   },
+   {
+    "name": "Shiny Gothitelle",
+    "dex": 576
+   },
+   {
+    "name": "Mega Eelektross",
+    "dex": 604
+   },
+   {
+    "name": "Mega Chandelure",
+    "dex": 609
+   },
+   {
+    "name": "Shiny Chandelure",
+    "dex": 609
+   },
+   {
+    "name": "Shiny Mienshao",
+    "dex": 620
+   },
+   {
+    "name": "Shiny Heatmor",
+    "dex": 631
+   },
+   {
+    "name": "Shiny Hydreigon",
+    "dex": 635
+   },
+   {
+    "name": "Mega Pyroar",
+    "dex": 668
+   },
+   {
+    "name": "Shiny Aegislash",
+    "dex": 681
+   },
+   {
+    "name": "Mega Barbaracle",
+    "dex": 689
+   },
+   {
+    "name": "Mega Hawlucha",
+    "dex": 701
+   },
+   {
+    "name": "Mega Drampa",
+    "dex": 780
+   },
+   {
+    "name": "Shiny Toxtricity",
+    "dex": 849
+   },
+   {
+    "name": "Mega Aerodactyl",
+    "dex": 142
+   },
+   {
+    "name": "Unown Legion",
+    "dex": 201
+   },
+   {
+    "name": "Shiny Heracross",
+    "dex": 214
+   },
+   {
+    "name": "Shiny Houndoom",
+    "dex": 229
+   },
+   {
+    "name": "Mega Metagross",
+    "dex": 376
+   },
+   {
+    "name": "Shiny Zebstrika",
+    "dex": 523
+   },
+   {
+    "name": "Mega Excadrill",
+    "dex": 530
+   },
+   {
+    "name": "Ursaluna",
+    "dex": 901
+   }
+  ]
+ },
+ "removed": [
+  {
+   "name": "Mega Absol",
+   "dex": 359
+  },
+  {
+   "name": "Mega Charizard X",
+   "dex": 6
+  },
+  {
+   "name": "Mega Charizard Y",
+   "dex": 6
+  },
+  {
+   "name": "Mega Blastoise",
+   "dex": 9
+  },
+  {
+   "name": "Alolan Raticate",
+   "dex": 20
+  },
+  {
+   "name": "Alolan Sandslash",
+   "dex": 28
+  },
+  {
+   "name": "Shiny Ninetales",
+   "dex": 38
+  },
+  {
+   "name": "Alolan Ninetales",
+   "dex": 38
+  },
+  {
+   "name": "Mega Alakazam",
+   "dex": 65
+  },
+  {
+   "name": "Alolan Golem",
+   "dex": 76
+  },
+  {
+   "name": "Shiny Magneton",
+   "dex": 82
+  },
+  {
+   "name": "Shiny Dodrio",
+   "dex": 85
+  },
+  {
+   "name": "Mega Gengar",
+   "dex": 94
+  },
+  {
+   "name": "Crystal Onix",
+   "dex": 95
+  },
+  {
+   "name": "Alolan Exeggutor",
+   "dex": 103
+  },
+  {
+   "name": "Alolan Marowak",
+   "dex": 105
+  },
+  {
+   "name": "Shiny Rhydon",
+   "dex": 112
+  },
+  {
+   "name": "Mega Kangaskhan",
+   "dex": 115
+  },
+  {
+   "name": "Aerodactyl",
+   "dex": 142
+  },
+  {
+   "name": "Shiny Ariados",
+   "dex": 168
+  },
+  {
+   "name": "Mega Ampharos",
+   "dex": 181
+  },
+  {
+   "name": "Shiny Politoed",
+   "dex": 186
+  },
+  {
+   "name": "Shiny Espeon",
+   "dex": 196
+  },
+  {
+   "name": "Shiny Umbreon",
+   "dex": 197
+  },
+  {
+   "name": "Mega Steelix",
+   "dex": 208
+  },
+  {
+   "name": "Shiny Stantler",
+   "dex": 224
+  },
+  {
+   "name": "Mega Tyranitar",
+   "dex": 248
+  },
+  {
+   "name": "Slaking",
+   "dex": 289
+  },
+  {
+   "name": "Mega Mawile",
+   "dex": 303
+  },
+  {
+   "name": "Mega Altaria",
+   "dex": 334
+  },
+  {
+   "name": "Shiny Bronzong",
+   "dex": 437
+  },
+  {
+   "name": "Mega Garchomp",
+   "dex": 445
+  },
+  {
+   "name": "Rhyperior",
+   "dex": 464
+  },
+  {
+   "name": "Dusknoir",
+   "dex": 477
+  },
+  {
+   "name": "Shiny Froslass",
+   "dex": 478
+  },
+  {
+   "name": "Heatran",
+   "dex": 485
+  },
+  {
+   "name": "Mega Audino",
+   "dex": 531
+  },
+  {
+   "name": "Conkeldurr",
+   "dex": 534
+  },
+  {
+   "name": "Giant Galvantula",
+   "dex": 596
+  },
+  {
+   "name": "Shiny Vikavolt",
+   "dex": 738
+  },
+  {
+   "name": "Shiny Cinderace",
+   "dex": 815
+  },
+  {
+   "name": "Shiny Copperajah",
+   "dex": 879
+  },
+  {
+   "name": "Mega Aerodactyl",
+   "dex": 142
+  },
+  {
+   "name": "Unown Legion",
+   "dex": 201
+  },
+  {
+   "name": "Mega Metagross",
+   "dex": 376
+  },
+  {
+   "name": "Mega Excadrill",
+   "dex": 530
+  },
+  {
+   "name": "Milotic",
+   "dex": 350
+  },
+  {
+   "name": "Salamence",
+   "dex": 373
+  },
+  {
+   "name": "Metagross",
+   "dex": 376
+  },
+  {
+   "name": "Tangrowth",
+   "dex": 465
+  },
+  {
+   "name": "Electivire",
+   "dex": 466
+  },
+  {
+   "name": "Magmortar",
+   "dex": 467
+  },
+  {
+   "name": "Shiny Delphox",
+   "dex": 655
+  },
+  {
+   "name": "Mega Venusaur",
+   "dex": 3
+  }
+ ]
+}

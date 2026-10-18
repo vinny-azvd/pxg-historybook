@@ -27,9 +27,18 @@ export function RareSprite({ name, size, className }: RareSpriteProps) {
   );
 }
 
-/** Variant badges (Shiny, Golden...) plus "NC" when some of these rares came
- * from a Nightmare Crystal. Text, not color, says what each one is. */
-export function RareBadges({ name, nightmareCrystal }: { name: string; nightmareCrystal?: boolean }) {
+/** Variant badges (Shiny, Golden...) plus "NC" for Nightmare Crystal rares.
+ * `true` is one event that came from a crystal; `{ count, total }` is a
+ * species aggregate and reads "NC 2/9" (2 of 9 sightings), so a single crystal
+ * hunt doesn't mark every sighting of the name. Text, not color, says what
+ * each one is. */
+export function RareBadges({
+  name,
+  nightmareCrystal,
+}: {
+  name: string;
+  nightmareCrystal?: boolean | { count: number; total: number };
+}) {
   const badges = variantBadges(name);
   if (badges.length === 0 && !nightmareCrystal) return null;
   return (
@@ -40,8 +49,15 @@ export function RareBadges({ name, nightmareCrystal }: { name: string; nightmare
         </span>
       ))}
       {nightmareCrystal && (
-        <span className="badge badge-jade" title="Spawn do Nightmare Crystal">
-          NC
+        <span
+          className="badge badge-jade"
+          title={
+            typeof nightmareCrystal === 'object'
+              ? `${nightmareCrystal.count} de ${nightmareCrystal.total} vieram do Nightmare Crystal`
+              : 'Spawn do Nightmare Crystal'
+          }
+        >
+          NC{typeof nightmareCrystal === 'object' && ` ${nightmareCrystal.count}/${nightmareCrystal.total}`}
         </span>
       )}
     </span>

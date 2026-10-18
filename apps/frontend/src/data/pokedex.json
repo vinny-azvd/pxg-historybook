@@ -1171,5 +1171,10 @@
     "decidueye-hisui": {"id":10244,"types":["grass","fighting"]},
     "tauros-paldea": {"id":10250,"types":["fighting"]},
     "wooper-paldea": {"id":10253,"types":["poison","ground"]}
+  },
+  "forms": {
+    "bloodmoonursaluna": {"species":"ursaluna","id":10272,"types":["ground","normal"]},
+    "rotomfrost": {"species":"rotom","id":10010,"types":["electric","ice"]},
+    "rotommow": {"species":"rotom","id":10012,"types":["electric","grass"]}
   }
 }

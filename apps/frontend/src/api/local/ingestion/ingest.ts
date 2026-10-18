@@ -236,7 +236,8 @@ export async function ingestHunt(
   rawJson: string,
   hunt: HuntExport,
   huntNameOverride?: string | null,
-  nightmareCrystalSelections?: string[]
+  nightmareCrystalSelections?: string[],
+  shinyTarget?: string | null
 ): Promise<{ id: number; sessionType: string; players: string[]; huntName: string | null }> {
   const contentHash = await hashPayload(rawJson);
   const existing = await huntsRepo.findByHash(contentHash);
@@ -264,6 +265,9 @@ export async function ingestHunt(
     ...buildSessionDocBase(rawJson, contentHash, hunt, playerIds, primaryPlayerId),
     hunt_name: huntName,
     jade_totem_count: countJadeTotems(hunt),
+    // Confirmed by the user on the Shinies tab; kept out of the content hash,
+    // which only covers the hunt JSON (re-importing must still be a duplicate).
+    shiny_target: shinyTarget?.trim() || null,
     enemies_defeated: enemiesDefeated,
   };
 

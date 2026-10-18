@@ -33,6 +33,16 @@
   --rare-drop-badge-bg: #fff6df;
   --rare-drop-badge-text: #8a6100;
 
+  /* Shiny tiers (roulette hues): text on --tier-X is white >= 5.4:1 */
+  --tier-1a: #c2381f;
+  --tier-1b: #a04c06;
+  --tier-1c: #1f62c4;
+  --tier-1h: #7a3fbf;
+  --tier-2: #0c7467;
+  --tier-3: #7d5900;
+  --tier-out: #5d6475;
+  --tier-on: #ffffff;
+
   /* Skin tokens (themes/*.css override them under :root[data-skin]).
      Classic defaults reproduce the original look. */
   --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -86,6 +96,16 @@
     --rare-drop: #e0b400;
     --rare-drop-badge-bg: #3a2e05;
     --rare-drop-badge-text: #ffcf4d;
+
+    /* Shiny tiers (roulette hues): text on --tier-X is near-black >= 7.5:1 */
+    --tier-1a: #ff7a5c;
+    --tier-1b: #f5a04a;
+    --tier-1c: #6aa6f5;
+    --tier-1h: #b690f0;
+    --tier-2: #3cc9b5;
+    --tier-3: #f0c43c;
+    --tier-out: #a3a9b8;
+    --tier-on: #0d0d0d;
   }
 }
 
@@ -126,6 +146,16 @@
   --rare-drop: #e0b400;
   --rare-drop-badge-bg: #3a2e05;
   --rare-drop-badge-text: #ffcf4d;
+
+  /* Shiny tiers (roulette hues): text on --tier-X is near-black >= 7.5:1 */
+  --tier-1a: #ff7a5c;
+  --tier-1b: #f5a04a;
+  --tier-1c: #6aa6f5;
+  --tier-1h: #b690f0;
+  --tier-2: #3cc9b5;
+  --tier-3: #f0c43c;
+  --tier-out: #a3a9b8;
+  --tier-on: #0d0d0d;
 }
 
 * {
@@ -769,6 +799,20 @@ button:disabled {
   color: var(--text-muted);
 }
 
+/* Período of the Raros tabs: the one-line hint sits right under the buttons. */
+.period-range .period-range-bar {
+  margin-bottom: 4px;
+}
+
+.period-range .period-range-hint {
+  margin: 0 0 16px;
+}
+
+/* Timeline grouping ("Agrupar por"): label + toggle + the Automático reset. */
+.timeline-bucket {
+  margin-bottom: 12px;
+}
+
 /* Refetch keeps the previous render, faded, so the layout never jumps. */
 .rares-body {
   transition: opacity 0.15s ease;
@@ -784,20 +828,12 @@ button:disabled {
   }
 }
 
+/* One column: "Por categoria" is a thin bar and "Raros/h por hunt" is tall, so
+   side by side they left a big hole under the short one. */
 .rares-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 16px;
-}
-
-.rares-span-2 {
-  grid-column: 1 / -1;
-}
-
-@media (max-width: 860px) {
-  .rares-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
 }
 
 .rares-note {
@@ -1014,6 +1050,33 @@ button:disabled {
   display: flex;
   justify-content: center;
   margin-top: 12px;
+}
+
+/* Raros > Visão geral: tier chips, "Mostrar todas" of Raros/h por hunt, timeline metric toggle */
+.rares-tier-chips {
+  flex-wrap: wrap;
+}
+
+.rares-tier-filter {
+  align-items: flex-start;
+}
+
+.rares-tier-filter .rares-filter-note {
+  margin: 0;
+  flex: 1 1 260px;
+}
+
+.rares-entry-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 14px;
+  margin-top: 10px;
+}
+
+.rares-timeline-metric {
+  margin-bottom: 8px;
 }
 
 /* Hunts dashboard: header of the inline "Raros mortos" list + page link */
@@ -1574,7 +1637,8 @@ button {
 }
 
 /* ---- numbers inside pixel-font titles stay in the body face ---- */
-.section-title .num {
+.section-title .num,
+button .num {
   font-family: var(--font-body);
 }
 
@@ -1837,3 +1901,351 @@ button {
   font-size: 12px;
 }
 /* ================= fim de Escopo do gráfico ================= */
+
+/* ==========================================================================
+   Página Shinies (/shinies) and its import modal
+   ========================================================================== */
+/* Own class instead of .badge: the skins restyle .badge (outlines, borders)
+   and these colours must stay the same in every skin. Tokens: --tier-* . */
+.tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em; /* flex drops the space between "Tier" and the tier code */
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+  background: var(--tier-out);
+  color: var(--tier-on);
+}
+
+.tier-badge.tier-1a { background: var(--tier-1a); }
+.tier-badge.tier-1b { background: var(--tier-1b); }
+.tier-badge.tier-1c { background: var(--tier-1c); }
+.tier-badge.tier-1h { background: var(--tier-1h); }
+.tier-badge.tier-2 { background: var(--tier-2); }
+.tier-badge.tier-3 { background: var(--tier-3); }
+.tier-badge.tier-out { background: var(--tier-out); }
+
+.tier-badge-removed {
+  font-weight: 500;
+  white-space: pre;
+}
+
+@media (forced-colors: active) {
+  .tier-badge {
+    border: 1px solid CanvasText;
+  }
+}
+
+.shinies-body {
+  transition: opacity 0.15s ease;
+}
+
+.shinies-body.shinies-refetching {
+  opacity: 0.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shinies-body {
+    transition: none;
+  }
+}
+
+.shinies-import {
+  margin-bottom: 20px;
+}
+
+.shinies-import summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 4px 0;
+}
+
+.shinies-import-body {
+  margin-top: 10px;
+}
+
+.shinies-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.shinies-name-cell .pokemon-sprite {
+  flex-shrink: 0;
+}
+
+.shinies-name-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.shinies-table-wrap {
+  overflow-x: auto;
+}
+
+.shinies-table th.num,
+.shinies-table td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.shinies-sub {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+/* Tier bars: the length is kills por shiny, so a longer bar is a worse luck;
+   the exact numbers are in the columns beside it and in "Ver tabela". */
+.shinies-tier-row {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr) 70px;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.shinies-tier-track {
+  height: 14px;
+  border-radius: 4px;
+  background: var(--gridline);
+  overflow: hidden;
+}
+
+.shinies-tier-fill {
+  height: 100%;
+  min-width: 3px;
+  border-radius: 4px;
+}
+
+.shinies-tier-fill.tier-1a { background: var(--tier-1a); }
+.shinies-tier-fill.tier-1b { background: var(--tier-1b); }
+.shinies-tier-fill.tier-1c { background: var(--tier-1c); }
+.shinies-tier-fill.tier-1h { background: var(--tier-1h); }
+.shinies-tier-fill.tier-2 { background: var(--tier-2); }
+.shinies-tier-fill.tier-3 { background: var(--tier-3); }
+.shinies-tier-fill.tier-out { background: var(--tier-out); }
+
+.shinies-tier-value {
+  text-align: right;
+  font-weight: 600;
+}
+
+.shinies-tier-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+/* Tier / metric chips: the toggle row wraps instead of overflowing on a phone. */
+.shinies-chips {
+  flex-wrap: wrap;
+}
+
+/* Sortable column header: a real button that looks like the header text. */
+.shinies-sort {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.shinies-sort:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+.shinies-sort-arrow {
+  font-size: 10px;
+  opacity: 0.55;
+}
+
+.shinies-table th[aria-sort='ascending'] .shinies-sort-arrow,
+.shinies-table th[aria-sort='descending'] .shinies-sort-arrow {
+  opacity: 1;
+}
+
+/* A find outside the selected tiers (shown only because its hunt is kept). */
+.shinies-find-outside {
+  opacity: 0.6;
+}
+
+@media (max-width: 600px) {
+  .shinies-tier-row {
+    grid-template-columns: minmax(0, 1fr) 56px;
+  }
+  .shinies-tier-label {
+    grid-column: 1 / -1;
+  }
+  .shinies-tier-track {
+    grid-column: 1;
+  }
+}
+
+.shinies-hunt-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.shinies-hunt-item {
+  padding: 12px 14px;
+}
+
+.shinies-hunt-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.shinies-hunt-head a {
+  font-weight: 600;
+}
+
+.shinies-find-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.shinies-find {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.shinies-find-role {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.shinies-note {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin: 0 0 12px;
+}
+
+/* Confirm modal: wider than the hunt one, it carries the list of finds. */
+.modal-card.shiny-modal {
+  max-width: 560px;
+}
+
+.shiny-modal select {
+  width: 100%;
+}
+
+.shiny-finds {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.shiny-finds li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 13.5px;
+}
+
+.shiny-finds .shiny-find-name {
+  font-weight: 600;
+}
+
+.shiny-finds .shiny-find-count {
+  margin-left: auto;
+  font-weight: 700;
+}
+
+/* A text badge, not only a colour, tells the old history from real hunts. */
+.shinies-legacy-badge {
+  white-space: nowrap;
+}
+
+
+/* FilterMenu: the Tier / Elemento buttons (and "Limpar filtros", right after
+   them) are items of the Período row, which packs from the left. */
+.period-range .period-range-bar {
+  justify-content: flex-start;
+}
+
+/* The wrapper adds no box of its own: each button (and "Limpar filtros") is an item
+   of the Período row and wraps on its own, instead of the whole group jumping a
+   line when one selection makes it a little wider. */
+.filter-menu-buttons {
+  display: contents;
+}
+
+.filter-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(100%, 240px);
+  min-width: 0;
+}
+
+/* The selection shares the text with the name so it truncates with it (full
+   text in the title) instead of pushing the row off a 360px screen. */
+.filter-menu-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Opens on its own line under the row; the button already names the filter,
+   so the chip group's own "Tier" / "Elemento" label would only repeat it. */
+.filter-menu-region {
+  flex: 0 0 100%;
+}
+
+.filter-menu-region[hidden] {
+  display: none;
+}
+
+.filter-menu-region .rares-filters {
+  margin-bottom: 0;
+}
+
+.filter-menu-region .chart-toolbar-label {
+  display: none;
+}
+
+/* Element filter chips (TypeFilter): the 18 types wrap onto several rows. */
+.type-filter-chips {
+  flex-wrap: wrap;
+}
+
+.type-filter-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
