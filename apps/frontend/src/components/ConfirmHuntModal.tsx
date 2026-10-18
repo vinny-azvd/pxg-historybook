@@ -33,9 +33,9 @@ function asArray<T>(value: T[] | undefined): T[] {
 
 function derivePlayers(hunt: HuntExportPreview): string[] {
   const names = new Set<string>();
-  for (const row of hunt.Experience ?? []) if (row.Player) names.add(row.Player.trim());
-  for (const row of hunt.Supplies ?? []) if (row.Player) names.add(row.Player.trim());
-  for (const row of hunt.Drops ?? []) if (row.Player) names.add(row.Player.trim());
+  for (const row of asArray(hunt.Experience)) if (row.Player) names.add(row.Player.trim());
+  for (const row of asArray(hunt.Supplies)) if (row.Player) names.add(row.Player.trim());
+  for (const row of asArray(hunt.Drops)) if (row.Player) names.add(row.Player.trim());
   for (const row of asArray(hunt['Enemies Defeated'])) if (row.Player) names.add(row.Player.trim());
   return [...names];
 }

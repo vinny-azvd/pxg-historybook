@@ -38,9 +38,9 @@ function asArray<T>(value: T[] | undefined): T[] {
 
 function derivePlayers(md: MdExportPreview): string[] {
   const names = new Set<string>();
-  for (const row of md.Experience ?? []) if (row.Player) names.add(row.Player.trim());
-  for (const row of md.Supplies ?? []) if (row.Player) names.add(row.Player.trim());
-  for (const row of md.Drops ?? []) if (row.Player) names.add(row.Player.trim());
+  for (const row of asArray(md.Experience)) if (row.Player) names.add(row.Player.trim());
+  for (const row of asArray(md.Supplies)) if (row.Player) names.add(row.Player.trim());
+  for (const row of asArray(md.Drops)) if (row.Player) names.add(row.Player.trim());
   for (const row of asArray(md['Enemies Defeated'])) if (row.Player) names.add(row.Player.trim());
   return [...names];
 }

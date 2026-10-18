@@ -34,9 +34,9 @@ function asArray<T>(value: T[] | undefined): T[] {
 
 function derivePlayers(terror: TerrorExportPreview): string[] {
   const names = new Set<string>();
-  for (const row of terror.Experience ?? []) if (row.Player) names.add(row.Player.trim());
-  for (const row of terror.Supplies ?? []) if (row.Player) names.add(row.Player.trim());
-  for (const row of terror.Drops ?? []) if (row.Player) names.add(row.Player.trim());
+  for (const row of asArray(terror.Experience)) if (row.Player) names.add(row.Player.trim());
+  for (const row of asArray(terror.Supplies)) if (row.Player) names.add(row.Player.trim());
+  for (const row of asArray(terror.Drops)) if (row.Player) names.add(row.Player.trim());
   for (const row of asArray(terror['Enemies Defeated'])) if (row.Player) names.add(row.Player.trim());
   return [...names];
 }
