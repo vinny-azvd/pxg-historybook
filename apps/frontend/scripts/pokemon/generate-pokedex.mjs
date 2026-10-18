@@ -24,6 +24,24 @@ const BATTLE_TYPES = new Set([
 // poison/dark), and PXG does spawn them, so they get their own small table.
 const REGIONS = ['alola', 'galar', 'hisui', 'paldea'];
 
+// Forms the game lists under their own name that none of the rules above pick
+// up: Bloodmoon Ursaluna is a full pokemon (#10272, ground/normal, its own
+// sprites) but not a mega nor a regional form, and Rotom's appliance forms are
+// spelled "Rotom (Frost)" in game. An explicit table on purpose (a guessed
+// "any non-default form" rule would also catch cosmetic ones such as
+// pikachu-cosplay). `pokemon` is the PokeAPI pokemon identifier, checked against
+// the CSV below, and `name` the in-game spelling the app's key derives from.
+// Unown "Legion" is not here: it is a PXG event name, PokeAPI has no such form.
+const SPECIAL_FORMS = [
+  { pokemon: 'ursaluna-bloodmoon', name: 'Bloodmoon Ursaluna' },
+  { pokemon: 'rotom-frost', name: 'Rotom (Frost)' },
+  { pokemon: 'rotom-mow', name: 'Rotom (Mow)' },
+];
+
+// Same squashing as squashName in src/shinyTiers.ts (letters and digits only),
+// so the key is also what shinyHunt.ts already used for these names.
+const squash = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+
 async function loadCsv(name) {
   const res = await fetch(`${CSV_BASE}${name}.csv`);
   if (!res.ok) throw new Error(`${name}.csv: HTTP ${res.status}`);
@@ -108,13 +126,23 @@ for (const pkm of [...pokemonRows].sort((a, b) => Number(a.id) - Number(b.id))) 
   regional[key] = { id: Number(pkm.id), types: typesByPokemon.get(pkm.id) ?? [] };
 }
 
+const forms = {};
+for (const { pokemon, name } of SPECIAL_FORMS) {
+  const pkm = pokemonRows.find((p) => p.identifier === pokemon);
+  if (!pkm) throw new Error(`special form ${pokemon} not found in pokemon.csv`);
+  const speciesName = speciesIdentifierById.get(pkm.species_id);
+  const types = typesByPokemon.get(pkm.id) ?? [];
+  if (!species[speciesName] || types.length === 0) throw new Error(`special form ${pokemon}: unknown species or types`);
+  forms[squash(name)] = { species: speciesName, id: Number(pkm.id), types };
+}
+
 // One entry per line: readable diffs when regenerated, and Vite strips the
 // whitespace when bundling the JSON anyway.
 function writeSection(name, obj, last) {
   const entries = Object.entries(obj).map(([key, value]) => `    ${JSON.stringify(key)}: ${JSON.stringify(value)}`);
   return `  ${JSON.stringify(name)}: {\n${entries.join(',\n')}\n  }${last ? '' : ','}\n`;
 }
-const json = `{\n${writeSection('species', species)}${writeSection('megas', megas)}${writeSection('regional', regional, true)}}\n`;
+const json = `{\n${writeSection('species', species)}${writeSection('megas', megas)}${writeSection('regional', regional)}${writeSection('forms', forms, true)}}\n`;
 JSON.parse(json); // sanity check before overwriting the committed file
 
 fs.mkdirSync(path.dirname(outFile), { recursive: true });
@@ -122,6 +150,6 @@ fs.writeFileSync(outFile, json);
 
 const megaCount = Object.values(megas).reduce((n, list) => n + list.length, 0);
 console.log(
-  `[pokedex] ${Object.keys(species).length} espécies, ${megaCount} megas, ${Object.keys(regional).length} formas regionais -> ` +
+  `[pokedex] ${Object.keys(species).length} espécies, ${megaCount} megas, ${Object.keys(regional).length} formas regionais, ${Object.keys(forms).length} formas especiais -> ` +
     `${path.relative(frontendRoot, outFile)} (${(Buffer.byteLength(json) / 1024).toFixed(1)} KB)`,
 );

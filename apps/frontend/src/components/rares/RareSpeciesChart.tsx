@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { RareSpeciesRow } from '../../api/types';
 import { formatDateTime, formatInt, formatRelativeDate } from '../../format';
-import { pokeballFallback, pokemonSprite, pokemonTypes, typeColor, typeLabel, variantBadges } from '../../pokemon';
+import { pokeballFallback, pokemonSprite, typeColor, typeLabel, variantBadges, type PokemonType } from '../../pokemon';
 import { ChartFrame, tooltipBoxStyle } from '../charts/chartKit';
-import { ORIGIN_LABEL, UNIDENTIFIED_LABEL, UNIDENTIFIED_SHORT, approxTextWidth, countScale, useNarrowScreen } from './rareUtils';
+import { ORIGIN_LABEL, displayType, UNIDENTIFIED_LABEL, UNIDENTIFIED_SHORT, approxTextWidth, countScale, useNarrowScreen } from './rareUtils';
 import { baseName } from './RareSprite';
 
 const ROW_HEIGHT = 38;
@@ -86,7 +86,7 @@ function SpeciesTick(props: {
           const w = badgeWidth(badge);
           const bx = badgeX;
           badgeX += w + 4;
-          const isNc = badge === 'NC';
+          const isNc = badge.startsWith('NC');
           return (
             <g key={badge} aria-hidden="true">
               <rect
@@ -120,17 +120,23 @@ interface RareSpeciesChartProps {
   unidentified: number;
   /** Party teammates' rares under a Treinador filter - see teammateRareKills. */
   teammates: number;
+  /** Replaces "Nenhum raro no período" (a tier filter can empty the chart by itself). */
+  emptyText?: string;
+  /** Element filter on: bars wear the first SELECTED type, matching the chips. */
+  typeFilter?: ReadonlySet<PokemonType>;
 }
+
+const NO_TYPES: ReadonlySet<PokemonType> = new Set();
 
 // One horizontal bar per exported rare name, most kills first. The axis shows
 // who it is (sprite + name + badges) and the bar wears the species' first type
 // color - always named in the legend and tooltip, never color alone. Rares the
 // export counted without naming the enemy get their own neutral row instead of
 // silently disappearing from the ranking.
-export function RareSpeciesChart({ species, unidentified, teammates }: RareSpeciesChartProps) {
+export function RareSpeciesChart({ species, unidentified, teammates, emptyText, typeFilter = NO_TYPES }: RareSpeciesChartProps) {
   const narrow = useNarrowScreen();
   const rows: Row[] = species.map((s) => {
-    const type = pokemonTypes(s.enemy)[0] ?? null;
+    const type = displayType(s.enemy, typeFilter);
     const variants = variantBadges(s.enemy);
     return {
       key: s.enemy,
@@ -141,7 +147,9 @@ export function RareSpeciesChart({ species, unidentified, teammates }: RareSpeci
       type,
       color: typeColor(type),
       variantBadges: variants,
-      badges: [...variants, ...(s.nightmareCrystalCount > 0 ? ['NC'] : [])],
+      // "NC 2/9": how many of this name's rares came from a crystal, not a
+      // yes/no tag that one crystal hunt would stick on every sighting.
+      badges: [...variants, ...(s.nightmareCrystalCount > 0 ? [`NC ${s.nightmareCrystalCount}/${s.count}`] : [])],
       source: s,
     };
   });
@@ -163,7 +171,7 @@ export function RareSpeciesChart({ species, unidentified, teammates }: RareSpeci
   if (rows.length === 0) {
     return (
       <div className="chart-empty-state">
-        {teammates > 0 ? 'Nenhum raro deste Treinador no período.' : 'Nenhum raro no período.'}
+        {emptyText ?? (teammates > 0 ? 'Nenhum raro deste Treinador no período.' : 'Nenhum raro no período.')}
       </div>
     );
   }

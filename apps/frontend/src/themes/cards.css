@@ -71,6 +71,15 @@
   --rare-drop: #e0b400;
   --rare-drop-badge-bg: #3a2e05;
   --rare-drop-badge-text: #ffcf4d;
+  /* Shiny tiers (roulette hues): text on --tier-X is near-black >= 7.5:1 */
+  --tier-1a: #ff7a5c;
+  --tier-1b: #f5a04a;
+  --tier-1c: #6aa6f5;
+  --tier-1h: #b690f0;
+  --tier-2: #3cc9b5;
+  --tier-3: #f0c43c;
+  --tier-out: #a3a9b8;
+  --tier-on: #0d0d0d;
 
   --font-display: 'Barlow Condensed', 'Barlow', system-ui, sans-serif;
   --font-body: 'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;

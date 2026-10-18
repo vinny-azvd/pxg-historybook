@@ -479,6 +479,7 @@ function HuntDashboardTab() {
                 range={scope.range}
                 onZoom={scope.canZoom ? scope.zoom : undefined}
                 onZoomSpan={scope.canZoom ? scope.zoomSpan : undefined}
+                onZoomOut={scope.depth > 0 ? () => scope.goTo(scope.depth - 1) : undefined}
               />
             </>
           ) : (
@@ -491,6 +492,7 @@ function HuntDashboardTab() {
               range={scope.range}
               onZoom={scope.canZoom ? scope.zoom : undefined}
               onZoomSpan={scope.canZoom ? scope.zoomSpan : undefined}
+              onZoomOut={scope.depth > 0 ? () => scope.goTo(scope.depth - 1) : undefined}
               rareDropThreshold={rareDropThreshold}
             />
           )}

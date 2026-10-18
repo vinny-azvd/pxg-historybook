@@ -64,6 +64,10 @@ interface Options {
   /** The chart's finest column is a day (Raros): a dragged span of days can still
    * be zoomed into one of its days. */
   entryIsDay?: boolean;
+  /** The page draws its chart with a point size of its own (Raros' "Agrupar por")
+   * instead of the one the granularity implies: a click on a column is then a
+   * bucket of THIS unit, not of the trail's. Leave out to keep the default. */
+  zoomUnit?: Unit;
 }
 
 const todayISO = () => toISODate(new Date());
@@ -91,7 +95,7 @@ function initialTrail(from: string, to: string, defaultGranularity: Granularity)
  * every action here writes it, and a change that comes from elsewhere (the header
  * filter, another page) keeps the granularity but resets the zoom trail.
  */
-export function useChartScope({ entryBucket = 'hunt', defaultGranularity = 'week', entryIsDay = false }: Options = {}): ChartScope {
+export function useChartScope({ entryBucket = 'hunt', defaultGranularity = 'week', entryIsDay = false, zoomUnit }: Options = {}): ChartScope {
   const { from, to, setDateRange } = useFilters();
 
   const [trail, setTrail] = useState<ScopeState[]>(() => initialTrail(from, to, defaultGranularity));
@@ -146,19 +150,31 @@ export function useChartScope({ entryBucket = 'hunt', defaultGranularity = 'week
     [setDateRange]
   );
 
+  // Zooms into what the chart shows: with a zoomUnit the parent is read at that
+  // unit, but only the new child is kept (the trail's own states, and so their
+  // breadcrumb labels, stay as they were).
+  const zoomInto = useCallback(
+    (first: string, last?: string) => {
+      const parent = trail[trail.length - 1];
+      const read = zoomUnit && !parent.entry ? [...trail.slice(0, -1), { ...parent, gran: zoomUnit }] : trail;
+      const next = zoomTrail(read, todayISO(), first, last, entryIsDay);
+      return next ? [...trail, next[next.length - 1]] : null;
+    },
+    [trail, zoomUnit, entryIsDay]
+  );
   const zoom = useCallback(
     (bucketStart: string) => {
       focusPending.current = true;
-      commit(zoomTrail(trail, todayISO(), bucketStart, undefined, entryIsDay));
+      commit(zoomInto(bucketStart));
     },
-    [commit, trail, entryIsDay]
+    [commit, zoomInto]
   );
   const zoomSpan = useCallback(
     (first: string, last: string) => {
       focusPending.current = true;
-      commit(zoomTrail(trail, todayISO(), first, last, entryIsDay));
+      commit(zoomInto(first, last));
     },
-    [commit, trail, entryIsDay]
+    [commit, zoomInto]
   );
   const setGranularity = useCallback(
     (granularity: Granularity) => {

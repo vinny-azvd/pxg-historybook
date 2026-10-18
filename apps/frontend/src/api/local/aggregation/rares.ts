@@ -2,8 +2,9 @@
 // why totals come from session `rare_kills` while species/events come from
 // the per-enemy rare rows, and how the "unidentified" gap is measured.
 import type { RareEntryRow, RareEvent, RareOrigin, RareSpeciesRow, RaresFilters, RaresSummary, RareTimelinePoint } from '../../types';
-import type { StoredEnemyDefeatedRow, StoredHunt, StoredMd } from '../storedTypes';
+import type { StoredEnemyDefeatedRow, StoredHunt, StoredMd, StoredShinyLegacy } from '../storedTypes';
 import { canonicalEnemyName } from '../../../enemyNames';
+import { filterLegacy, legacyHuntName, legacyRareRows } from './legacy';
 import { bucketFn, buildFilterPredicate, dateOnly, perHour, sum } from './shared';
 
 /** Name of the "crystal" enemy row a broken Nightmare Crystal leaves behind
@@ -17,6 +18,8 @@ interface RareSession {
   duration_seconds: number;
   rare_kills: number;
   enemies_defeated: (StoredEnemyDefeatedRow & { from_nightmare_crystal?: number })[];
+  /** A record of the old roulette's history, not a hunt: its id is not a hunt id. */
+  legacy?: boolean;
 }
 
 interface OriginData {
@@ -27,7 +30,7 @@ interface OriginData {
   unidentifiedRareKills: number;
   nightmareCrystalsBroken: number;
   byEntry: RareEntryRow[];
-  timeline: Map<string, number>;
+  timeline: Map<string, { rareKills: number; durationSeconds: number }>;
   events: (RareEvent & { rowId: number })[];
 }
 
@@ -38,7 +41,7 @@ function loadOrigin(origin: RareOrigin, sessions: RareSession[], filter: RaresFi
   const ownRow = (row: StoredEnemyDefeatedRow) => playerId === undefined || row.player_id === playerId;
 
   const groups = new Map<string, RareSession[]>();
-  const timeline = new Map<string, number>();
+  const timeline = new Map<string, { rareKills: number; durationSeconds: number }>();
   const toBucket = bucketFn(filter.bucket);
   const events: (RareEvent & { rowId: number })[] = [];
   let unidentifiedRareKills = 0;
@@ -50,7 +53,12 @@ function loadOrigin(origin: RareOrigin, sessions: RareSession[], filter: RaresFi
     groups.get(name)!.push(session);
 
     const bucketStart = toBucket(dateOnly(session.start_time));
-    timeline.set(bucketStart, (timeline.get(bucketStart) ?? 0) + session.rare_kills);
+    // Time per bucket too: a count per day/week/month can't be compared
+    // without the hours played in it.
+    const slot = timeline.get(bucketStart) ?? { rareKills: 0, durationSeconds: 0 };
+    slot.rareKills += session.rare_kills;
+    slot.durationSeconds += session.duration_seconds;
+    timeline.set(bucketStart, slot);
 
     // Against ALL of the session's rare rows, whoever got the kill - see the
     // backend's unidentifiedRareKills.
@@ -67,7 +75,7 @@ function loadOrigin(origin: RareOrigin, sessions: RareSession[], filter: RaresFi
           rowId: row.id,
           // Enemy row ids restart at 1 in every document (ingest.ts), so the
           // session id is what makes this unique - same shape as the backend.
-          id: `${origin}-${session.id}-${row.id}`,
+          id: `${session.legacy ? 'legacy' : origin}-${session.id}-${row.id}`,
           origin,
           entryId: session.id,
           entryName: session.name,
@@ -75,6 +83,7 @@ function loadOrigin(origin: RareOrigin, sessions: RareSession[], filter: RaresFi
           enemy: canonicalEnemyName(row.enemy),
           count: row.count,
           fromNightmareCrystal: !!row.from_nightmare_crystal,
+          ...(session.legacy ? { legacy: true } : {}),
         });
       }
       if (origin === 'hunt' && row.enemy.toLowerCase() === NIGHTMARE_CRYSTAL_ENEMY) nightmareCrystalsBroken += row.count;
@@ -111,6 +120,7 @@ function compareNames(a: string, b: string): number {
 function compareEvents(a: RareEvent & { rowId: number }, b: RareEvent & { rowId: number }): number {
   if (a.startTime !== b.startTime) return a.startTime < b.startTime ? 1 : -1;
   if (a.origin !== b.origin) return a.origin < b.origin ? -1 : 1;
+  if (!!a.legacy !== !!b.legacy) return a.legacy ? 1 : -1;
   if (a.entryId !== b.entryId) return a.entryId - b.entryId;
   return a.rowId - b.rowId;
 }
@@ -158,11 +168,30 @@ function compareEntries(a: RareEntryRow, b: RareEntryRow): number {
   return b.rareKills - a.rareKills || compareNames(a.name, b.name) || (a.origin < b.origin ? -1 : a.origin > b.origin ? 1 : 0);
 }
 
-export function computeRares(hunts: StoredHunt[], mds: StoredMd[], filter: RaresFilters): RaresSummary {
+export function computeRares(
+  hunts: StoredHunt[],
+  mds: StoredMd[],
+  legacy: StoredShinyLegacy[],
+  filter: RaresFilters
+): RaresSummary {
   const origins: RareOrigin[] = filter.origin === 'hunt' || filter.origin === 'md' ? [filter.origin] : ['hunt', 'md'];
   const sessionsOf = (origin: RareOrigin): RareSession[] =>
     origin === 'hunt'
-      ? hunts.filter(buildFilterPredicate<StoredHunt>(filter)).map((h) => ({ ...h, name: h.hunt_name }))
+      ? [
+          ...hunts.filter(buildFilterPredicate<StoredHunt>(filter)).map((h) => ({ ...h, name: h.hunt_name })),
+          // The old roulette's history counts as hunts here: its shinies are rares too.
+          ...filterLegacy(legacy, filter).map(
+            (r): RareSession => ({
+              id: r.id,
+              name: legacyHuntName(r),
+              start_time: r.start_time,
+              duration_seconds: r.duration_seconds,
+              rare_kills: r.shinies + (r.companion ? r.companion_shinies : 0),
+              enemies_defeated: legacyRareRows(r),
+              legacy: true,
+            })
+          ),
+        ]
       : mds.filter(buildFilterPredicate<StoredMd>(filter)).map((m) => ({ ...m, name: m.md_name }));
   const data = origins.map((origin) => loadOrigin(origin, sessionsOf(origin), filter));
 
@@ -177,9 +206,10 @@ export function computeRares(hunts: StoredHunt[], mds: StoredMd[], filter: Rares
   // still shows up as a zero bar instead of a gap.
   const timelineMap = new Map<string, RareTimelinePoint>();
   data.forEach((d, i) => {
-    for (const [bucketStart, rareKills] of d.timeline) {
-      const entry = timelineMap.get(bucketStart) ?? { bucketStart, hunt: 0, md: 0 };
-      entry[origins[i]] += rareKills;
+    for (const [bucketStart, slot] of d.timeline) {
+      const entry = timelineMap.get(bucketStart) ?? { bucketStart, hunt: 0, md: 0, durationSeconds: 0 };
+      entry[origins[i]] += slot.rareKills;
+      entry.durationSeconds += slot.durationSeconds;
       timelineMap.set(bucketStart, entry);
     }
   });

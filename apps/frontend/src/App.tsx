@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
-import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom';
+import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useFilters } from './FiltersContext';
 import { PlayerFilter } from './components/PlayerFilter';
 import { PeriodFilter } from './components/PeriodFilter';
@@ -216,6 +216,7 @@ export default function App() {
           <Route path="/md" element={<MdPage />} />
           <Route path="/md/:id" element={<MdDetailPage />} />
           <Route path="/raros" element={<RaresPage />} />
+          {isLocalDataMode && <Route path="/shinies" element={<Navigate to="/raros?aba=shinies" replace />} />}
           {isLocalDataMode && <Route path="/data" element={<DataPage />} />}
         </Routes>
       </main>

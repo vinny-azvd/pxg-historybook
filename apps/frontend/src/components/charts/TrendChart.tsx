@@ -33,6 +33,8 @@ interface TrendChartProps {
   onZoom?: (bucketStart: string) => void;
   /** Mouse drag across several points: zoom into the selected span. */
   onZoomSpan?: (first: string, last: string) => void;
+  /** Click (tap) on an empty part of the plot: back one zoom level (Power BI style). Left out at the root. */
+  onZoomOut?: () => void;
   rareDropThreshold?: number;
   unitLabel?: string;
   /** The period being browsed, so days/weeks/months without hunts still get
@@ -69,6 +71,7 @@ function TrendChartPlot({
   formatValue = formatCompact,
   onZoom: onZoomProp,
   onZoomSpan: onZoomSpanProp,
+  onZoomOut,
   rareDropThreshold = 1_000_000,
   unitLabel = 'hunt',
   range,
@@ -89,6 +92,7 @@ function TrendChartPlot({
     labels: rows.map((r) => r.bucketStart),
     onZoom,
     onZoomSpan,
+    onZoomOut,
     isEmpty: (label) => Boolean(rows.find((r) => r.bucketStart === label)?.empty),
   });
 
@@ -119,7 +123,7 @@ function TrendChartPlot({
   };
 
   return (
-    <ChartFrame caption={seriesLabel} table={table}>
+    <ChartFrame onZoomOut={onZoomOut} caption={seriesLabel} table={table}>
       <div {...zoom.areaProps}>
         <ResponsiveContainer width="100%" height={280} onResize={axis.onResize}>
           <LineChart
@@ -237,7 +241,7 @@ function TrendChartPlot({
         </ResponsiveContainer>
       </div>
       <MarkerLegend kinds={kinds} />
-      {onZoom && <ZoomCaption span={Boolean(onZoomSpan)} />}
+      <ZoomCaption span={Boolean(onZoomSpan)} canZoom={Boolean(onZoom)} canZoomOut={Boolean(onZoomOut)} />
     </ChartFrame>
   );
 }

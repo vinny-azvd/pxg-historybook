@@ -13,9 +13,9 @@ const INITIAL_ROWS = 25;
 // after the name, "Hunt" under the link) so the count and the link stay on
 // screen without a sideways scroll nobody would notice. Each copy is
 // display:none on the other layout, so screen readers read it only once.
-export function RareEventsTable({ events }: { events: RareEvent[] }) {
+export function RareEventsTable({ events, emptyText }: { events: RareEvent[]; emptyText?: string }) {
   const [showAll, setShowAll] = useState(false);
-  if (events.length === 0) return <div className="empty-state">Nenhum raro identificado no período.</div>;
+  if (events.length === 0) return <div className="empty-state">{emptyText ?? 'Nenhum raro identificado no período.'}</div>;
   const visible = showAll ? events : events.slice(0, INITIAL_ROWS);
   return (
     <>
@@ -54,7 +54,13 @@ export function RareEventsTable({ events }: { events: RareEvent[] }) {
                 <td className="num rares-col-wide">{formatInt(event.count)}</td>
                 <td className="rares-col-wide">{ORIGIN_LABEL[event.origin]}</td>
                 <td>
-                  <Link to={entryPath(event.origin, event.entryId)}>{event.entryName ?? ORIGIN_LABEL[event.origin]}</Link>
+                  {event.legacy ? (
+                    <>
+                      {event.entryName ?? ORIGIN_LABEL[event.origin]} <span className="badge">Histórico da roleta</span>
+                    </>
+                  ) : (
+                    <Link to={entryPath(event.origin, event.entryId)}>{event.entryName ?? ORIGIN_LABEL[event.origin]}</Link>
+                  )}
                   {event.entryName && (
                     <span className="rares-inline-narrow rares-origin-narrow"> {ORIGIN_LABEL[event.origin]}</span>
                   )}

@@ -49,12 +49,17 @@ export type PokemonRegion = 'alola' | 'galar' | 'hisui' | 'paldea';
 export interface ParsedPokemonName {
   /** Name without variant/region prefixes or mega suffix, as written ("Porygon-Z"). */
   base: string;
-  /** pokedex.json species key ("porygon-z"), null when the name isn't a Pokémon. */
+  /** pokedex.json species key ("porygon-z"), null when the name isn't a Pokémon.
+   * For special forms it is the form's own key ("bloodmoonursaluna"), NOT the
+   * base species, so kills of Ursaluna and of Bloodmoon Ursaluna (or Rotom and
+   * Rotom (Frost)) stay separate hunt targets, as they were before the forms
+   * were resolvable. */
   species: string | null;
+  /** Pokémon id of `species` (for a special form, the form's own id: its sprite). */
   speciesId: number | null;
   variants: PokemonVariant[];
   region: PokemonRegion | null;
-  /** PokeAPI pokemon id of the regional form (Alolan Muk = 10113). */
+  /** PokeAPI pokemon id of the regional form (Alolan Muk = 10113) or of a special form (Bloodmoon Ursaluna = 10272). */
   formId: number | null;
   /** '' for a plain mega, 'x'/'y'/'z' or e.g. 'female' when the species has several. */
   megaSuffix: string | null;
@@ -77,6 +82,8 @@ interface Pokedex {
   species: Record<string, DexEntry>;
   megas: Record<string, DexMega[]>;
   regional: Record<string, DexEntry>;
+  /** Forms with their own game name that are neither mega nor regional, keyed by the squashed in-game name. */
+  forms: Record<string, DexEntry & { species: string }>;
 }
 
 const pokedex: Pokedex = pokedexJson;
@@ -85,6 +92,7 @@ const pokedex: Pokedex = pokedexJson;
 const SPECIES = new Map(Object.entries(pokedex.species));
 const MEGAS = new Map(Object.entries(pokedex.megas));
 const REGIONAL = new Map(Object.entries(pokedex.regional));
+const FORMS = new Map(Object.entries(pokedex.forms));
 
 /**
  * Same slug rules as PokeAPI identifiers: "Mr. Mime" -> "mr-mime",
@@ -101,6 +109,29 @@ export function normalizePokemonName(name: string): string {
     .replace(/[.'‘’ʼ:]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+// Fallback index for spelling differences the slug rules can't see: the
+// roulette writes "Mr.Mime" (no space) which slugs to "mrmime", while PokeAPI
+// has "mr-mime". Both sides are squashed to letters+digits. If two species ever
+// squash to the same string the entry is dropped (null), so a collision can't
+// pick a wrong species; an exact slug always wins (see speciesKey).
+const SQUASHED = new Map<string, string | null>();
+for (const key of SPECIES.keys()) {
+  const squashed = key.replace(/[^a-z0-9]/g, '');
+  SQUASHED.set(squashed, SQUASHED.has(squashed) ? null : key);
+}
+
+/** pokedex.json "forms" key for a normalized name ("rotom-frost" -> "rotomfrost"), or null. */
+function formKey(key: string): string | null {
+  const squashed = key.replace(/[^a-z0-9]/g, '');
+  return FORMS.has(squashed) ? squashed : null;
+}
+
+/** Canonical pokedex.json species key for a normalized name, or null. */
+function speciesKey(key: string): string | null {
+  if (SPECIES.has(key)) return key;
+  return SQUASHED.get(key.replace(/[^a-z0-9]/g, '')) ?? null;
 }
 
 // Explicit list on purpose: guessing that any unknown leading word is a
@@ -143,7 +174,11 @@ export function parsePokemonName(rawName: string): ParsedPokemonName {
 
   // Strip prefixes in any order ("Shiny Mega Venusaur"), but never the last
   // word, and stop as soon as what's left is already a species.
-  while (words.length > 1 && !SPECIES.has(normalizePokemonName(words.join(' ')))) {
+  while (
+    words.length > 1 &&
+    !speciesKey(normalizePokemonName(words.join(' '))) &&
+    !formKey(normalizePokemonName(words.join(' ')))
+  ) {
     const word = normalizePokemonName(words[0]);
     if (Object.hasOwn(VARIANT_PREFIXES, word)) {
       const variant = VARIANT_PREFIXES[word];
@@ -157,7 +192,25 @@ export function parsePokemonName(rawName: string): ParsedPokemonName {
   }
 
   let base = words.join(' ');
-  let key = normalizePokemonName(base);
+  const form = formKey(normalizePokemonName(base));
+  if (form) {
+    // "Bloodmoon Ursaluna", "Rotom (Frost)": a form with its own sprite and
+    // types. Mega/regional prefixes on top of it don't exist, so they're ignored.
+    const entry = FORMS.get(form)!;
+    const formResult: ParsedPokemonName = {
+      base,
+      species: form,
+      speciesId: entry.id,
+      variants,
+      region: null,
+      formId: entry.id,
+      megaSuffix: null,
+      megaId: null,
+    };
+    parseCache.set(rawName, formResult);
+    return formResult;
+  }
+  let key = speciesKey(normalizePokemonName(base)) ?? normalizePokemonName(base);
   let megaSuffix: string | null = null;
   let megaId: number | null = null;
 
@@ -167,8 +220,9 @@ export function parsePokemonName(rawName: string): ParsedPokemonName {
     let requested: string | null = null;
     if (!SPECIES.has(key)) {
       const match = key.match(/^(.+)-([a-z0-9]+)$/);
-      if (match && SPECIES.has(match[1])) {
-        key = match[1];
+      const matched = match ? speciesKey(match[1]) : null;
+      if (match && matched) {
+        key = matched;
         requested = match[2];
         base = base.replace(new RegExp(`[\\s-]+${requested}$`, 'i'), '');
       }
@@ -268,7 +322,7 @@ export function pokemonTypes(name: string): PokemonType[] {
   if (!parsed.species) return [];
   const mega = parsed.megaId !== null ? MEGAS.get(parsed.species)?.find((m) => m.id === parsed.megaId) : undefined;
   const regional = parsed.region ? REGIONAL.get(`${parsed.species}-${parsed.region}`) : undefined;
-  const types = mega?.types ?? regional?.types ?? SPECIES.get(parsed.species)?.types ?? [];
+  const types = mega?.types ?? regional?.types ?? FORMS.get(parsed.species)?.types ?? SPECIES.get(parsed.species)?.types ?? [];
   return types as PokemonType[];
 }
 
@@ -313,6 +367,9 @@ const TYPE_LABELS: Record<PokemonType, string> = {
   dark: 'Sombrio',
   fairy: 'Fada',
 };
+
+/** The 18 battle types, in the order of TYPE_LABELS (for filters and legends). */
+export const POKEMON_TYPES = Object.keys(TYPE_LABELS) as PokemonType[];
 
 // hasOwn rather than `in`, so "constructor" doesn't count as a type.
 export function isPokemonType(type: string | null | undefined): type is PokemonType {

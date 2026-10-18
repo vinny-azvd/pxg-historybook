@@ -1,9 +1,9 @@
-import { getDb, META_KEY, defaultMeta, type MetaRecord } from './db';
+import { getDb, META_KEY, withMetaDefaults, type MetaRecord } from './db';
 
-type StoreName = 'hunts' | 'terrors' | 'mds';
-type IdCounterKey = 'nextHuntId' | 'nextTerrorId' | 'nextMdId';
+type StoreName = 'hunts' | 'terrors' | 'mds' | 'shinyLegacy';
+type IdCounterKey = 'nextHuntId' | 'nextTerrorId' | 'nextMdId' | 'nextShinyLegacyId';
 
-/** Generic repository shared by the hunts/terrors/mds stores - the few real
+/** Generic repository shared by the hunts/terrors/mds/shinyLegacy stores - the few real
  * per-family differences (hunt_name vs terror_name vs md_name, jade totem /
  * Nightmare Crystal fields only on hunts, difficulty only on md) are handled
  * by the callers (ingestion/ingest.ts, localApi.ts), not here. */
@@ -34,7 +34,7 @@ export function createLocalRepository<T extends { id: number; content_hash: stri
       const metaStore = tx.objectStore('meta');
       const targetStore = tx.objectStore(storeName);
 
-      const meta = ((await metaStore.get(META_KEY)) as MetaRecord | undefined) ?? defaultMeta();
+      const meta = withMetaDefaults((await metaStore.get(META_KEY)) as Partial<MetaRecord> | undefined);
       const newId = meta[idCounterKey];
       meta[idCounterKey] = newId + 1;
       await metaStore.put(meta, META_KEY);

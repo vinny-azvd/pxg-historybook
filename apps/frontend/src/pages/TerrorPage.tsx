@@ -242,6 +242,7 @@ function TerrorDashboardTab() {
                 metricKey="avgProfit"
                 onZoom={scope.canZoom ? scope.zoom : undefined}
                 onZoomSpan={scope.canZoom ? scope.zoomSpan : undefined}
+                onZoomOut={scope.depth > 0 ? () => scope.goTo(scope.depth - 1) : undefined}
               />
             </>
           ) : (
@@ -255,6 +256,7 @@ function TerrorDashboardTab() {
               unitLabel="terror"
               onZoom={scope.canZoom ? scope.zoom : undefined}
               onZoomSpan={scope.canZoom ? scope.zoomSpan : undefined}
+              onZoomOut={scope.depth > 0 ? () => scope.goTo(scope.depth - 1) : undefined}
               rareDropThreshold={rareDropThreshold}
             />
           )}

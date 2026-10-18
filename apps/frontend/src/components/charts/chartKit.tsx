@@ -146,7 +146,26 @@ export interface ChartTableData {
 const tableViewByChart = new Map<string, boolean>();
 let refocusExpandUntil = 0;
 
-export function ChartFrame({ caption, table, children }: { caption: string; table: ChartTableData; children: ReactNode }) {
+// True while a drag-selection is in progress: Esc then cancels the selection
+// and must not also step back out of the zoom.
+let dragInProgress = false;
+
+function dialogIsOpen(): boolean {
+  return Boolean(document.querySelector('dialog[open], [role="dialog"], [role="alertdialog"]'));
+}
+
+export function ChartFrame({
+  caption,
+  table,
+  children,
+  onZoomOut,
+}: {
+  caption: string;
+  table: ChartTableData;
+  children: ReactNode;
+  /** Esc with focus inside the frame (chart, table or its buttons) steps back one zoom level. */
+  onZoomOut?: () => void;
+}) {
   const { pathname } = useLocation();
   const memoryKey = `${pathname}|${caption}`;
   const [showTable, setShowTableState] = useState(() => tableViewByChart.get(memoryKey) ?? false);
@@ -165,7 +184,19 @@ export function ChartFrame({ caption, table, children }: { caption: string; tabl
     target?.focus();
   }, [showTable, rowsSignature]);
   return (
-    <div className="chart-frame">
+    <div
+      className="chart-frame"
+      onKeyDown={
+        onZoomOut
+          ? (e) => {
+              if (e.key !== 'Escape' || e.defaultPrevented || dragInProgress || dialogIsOpen()) return;
+              const target = e.target as HTMLElement;
+              if (target.closest('input, select, textarea, [role="combobox"], [aria-expanded="true"]')) return;
+              onZoomOut();
+            }
+          : undefined
+      }
+    >
       <div className="chart-frame-bar">
         <button type="button" className="secondary chart-table-toggle" aria-pressed={showTable} onClick={() => setShowTable((v) => !v)}>
           {showTable ? 'Ver gráfico' : 'Ver tabela'}
@@ -240,16 +271,67 @@ export const ZOOM_HINT_SINGLE = 'Clique para expandir';
 
 /** Small caption under a zoomable chart (touch screens get the tap wording).
  * `unit` is what the reader clicks: a point on a line chart, a column on bars. */
-export function ZoomCaption({ span, unit = 'ponto' }: { span: boolean; unit?: 'ponto' | 'coluna' }) {
+export function ZoomCaption({
+  span,
+  unit = 'ponto',
+  canZoom = true,
+  canZoomOut = false,
+}: {
+  span: boolean;
+  unit?: 'ponto' | 'coluna';
+  /** False at the finest level, where nothing is left to expand. */
+  canZoom?: boolean;
+  /** Zoomed in (something to go back to): teach the click-outside-to-go-back gesture. */
+  canZoomOut?: boolean;
+}) {
   const article = unit === 'coluna' ? 'numa' : 'num';
+  const plural = unit === 'coluna' ? 'as colunas' : 'os pontos';
+  if (!canZoom && !canZoomOut) return null;
   return (
     <p className="chart-zoom-caption">
-      <span className="hint-fine">
-        {span ? `Clique ${article} ${unit} para expandir · arraste para selecionar vários períodos.` : `Clique ${article} ${unit} para expandir.`}
-      </span>
-      <span className="hint-coarse">{`Toque ${article} ${unit} para expandir.`}</span> <span>Pelo teclado: Ver tabela, depois Expandir.</span>
+      {canZoom && (
+        <>
+          <span className="hint-fine">
+            {span ? `Clique ${article} ${unit} para expandir · arraste para selecionar vários períodos.` : `Clique ${article} ${unit} para expandir.`}
+          </span>
+          <span className="hint-coarse">{`Toque ${article} ${unit} para expandir.`}</span>{' '}
+        </>
+      )}
+      {canZoomOut && (
+        <>
+          <span className="hint-fine">{`Clique fora d${plural} para voltar.`}</span>
+          <span className="hint-coarse">{`Toque fora d${plural} para voltar.`}</span>{' '}
+        </>
+      )}
+      {canZoom && <span>Pelo teclado: Ver tabela, depois Expandir.</span>}
+      {canZoomOut && <span>{canZoom ? ' Esc volta um nível.' : 'Pelo teclado: Esc volta um nível.'}</span>}
     </p>
   );
+}
+
+/** Is the click on a bar or a point? Power BI style: only an empty part of the
+ * plot means "back". Bars and dots are found in the DOM (Recharts gives the
+ * chart-level click no hit information) with a little slack, since a dot is 8px
+ * wide and a one-rare bar a few px tall; a finger gets more. */
+function clickHitsMark(event: { target: EventTarget | null; clientX: number; clientY: number } | undefined, coarse: boolean): boolean {
+  const target = event?.target as Element | null | undefined;
+  if (!event || !target || typeof target.closest !== 'function') return false;
+  const root = target.closest('.recharts-wrapper');
+  if (!root) return false;
+  const slackDot = coarse ? 26 : 18;
+  const slackBar = coarse ? 8 : 3;
+  const near = (el: Element, slack: number) => {
+    const r = el.getBoundingClientRect();
+    return event.clientX >= r.left - slack && event.clientX <= r.right + slack && event.clientY >= r.top - slack && event.clientY <= r.bottom + slack;
+  };
+  for (const bar of root.querySelectorAll('.recharts-bar-rectangle')) {
+    // A zero-height bar is no bar (an origin with nothing in that slot).
+    if (bar.getBoundingClientRect().height >= 0.5 && near(bar, slackBar)) return true;
+  }
+  for (const dot of root.querySelectorAll('.recharts-line-dots circle, .recharts-line-dots polygon, .recharts-line-dots rect')) {
+    if (near(dot, slackDot)) return true;
+  }
+  return false;
 }
 
 export interface ZoomSelection {
@@ -266,6 +348,10 @@ interface UseChartZoomOptions {
   onZoomSpan?: (first: string, last: string) => void;
   /** Slots without data do not react to a plain click. */
   isEmpty?: (bucketStart: string) => boolean;
+  /** Click on an EMPTY part of the plot (no bar/point under it): step back one zoom
+   * level, like Power BI. Left out at the root. Zooming in, a drag-selection, the
+   * tooltip and the axes never trigger it. */
+  onZoomOut?: () => void;
 }
 
 /** Click-to-zoom + drag-to-select for a Recharts category chart. The returned
@@ -273,16 +359,25 @@ interface UseChartZoomOptions {
  * and `selection` feeds a <ReferenceArea>. Drag selection is mouse/pen only:
  * touch keeps tap-to-zoom (and page scrolling). A drag that ends on the point it
  * started on is just a click. Escape cancels a drag in progress. */
-export function useChartZoom({ labels, onZoom, onZoomSpan, isEmpty }: UseChartZoomOptions) {
+export function useChartZoom({ labels, onZoom, onZoomSpan, isEmpty, onZoomOut }: UseChartZoomOptions) {
   const [selection, setSelection] = useState<ZoomSelection | null>(null);
   const drag = useRef<{ start: string; last: string } | null>(null);
   const pointerType = useRef('mouse');
   const suppressClick = useRef(false);
-  const live = useRef({ labels, onZoom, onZoomSpan, isEmpty });
-  live.current = { labels, onZoom, onZoomSpan, isEmpty };
+  // Where the pointer went down: a press on a mark that is released somewhere else
+  // is a cancelled gesture, not a click on empty plot.
+  const pressedAt = useRef<{ x: number; y: number } | null>(null);
+  const live = useRef({ labels, onZoom, onZoomSpan, isEmpty, onZoomOut });
+  live.current = { labels, onZoom, onZoomSpan, isEmpty, onZoomOut };
   const cleanup = useRef<(() => void) | null>(null);
 
-  useEffect(() => () => cleanup.current?.(), []);
+  useEffect(
+    () => () => {
+      cleanup.current?.();
+      dragInProgress = false;
+    },
+    []
+  );
 
   // Runs on the mouseup of a cancelled drag: the click that follows is eaten
   // before it reaches the chart (and the listener goes away with the tick).
@@ -311,11 +406,13 @@ export function useChartZoom({ labels, onZoom, onZoomSpan, isEmpty }: UseChartZo
     const label = labelOf(state);
     if (!label) return;
     drag.current = { start: label, last: label };
+    dragInProgress = true;
     cleanup.current?.();
     const finish = (commit: boolean) => {
       window.removeEventListener('mouseup', onUp);
       window.removeEventListener('keydown', onKey);
       cleanup.current = null;
+      dragInProgress = false;
       const d = drag.current;
       drag.current = null;
       setSelection(null);
@@ -365,14 +462,31 @@ export function useChartZoom({ labels, onZoom, onZoomSpan, isEmpty }: UseChartZo
     setSelection({ from, to });
   };
 
-  const onClick = (state: unknown) => {
+  const onClick = (
+    state: unknown,
+    event?: { target: EventTarget | null; clientX: number; clientY: number; detail?: number }
+  ) => {
     if (suppressClick.current) {
       suppressClick.current = false;
       return;
     }
+    // The 2nd click of a double click: after the 1st one zoomed in, the chart was
+    // redrawn and the 2nd lands on empty plot - it would zoom straight back out.
+    if ((event?.detail ?? 1) > 1) return;
+    const down = pressedAt.current;
+    if (down && event && Math.hypot(event.clientX - down.x, event.clientY - down.y) > 6) return;
+    // No active label = the click was outside the plot (axes, margins).
     const label = labelOf(state);
-    if (!label || live.current.isEmpty?.(label)) return;
-    live.current.onZoom?.(label);
+    if (!label) return;
+    const target = event?.target as Element | null | undefined;
+    if (target?.closest?.('.recharts-tooltip-wrapper')) return;
+    const selected = window.getSelection();
+    if (selected && !selected.isCollapsed && selected.toString().trim()) return;
+    if (clickHitsMark(event, pointerType.current === 'touch')) {
+      if (!live.current.isEmpty?.(label)) live.current.onZoom?.(label);
+      return;
+    }
+    live.current.onZoomOut?.();
   };
 
   const zoomable = Boolean(onZoom);
@@ -383,12 +497,13 @@ export function useChartZoom({ labels, onZoom, onZoomSpan, isEmpty }: UseChartZo
       onMouseDown,
       onMouseMove,
       onClick,
-      style: onZoom ? { cursor: 'pointer' } : undefined,
+      style: onZoom || onZoomOut ? { cursor: 'pointer' } : undefined,
     },
     areaProps: {
       className: zoomable ? 'chart-zoom-area' : undefined,
       onPointerDown: (e: ReactPointerEvent) => {
         pointerType.current = e.pointerType;
+        pressedAt.current = { x: e.clientX, y: e.clientY };
       },
     },
   };

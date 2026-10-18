@@ -166,3 +166,9 @@ See the comment block at the top of this file for the full contract. One CSS
 file per skin (`classic.css`, `gameboy.css`, `battle.css`, `cards.css`), each
 scoped under `:root[data-skin='<skin>']`; `fonts.ts` registers the
 self-hosted @fontsource families; `types.css` holds the Pokémon type colours.
+
+TIER TOKENS (Shinies page, components/TierBadge.tsx): every skin must keep
+--tier-1a, --tier-1b, --tier-1c, --tier-1h, --tier-2, --tier-3, --tier-out
+(badge fill) and --tier-on (text on it) in its light AND dark blocks; without
+them the badge has no background and the text is unreadable. The badge uses its
+own .tier-badge class so a skin's .badge restyling can't recolour it.

@@ -1,5 +1,5 @@
 import { getDb } from './db';
-import type { StoredHunt, StoredMd, StoredPlayer, StoredTerror } from './storedTypes';
+import type { StoredHunt, StoredMd, StoredPlayer, StoredShinyLegacy, StoredTerror } from './storedTypes';
 
 type SessionStore = 'hunts' | 'terrors' | 'mds';
 type AnySession = StoredHunt | StoredTerror | StoredMd;
@@ -13,6 +13,8 @@ export interface PlayerDataSummary {
   ownedHunts: number;
   ownedTerrors: number;
   ownedMds: number;
+  /** Hunts of the old roulette's history owned by this player (deleted with them). */
+  ownedShinyLegacy: number;
   /** Other people's sessions where this player only appears as a party member. */
   memberSessions: number;
 }
@@ -28,11 +30,12 @@ const involves = (s: AnySession, id: number) => s.players.some((p) => p.id === i
 /** Every stored player with how much data would go away if deleted. */
 export async function listPlayerDataSummaries(): Promise<PlayerDataSummary[]> {
   const db = await getDb();
-  const [players, hunts, terrors, mds] = await Promise.all([
+  const [players, hunts, terrors, mds, legacy] = await Promise.all([
     db.getAll('players') as Promise<StoredPlayer[]>,
     db.getAll('hunts') as Promise<StoredHunt[]>,
     db.getAll('terrors') as Promise<StoredTerror[]>,
     db.getAll('mds') as Promise<StoredMd[]>,
+    db.getAll('shinyLegacy') as Promise<StoredShinyLegacy[]>,
   ]);
 
   return players
@@ -44,6 +47,7 @@ export async function listPlayerDataSummaries(): Promise<PlayerDataSummary[]> {
         ownedHunts: hunts.filter((s) => isOwnedBy(s, p.id)).length,
         ownedTerrors: terrors.filter((s) => isOwnedBy(s, p.id)).length,
         ownedMds: mds.filter((s) => isOwnedBy(s, p.id)).length,
+        ownedShinyLegacy: legacy.filter((r) => r.player_id === p.id).length,
         memberSessions: all.filter((s) => !isOwnedBy(s, p.id) && involves(s, p.id)).length,
       };
     })
@@ -59,7 +63,7 @@ export async function listPlayerDataSummaries(): Promise<PlayerDataSummary[]> {
  * Session totals (kills, profit, ...) of scrubbed sessions are not recomputed. */
 export async function deletePlayerData(playerId: number): Promise<DeletePlayerResult> {
   const db = await getDb();
-  const tx = db.transaction(['players', ...SESSION_STORES], 'readwrite');
+  const tx = db.transaction(['players', 'shinyLegacy', ...SESSION_STORES], 'readwrite');
   let deletedSessions = 0;
   let scrubbedSessions = 0;
 
@@ -87,6 +91,13 @@ export async function deletePlayerData(playerId: number): Promise<DeletePlayerRe
       }
     }
   }
+
+  // Imported roulette history owned by the player goes with them (it carries
+  // their name); it is not counted in deletedSessions, which the UI words as
+  // hunts/terrors/MDs.
+  const legacyStore = tx.objectStore('shinyLegacy');
+  const legacy = (await legacyStore.getAll()) as StoredShinyLegacy[];
+  for (const r of legacy) if (r.player_id === playerId) await legacyStore.delete(r.id);
 
   await tx.objectStore('players').delete(playerId);
   await tx.done;

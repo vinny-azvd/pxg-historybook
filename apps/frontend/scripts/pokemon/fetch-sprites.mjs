@@ -103,6 +103,8 @@ function spriteIds() {
     const speciesName = key.slice(0, key.lastIndexOf('-'));
     baseOf.set(entry.id, pokedex.species[speciesName]?.id ?? entry.id);
   }
+  // Special forms (Bloodmoon Ursaluna, Rotom (Frost)...) borrow their species' sprites as fallback.
+  for (const entry of Object.values(pokedex.forms ?? {})) baseOf.set(entry.id, pokedex.species[entry.species]?.id ?? entry.id);
   return baseOf;
 }
 
