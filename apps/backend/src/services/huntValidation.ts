@@ -46,7 +46,8 @@ const enemyDefeatedLineSchema = z.object({
 
 const sessionSchema = z.object({
   'Duration seconds': z.number(),
-  'Supplies per hour': z.number(),
+  // The analyzer emits null here (instead of 0) when there are no supplies.
+  'Supplies per hour': z.number().nullable().transform((v) => v ?? 0),
   Duration: z.string(),
   'Damage taken': z.number(),
   'Rare kills': z.number(),
@@ -75,7 +76,8 @@ const sessionSchema = z.object({
 
 export const huntExportSchema = z.object({
   Damage: z.array(damageLineSchema).default([]),
-  Supplies: z.array(itemLineSchema).default([]),
+  // The analyzer emits {} (instead of []) when there are no entries.
+  Supplies: z.preprocess((val) => (Array.isArray(val) ? val : []), z.array(itemLineSchema)),
   Session: sessionSchema,
   Drops: z.array(itemLineSchema).default([]),
   Experience: z.array(experienceLineSchema).default([]),
