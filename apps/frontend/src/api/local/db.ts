@@ -73,9 +73,41 @@ export function getDb(): Promise<IDBPDatabase> {
         (event.target as IDBDatabase).close();
         dbPromise = null;
       },
+    }).then(async (db) => {
+      await cleanOrphanSessionsOnce(db).catch(() => {});
+      return db;
     });
   }
   return dbPromise;
+}
+
+// Own key (not part of the counters record) so backups and MetaRecord stay as is.
+const ORPHAN_CLEANUP_KEY = 'orphanSessionsCleaned';
+
+/** One-time cleanup at app start: an earlier version of "delete player" left
+ *  sessions with no existing player behind (they kept showing as cards with
+ *  nobody to delete them through). Removes them once; later sessions are never
+ *  touched. */
+async function cleanOrphanSessionsOnce(db: IDBPDatabase): Promise<void> {
+  if (await db.get('meta', ORPHAN_CLEANUP_KEY)) return;
+
+  const tx = db.transaction(['players', 'meta', 'hunts', 'terrors', 'mds'], 'readwrite');
+  const alive = new Set((await tx.objectStore('players').getAllKeys()) as number[]);
+  for (const name of ['hunts', 'terrors', 'mds'] as const) {
+    const store = tx.objectStore(name);
+    const sessions = (await store.getAll()) as {
+      id: number;
+      primary_player_id: number | null;
+      players: { id: number }[];
+    }[];
+    for (const s of sessions) {
+      const hasLivePlayer =
+        (s.primary_player_id !== null && alive.has(s.primary_player_id)) || s.players.some((p) => alive.has(p.id));
+      if (!hasLivePlayer) await store.delete(s.id);
+    }
+  }
+  await tx.objectStore('meta').put(new Date().toISOString(), ORPHAN_CLEANUP_KEY);
+  await tx.done;
 }
 
 const DEFAULT_META: MetaRecord = {

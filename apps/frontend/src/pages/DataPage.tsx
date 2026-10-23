@@ -77,7 +77,7 @@ export function DataPage() {
       setConfirmingDeleteId(null);
       setDeleteMsg({
         kind: 'success',
-        message: `${p.name} excluído: ${res.deletedSessions} sessões apagadas e removido de ${res.scrubbedSessions} sessões de grupo.`,
+        message: `${p.name} excluído: ${res.deletedSessions} sessões apagadas (incluindo as de grupo em que ele participou).`,
       });
     } catch (err) {
       setDeleteMsg({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
@@ -272,7 +272,7 @@ export function DataPage() {
         <h2 className="section-title">Treinadores salvos</h2>
         <p className="page-subtitle">
           Lista de todos os personagens que existem neste navegador. Excluir um treinador apaga as hunts, terrors e
-          MDs dele e remove o nome dele das sessões de grupo de outras pessoas.
+          MDs dele, inclusive as sessões de grupo de outras pessoas em que ele participou.
         </p>
 
         {deleteMsg.kind === 'error' && <div className="error-box">{deleteMsg.message}</div>}
