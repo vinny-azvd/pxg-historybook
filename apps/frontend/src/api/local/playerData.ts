@@ -15,13 +15,12 @@ export interface PlayerDataSummary {
   ownedMds: number;
   /** Hunts of the old roulette's history owned by this player (deleted with them). */
   ownedShinyLegacy: number;
-  /** Other people's sessions where this player only appears as a party member. */
+  /** Other people's sessions where this player only appears as a party member (deleted with them). */
   memberSessions: number;
 }
 
 export interface DeletePlayerResult {
   deletedSessions: number;
-  scrubbedSessions: number;
 }
 
 const isOwnedBy = (s: AnySession, id: number) => s.primary_player_id === id;
@@ -55,39 +54,29 @@ export async function listPlayerDataSummaries(): Promise<PlayerDataSummary[]> {
 }
 
 /** Removes every trace of one player, in a single transaction:
- *  - sessions owned by the player (primary_player_id) are deleted entirely;
- *  - sessions that only list the player as a party member keep the other
- *    people's rows, but the player's own rows and name are stripped out and
- *    the raw payload (which still carries the name) is dropped;
- *  - the player record itself is deleted.
- * Session totals (kills, profit, ...) of scrubbed sessions are not recomputed. */
+ *  - every session the player is part of (owner or party member) is deleted
+ *    entirely, so no total keeps counting their share;
+ *  - sessions left with no existing player at all (e.g. already stripped of
+ *    their players by an earlier version of this delete) are deleted too;
+ *  - their imported roulette history and the player record itself are deleted. */
 export async function deletePlayerData(playerId: number): Promise<DeletePlayerResult> {
   const db = await getDb();
   const tx = db.transaction(['players', 'shinyLegacy', ...SESSION_STORES], 'readwrite');
   let deletedSessions = 0;
-  let scrubbedSessions = 0;
+
+  const alive = new Set(
+    ((await tx.objectStore('players').getAllKeys()) as number[]).filter((id) => id !== playerId)
+  );
+  const hasLivePlayer = (s: AnySession) =>
+    (s.primary_player_id !== null && alive.has(s.primary_player_id)) || s.players.some((p) => alive.has(p.id));
 
   for (const storeName of SESSION_STORES) {
     const store = tx.objectStore(storeName);
     const sessions = (await store.getAll()) as AnySession[];
     for (const s of sessions) {
-      if (isOwnedBy(s, playerId)) {
+      if (isOwnedBy(s, playerId) || involves(s, playerId) || !hasLivePlayer(s)) {
         await store.delete(s.id);
         deletedSessions++;
-      } else if (involves(s, playerId)) {
-        const keep = <T extends { player_id: number | null }>(rows: T[]) =>
-          rows.filter((r) => r.player_id !== playerId);
-        await store.put({
-          ...s,
-          players: s.players.filter((p) => p.id !== playerId),
-          damage: keep(s.damage),
-          supplies: keep(s.supplies),
-          drops: keep(s.drops),
-          experience_entries: keep(s.experience_entries),
-          enemies_defeated: keep(s.enemies_defeated as { player_id: number | null }[]),
-          raw_json: 'null',
-        });
-        scrubbedSessions++;
       }
     }
   }
@@ -101,5 +90,5 @@ export async function deletePlayerData(playerId: number): Promise<DeletePlayerRe
 
   await tx.objectStore('players').delete(playerId);
   await tx.done;
-  return { deletedSessions, scrubbedSessions };
+  return { deletedSessions };
 }
