@@ -4,9 +4,16 @@
 // apps/backend/src/services/enemyNames.ts (the rares summary is built there).
 const GOLDEN_IS_SHINY = new Set(['sudowoodo', 'steelix']);
 
-/** "Golden Sudowoodo" -> "Shiny Sudowoodo"; any other name comes back as is. */
+// Likewise Megas are exported as "Enraged X" (Enraged Scizor is a Mega
+// Scizor); every "Enraged" is treated as a Mega.
+
+/** "Golden Sudowoodo" -> "Shiny Sudowoodo", "Enraged Scizor" -> "Mega Scizor"; any other name comes back as is. */
 export function canonicalEnemyName(name: string): string {
-  const match = name.match(/^golden\s+(.+?)(\s*\[[^\]]*\])?\s*$/i);
-  if (!match || !GOLDEN_IS_SHINY.has(match[1].trim().toLowerCase())) return name;
-  return `Shiny ${match[1].trim()}${match[2] ?? ''}`;
+  const golden = name.match(/^golden\s+(.+?)(\s*\[[^\]]*\])?\s*$/i);
+  if (golden && GOLDEN_IS_SHINY.has(golden[1].trim().toLowerCase())) {
+    return `Shiny ${golden[1].trim()}${golden[2] ?? ''}`;
+  }
+  const enraged = name.match(/^enraged\s+(.+?)\s*$/i);
+  if (enraged) return `Mega ${enraged[1]}`;
+  return name;
 }
