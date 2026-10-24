@@ -2,9 +2,13 @@ import { z } from 'zod';
 
 // The analyzer emits "Variable" (string) as the unit price for items without a
 // fixed price (e.g. Charm Boost). Derive it from Total price / Count instead.
+// It also emits Item: null for unnamed drops; label those "Unknown item".
 const itemLineSchema = z.preprocess((val) => {
   if (val && typeof val === 'object') {
-    const row = val as Record<string, unknown>;
+    let row = val as Record<string, unknown>;
+    if (row.Item == null) {
+      row = { ...row, Item: 'Unknown item' };
+    }
     if (typeof row['Unit price'] !== 'number') {
       const total = row['Total price'];
       const count = row.Count;
@@ -12,6 +16,7 @@ const itemLineSchema = z.preprocess((val) => {
         typeof total === 'number' && typeof count === 'number' && count > 0 ? total / count : 0;
       return { ...row, 'Unit price': derived };
     }
+    return row;
   }
   return val;
 }, z.object({
