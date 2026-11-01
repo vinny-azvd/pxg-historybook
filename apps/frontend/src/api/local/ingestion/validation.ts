@@ -91,7 +91,8 @@ export const huntExportSchema = z.object({
   Supplies: z.preprocess((val) => (Array.isArray(val) ? val : []), z.array(itemLineSchema)),
   Session: sessionSchema,
   Drops: z.array(itemLineSchema).default([]),
-  Experience: z.array(experienceLineSchema).default([]),
+  // The analyzer emits {} (instead of []) when there are no entries.
+  Experience: z.preprocess((val) => (Array.isArray(val) ? val : []), z.array(experienceLineSchema)),
   // The analyzer emits {} (instead of []) when there are no entries.
   'Enemies Defeated': z.preprocess(
     (val) => (Array.isArray(val) ? val : []),
